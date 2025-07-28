@@ -1,4 +1,3 @@
-
 # Module Name: MCTS_AHD
 # Last Revision: 2025/7/22
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -24,7 +23,7 @@
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
-
+import heapq
 import concurrent.futures
 import copy
 import random
@@ -49,13 +48,14 @@ class MCTS_AHD:
                  llm: LLM,
                  evaluation: Evaluation,
                  profiler: ProfilerBase = None,
-                 max_generations: Optional[int] = 10,
                  max_sample_nums: Optional[int] = 100,
                  init_size: Optional[float] = 4,
                  pop_size: Optional[int] = 10,
                  selection_num: int = 2,
                  num_samplers: int = 1,
                  num_evaluators: int = 1,
+                 alpha: float = 0.5,
+                 lambda_0: float = 0.1,
                  *,
                  resume_mode: bool = False,
                  debug_mode: bool = False,
@@ -66,16 +66,14 @@ class MCTS_AHD:
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
-            max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
                               pass 'None' to disable this termination condition.
             max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
                               pass 'None' to disable this termination condition.
             init_size       : population size, if set to 'None', EoH will automatically adjust this parameter.
             pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
             selection_num   : number of selected individuals while crossover.
-            use_e2_operator : if use e2 operator.
-            use_m1_operator : if use m1 operator.
-            use_m2_operator : if use m2 operator.
+            alpha           : a parameter for the UCT formula, which is used to balance exploration and exploitation.
+            lambda_0        : a parameter for the UCT formula, which is used to balance exploration and exploitation.
             resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
             debug_mode      : if set to True, we will print detailed information.
             multi_thread_or_process_eval: use 'concurrent.futures.ThreadPoolExecutor' or 'concurrent.futures.ProcessPoolExecutor' for the usage of
@@ -87,8 +85,9 @@ class MCTS_AHD:
         """
         self._template_program_str = evaluation.template_program
         self._task_description_str = evaluation.task_description
-        self._max_generations = max_generations
         self._max_sample_nums = max_sample_nums
+        self.lambda_0 = lambda_0
+        self.alpha = alpha
         self._init_pop_size = init_size
         self._pop_size = pop_size
         self._selection_num = selection_num
@@ -121,7 +120,7 @@ class MCTS_AHD:
         # reset _initial_sample_nums_max
         self._initial_sample_nums_max = min(
             self._max_sample_nums,
-            2 * self._init_pop_size
+            10 * self._init_pop_size
         )
 
         # multi-thread executor for evaluation
@@ -166,14 +165,14 @@ class MCTS_AHD:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 5.')
 
-    def _sample_evaluate_register(self, prompt):
+    def _sample_evaluate_register(self, prompt, func_only=False):
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
         2. Evaluate it by submitting to the process/thread pool, and get the results.
         3. Add the function to the population and register it to the profiler.
         """
         sample_start = time.time()
-        thought, func = self._sampler.get_thought_and_function(prompt)
+        thought, func = self._sampler.get_thought_and_function(self._task_description_str, prompt)
         sample_time = time.time() - sample_start
         if thought is None or func is None:
             return False
@@ -196,97 +195,177 @@ class MCTS_AHD:
             if isinstance(self._profiler, MAProfiler):
                 self._profiler.register_population(self._population)
             self._tot_sample_nums += 1
-
+        if func_only:
+            return func
+        if func.score is None:
+            return False
         # register to the population
         self._population.register_function(func)
 
         return True
 
     def _continue_loop(self) -> bool:
-        if self._max_generations is None and self._max_sample_nums is None:
+        if self._max_sample_nums is None:
             return True
-        elif self._max_generations is not None and self._max_sample_nums is None:
-            return self._population.generation < self._max_generations
-        elif self._max_generations is None and self._max_sample_nums is not None:
-            return self._tot_sample_nums < self._max_sample_nums
         else:
-            return (self._population.generation < self._max_generations
-                    and self._tot_sample_nums < self._max_sample_nums)
+            return self._tot_sample_nums < self._max_sample_nums
 
-    def expand(self, mcts: MCTS, cur_node: MCTSNode, option: str):
+    def check_duplicate(self, population, code):
+        for ind in population:
+            if code == ind.code:
+                return True
+        return False
+
+    def check_duplicate_obj(self, population, code):
+        for ind in population:
+            if code == ind.individual.score:
+                return True
+        return False
+
+    def population_management_s1(self, pop_input, size):
+        unique_pop = []
+        unique_algorithms = []
+        for individual in pop_input:
+            if str(individual) not in unique_algorithms:
+                unique_pop.append(individual)
+                unique_algorithms.append(str(individual))
+        # Delete the worst individual
+        # pop_new = heapq.nsmallest(size, pop, key=lambda x: x['objective'])
+        pop_new = heapq.nlargest(size, unique_pop, key=lambda x: x.score)
+        return pop_new
+
+    def expand(self, mcts: MCTS, node_set, cur_node: MCTSNode, option: str):
         is_valid_func = True
         if option == 's1':
             path_set = []
             now = copy.deepcopy(cur_node)
-            while str(now) != "Root":
-                path_set.append(now.raw_info)
+            while now.algorithm != "Root":
+                path_set.append(now.individual)
                 now = copy.deepcopy(now.parent)
-            path_set = self._population.survival_s1(len(path_set))
+            path_set = self.population_management_s1(path_set, len(path_set))
             if len(path_set) == 1:
-                return self._population.population
+                return node_set
 
-            prompt = MAPrompt.get_prompt_s1(self._task_description_str, path_set, self._function_to_evolve)
-            is_valid_func = self._sample_evaluate_register(prompt)
+            i = 0
+            while i < 3:
+                prompt = MAPrompt.get_prompt_s1(self._task_description_str, path_set, self._function_to_evolve)
+                func = self._sample_evaluate_register(prompt, func_only=True)
+                if func is False:
+                    is_valid_func = False
+                    i += 1
+                    continue
+                is_valid_func = (func.score is not None) and not self.check_duplicate(node_set, str(func))
+                if is_valid_func is False:
+                    i += 1
+                    continue
+                else:
+                    break
 
         elif option == 'e1':
-            e1_set = [copy.deepcopy(children.subtree[random.choices(range(len(children.subtree)), k=1)[0]].raw_info) for
+            indivs = [copy.deepcopy(children.subtree[random.choices(range(len(children.subtree)), k=1)[0]].individual)
+                      for
                       children in mcts.root.children]
-            indivs = [self._population.selection_e1(pop=e1_set) for _ in range(self._selection_num)]
             prompt = MAPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
-            is_valid_func = self._sample_evaluate_register(prompt)
+            func = self._sample_evaluate_register(prompt, func_only=True)
+            if func is False:
+                is_valid_func = False
+            else:
+                is_valid_func = (func.score is not None)
 
         elif option == 'e2':
-            indivs = [self._population.selection() for _ in range(self._selection_num)]
-            prompt = MAPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
-            is_valid_func = self._sample_evaluate_register(prompt)
+            i = 0
+            while i < 3:
+                now_indiv = None
+                while True:
+                    now_indiv = self._population.selection()
+                    if now_indiv != cur_node.individual:
+                        break
+                prompt = MAPrompt.get_prompt_e2(self._task_description_str, [now_indiv, cur_node.individual],
+                                                self._function_to_evolve)
+                func = self._sample_evaluate_register(prompt, func_only=True)
+                if func is False:
+                    is_valid_func = False
+                    i += 1
+                    continue
+                is_valid_func = (func.score is not None) and not self.check_duplicate(node_set, str(func))
+                if is_valid_func is False:
+                    i += 1
+                    continue
+                else:
+                    break
 
         elif option == 'm1':
-            indivs = self._population.selection()
-            prompt = MAPrompt.get_prompt_m1(self._task_description_str, indivs, self._function_to_evolve)
-            is_valid_func = self._sample_evaluate_register(prompt)
+            i = 0
+            while i < 3:
+                prompt = MAPrompt.get_prompt_m1(self._task_description_str, cur_node.individual,
+                                                self._function_to_evolve)
+                func = self._sample_evaluate_register(prompt, func_only=True)
+                if func is False:
+                    is_valid_func = False
+                    i += 1
+                    continue
+                is_valid_func = (func.score is not None) and not self.check_duplicate(node_set, str(func))
+                if is_valid_func is False:
+                    i += 1
+                    continue
+                else:
+                    break
 
         elif option == 'm2':
-            indivs = self._population.selection()
-            prompt = MAPrompt.get_prompt_m2(self._task_description_str, indivs, self._function_to_evolve)
-            is_valid_func = self._sample_evaluate_register(prompt)
+            i = 0
+            while i < 3:
+                prompt = MAPrompt.get_prompt_m2(self._task_description_str, cur_node.individual,
+                                                self._function_to_evolve)
+                func = self._sample_evaluate_register(prompt, func_only=True)
+                if func is False:
+                    is_valid_func = False
+                    i += 1
+                    continue
+                is_valid_func = (func.score is not None) and not self.check_duplicate(node_set, str(func))
+                if is_valid_func is False:
+                    i += 1
+                    continue
+                else:
+                    break
 
         else:
             assert False, 'Invalid option!'
 
         if not is_valid_func:
             print(f"Timeout emerge, no expanding with action {option}.")
-            return self._population.population
+            return node_set
 
         if option != 'e1':
             print(
-                f"Action: {option}, Father Obj: {cur_node.raw_info.score}, Now Obj: {self._population.population[-1].score}, Depth: {cur_node.depth + 1}")
+                f"Action: {option}, Father Obj: {cur_node.raw_info.score}, Now Obj: {func.score}, Depth: {cur_node.depth + 1}")
         else:
-            if self._population.has_duplicate_function(self._population.population[-1], pop=mcts.root.children_info):
-                print(f"Duplicated e1, no action, Father is Root, Abandon Obj: {self._population.population[-1].score}")
-                return self._population.population
+            if self.check_duplicate_obj(node_set, func.score):
+                print(f"Duplicated e1, no action, Father is Root, Abandon Obj: {func.score}")
             else:
-                print(f"Action: {option}, Father is Root, Now Obj: {self._population.population[-1].score}")
+                print(f"Action: {option}, Father is Root, Now Obj: {func.score}")
 
-        if self._population.population[-1].score != float('inf'):
-            nownode = MCTSNode(self._population.population[-1].algorithm, str(self._population.population[-1]), self._population.population[-1].score,
-                               parent=cur_node, depth=cur_node.depth + 1,
-                               visit=1, Q=-1 * self._population.population[-1].score, raw_info=self._population.population[-1])
+        if is_valid_func and func.score != float('-inf'):
+            self._population.register_function(func)
+            now_node = MCTSNode(func.algorithm, str(func), -1 * func.score, individual=func,
+                                parent=cur_node, depth=1, visit=1, Q=func.score, raw_info=func)
             if option == 'e1':
-                nownode.subtree.append(nownode)
-            cur_node.add_child(nownode)
-            cur_node.children_info.append(self._population.population[-1])
-            mcts.backpropagate(nownode)
-        return self._population.population
+                now_node.subtree.append(now_node)
+            cur_node.add_child(now_node)
+            mcts.backpropagate(now_node)
+            node_set.append(now_node)
+        return node_set
 
     def _iteratively_init_population_root(self):
         """Let a thread repeat {sample -> evaluate -> register to population}
         to initialize a population.
         """
-        while len(self._population) < self._init_pop_size:
+        while len(self._population.population) < self._init_pop_size:
             try:
                 # get a new func using e1
-                prompt = MAPrompt.get_prompt_e1(self._task_description_str, self._population.population[0], self._function_to_evolve)
+                prompt = MAPrompt.get_prompt_e1(self._task_description_str, self._population.population,
+                                                self._function_to_evolve)
                 self._sample_evaluate_register(prompt)
+                self._population.survival()
 
                 if self._tot_sample_nums >= self._initial_sample_nums_max:
                     # print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
@@ -327,35 +406,24 @@ class MCTS_AHD:
             t.join()
 
     def run(self):
+        mcts = MCTS('Root', self.alpha, self.lambda_0)
         # do initialization
-        mcts = MCTS('Root')
 
         # 1. first generate one solution as initialization
         self._init_one_solution()
         self._population.survival()
-        now_node = MCTSNode(self._population.population[0].algorithm, str(self._population.population[0]),
-                            self._population.population[0].score, parent=mcts.root, depth=1, visit=1,
-                            Q=-1 * self._population.population[0].score, raw_info=self._population.population[0])
-        mcts.root.add_child(now_node)
-        mcts.root.children_info.append(self._population.population[0])
-        mcts.backpropagate(now_node)
-        now_node.subtree.append(now_node)
 
         # 2. expand root
-        self._multi_threaded_sampling(self._iteratively_init_population_root)
+        self._iteratively_init_population_root()
 
         # 3. update mcts
         for indiv in self._population.population:
-            now_node = MCTSNode(indiv.algorithm, str(indiv), indiv.score,
+            now_node = MCTSNode(indiv.algorithm, str(indiv), -1 * indiv.score, individual=indiv,
                                 parent=mcts.root,
-                                depth=1, visit=1, Q=-1 * indiv.score, raw_info=indiv)
+                                depth=1, visit=1, Q=indiv.score, raw_info=indiv)
             mcts.root.add_child(now_node)
-            mcts.root.children_info.append(indiv)
             mcts.backpropagate(now_node)
             now_node.subtree.append(now_node)
-
-        # 4. update population
-        self._population.survival()
 
         # terminate searching if
         if len(self._population) < self._selection_num:
@@ -369,28 +437,31 @@ class MCTS_AHD:
         n_op = ['e1', 'e2', 'm1', 'm2', 's1']
         op_weights = [0, 1, 2, 2, 1]
         while self._continue_loop():
+            node_set = []
             print(f"Current performances of MCTS nodes: {mcts.rank_list}")
+            print(
+                f"Current number of MCTS nodes in the subtree of each child of the root: {[len(node.subtree) for node in mcts.root.children]}")
             cur_node = mcts.root
             while len(cur_node.children) > 0 and cur_node.depth < mcts.max_depth:
-                uct_scores = [mcts.uct(node, max(1 - self._tot_sample_nums / self._max_sample_nums, 0)) for node in cur_node.children]
+                uct_scores = [mcts.uct(node, max(1 - self._tot_sample_nums / self._max_sample_nums, 0)) for node in
+                              cur_node.children]
                 selected_pair_idx = uct_scores.index(max(uct_scores))
                 if int((cur_node.visits) ** mcts.alpha) > len(cur_node.children):
                     if cur_node == mcts.root:
                         op = 'e1'
-                        self.expand(mcts, cur_node, op)
+                        self.expand(mcts, mcts.root.children, cur_node, op)
                     else:
                         # i = random.randint(1, n_op - 1)
-                        i = 1
-                        op = 'e1'
-                        self.expand(mcts, cur_node, op)
+                        op = 'e2'
+                        self.expand(mcts, cur_node.children, cur_node, op)
                 cur_node = cur_node.children[selected_pair_idx]
             for i in range(len(n_op)):
                 op = n_op[i]
                 print(f"Iter: {self._tot_sample_nums}/{self._max_sample_nums} OP: {op}", end="|")
                 op_w = op_weights[i]
                 for j in range(op_w):
-                    self.expand(mcts, cur_node, op)
-                assert len(cur_node.children) == len(cur_node.children_info)
+                    node_set = self.expand(mcts, node_set, cur_node, op)
+            self._population.survival()
 
         # finish
         if self._profiler is not None:

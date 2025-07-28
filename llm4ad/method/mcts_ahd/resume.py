@@ -7,8 +7,8 @@ import re
 
 from tqdm.auto import tqdm
 
-from .mcts_ahd import EoH
-from .profiler import EoHProfiler
+from .mcts_ahd import MCTS_AHD
+from .profiler import MAProfiler
 from .population import Population
 from ...base import TextFunctionProgramConverter as tfpc, Function
 
@@ -88,7 +88,7 @@ def _get_all_samples_and_scores(path, get_algorithm=True):
 
 def _resume_pop(log_path: str, pop_size) -> Population:
     path, max_gen = _get_latest_pop_json(log_path)
-    print(f'RESUME EoH: Generations: {max_gen}.', flush=True)
+    print(f'RESUME MCTS_AHD: Generations: {max_gen}.', flush=True)
     with open(path, 'r') as f:
         data = json.load(f)
     pop = Population(pop_size=pop_size)
@@ -116,29 +116,29 @@ def _resume_text2func(f, s, template_func: Function):
         return f
 
 
-def _resume_pf(log_path: str, pf: EoHProfiler, template_func):
+def _resume_pf(log_path: str, pf: MAProfiler, template_func):
     _, db_max_order = _get_latest_pop_json(log_path)
     funcs, scores, sample_max_order, algorithms = _get_all_samples_and_scores(log_path)
-    print(f'RESUME EoH: Sample order: {sample_max_order}.', flush=True)
+    print(f'RESUME MCTS_AHD: Sample order: {sample_max_order}.', flush=True)
     pf.__class__._prog_db_order = db_max_order
     # pf.__class__._num_samples = sample_max_order
-    for i in tqdm(range(len(funcs)), desc='Resume EoH Profiler'):  # noqa
+    for i in tqdm(range(len(funcs)), desc='Resume MCTS_AHD Profiler'):  # noqa
         f, s, algo = funcs[i], scores[i], algorithms[i]
         f = _resume_text2func(f, s, template_func)
         f.algorithm = algo
         pf.register_function(f, resume_mode=True)
 
 
-def resume_eoh(eoh: EoH, path):
-    eoh._resume_mode = True
-    pf = eoh._profiler
+def resume_ma(ma: MCTS_AHD, path):
+    ma._resume_mode = True
+    pf = ma._profiler
     log_path = path
     # resume program database
-    pop = _resume_pop(log_path, eoh._pop_size)
-    eoh._population = pop
+    pop = _resume_pop(log_path, ma._pop_size)
+    ma._population = pop
     # resume profiler
-    template_func = eoh._function_to_evolve
+    template_func = ma._function_to_evolve
     _resume_pf(log_path, pf, template_func)
     # resume eoh
     _, _, sample_max_order, _ = _get_all_samples_and_scores(log_path)
-    eoh._tot_sample_nums = sample_max_order
+    ma._tot_sample_nums = sample_max_order

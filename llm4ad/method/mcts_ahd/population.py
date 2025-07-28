@@ -93,8 +93,8 @@ class Population:
             func.score = float('-inf')
         try:
             self._lock.acquire()
-            if self.has_duplicate_function(func):
-                func.score = float('-inf')
+            # if self.has_duplicate_function(func):
+            #     func.score = float('-inf')
             # register to next_gen
             self._next_gen_pop.append(func)
             # update: perform survival if reach the pop size

@@ -9,13 +9,14 @@ import numpy as np
 
 
 class MCTSNode:
-    def __init__(self, algorithm, code, obj, depth=0, is_root=False, parent=None, visit=0, raw_info=None, Q=0):
+    def __init__(self, algorithm, code, obj, depth=0, individual=None, is_root=False, parent=None, visit=0,
+                 raw_info=None, Q=0):
         self.algorithm = algorithm
         self.code = code
         self.parent = parent
         self.depth = depth
+        self.individual = individual
         self.children = []
-        self.children_info = []
         self.visits = visit
         self.subtree = []
         self.raw_info = raw_info
@@ -27,12 +28,12 @@ class MCTSNode:
 
 
 class MCTS:
-    def __init__(self, root_answer):
-        self.exploration_constant_0 = 0.1 # Paramter \lambda_0
-        self.alpha = 0.5 # Paramter \alpha
+    def __init__(self, root_answer, alpha, lambad0):
+        self.exploration_constant_0 = lambad0  # Paramter \lambda_0
+        self.alpha = alpha  # Paramter \alpha
         self.max_depth = 10
         self.epsilon = 1e-10
-        self.discount_factor = 1 # constant as 1
+        self.discount_factor = 1  # constant as 1
         self.q_min = 0
         self.q_max = -10000
         self.rank_list = []

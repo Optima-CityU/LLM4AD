@@ -5,6 +5,7 @@ from typing import Tuple, List, Dict
 
 from .prompt import EoHPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
+from ...base.modify_code import ModifyCode
 
 
 class EoHSampler:
@@ -16,6 +17,7 @@ class EoHSampler:
         response = self.llm.draw_sample(prompt)
         thought = self.__class__.trim_thought_from_response(response)
         code = SampleTrimmer.trim_preface_of_function(response)
+
         function = SampleTrimmer.sample_to_function(code, self._template_program)
         return thought, function
 
