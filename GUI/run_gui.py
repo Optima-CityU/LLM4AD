@@ -90,12 +90,18 @@ llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxx
 default_method = 'eoh'
 default_problem = ['admissible_set', 'car_mountain', 'bactgrow']
 
+batch_figures_index = 0
+figures_batch_list = []
+max_batch_figures_index =0
+batch_figure_show = None
+
 tree = None
 
 log_dir = None
 figures = None
 ax = None
 canvas = None
+canvas_batch = None
 
 batch_process1 = None
 batch_thread1 = None
@@ -562,7 +568,7 @@ def batch_run():
             tk.messagebox.showinfo("Warning", "Please choose the algorithm and task you want to execute.")
             return
 
-        init_table(list(method_para),list(problem_para))
+        init_table(list(method_para),list(problem_para),method_para)
 
         # todo
 
@@ -623,9 +629,22 @@ def batch_run():
     except ValueError:
         print("Invalid input.")
 
-def init_table(methods_name, problems_name):
+def init_table(methods_name, problems_name,method_para):
     global tree
     global folder_map
+    global batch_figures_index
+    global figures_batch_list
+    global max_batch_figures_index
+    global batch_figure_show
+    global canvas_batch
+
+
+    batch_max_sample_nums = 0
+    for sub_dict in method_para.values():
+        current_value = sub_dict['max_sample_nums']
+        if current_value > batch_max_sample_nums:
+            batch_max_sample_nums = current_value
+
 
     for widget in container_right_frame2.winfo_children():
         widget.destroy()
@@ -660,6 +679,94 @@ def init_table(methods_name, problems_name):
     tree.bind("<ButtonRelease-1>", tree_on_cell_click)
 
     tree.pack(side="left", fill="both", expand=True,padx=10, pady=10)
+
+    for widget in image_container_right_frame2.winfo_children():
+        widget.destroy()
+
+    font = {
+        'family': 'Times New Roman',
+        'size': 16
+    }
+    batch_figures_index = 0
+    figures_batch_list = []
+    max_batch_figures_index = len(problems_name)-1
+    for problem_idx, problem in enumerate(problems_name): # 遍历所有的问题
+        problem_text = problem.split('/', 1)[-1]
+        figures_batch_temp = plt.Figure(figsize=(4, 3), dpi=100)
+        ax_batch_temp = figures_batch_temp.add_subplot(111)
+
+        figures_batch_temp.patch.set_facecolor('white')
+        ax_batch_temp.set_facecolor('white')
+
+        ax_batch_temp.set_title(f"Result Display_{problem_text}", fontdict=font)
+
+        ax_batch_temp.plot()
+        ax_batch_temp.set_xlim(left=0)
+        ax_batch_temp.set_xlabel('Samples', fontdict=font)
+        ax_batch_temp.set_ylabel(f'Current best objective{problem_idx}', fontdict=font)
+        ax_batch_temp.grid(True)
+
+        max_sample_nums = batch_max_sample_nums
+        if max_sample_nums <= 20:
+            ax_batch_temp.set_xticks(np.arange(0, max_sample_nums + 1, 1))
+        else:
+            ticks = np.linspace(0, max_sample_nums, 11)
+            ticks = np.round(ticks).astype(int)
+            ax_batch_temp.set_xticks(ticks)
+
+        figures_batch_list.append(figures_batch_temp)
+        plt.close(figures_batch_temp)
+
+    batch_figure_show = figures_batch_list[batch_figures_index]
+
+    # 左侧按钮
+    btn_prev = ttk.Button(image_container_right_frame2, text="←", width=5, command=show_previous)
+    btn_prev.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+    # 图表显示区域
+    batch_canvas_frame = ttk.Frame(image_container_right_frame2)
+    batch_canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    # 右侧按钮
+    btn_next = ttk.Button(image_container_right_frame2, text="→", width=5, command=show_next)
+    btn_next.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+
+    canvas_batch = FigureCanvasTkAgg(batch_figure_show, master=batch_canvas_frame)
+    canvas_batch.draw()
+    canvas_batch.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+
+
+def show_previous():
+    global batch_figures_index
+    global max_batch_figures_index
+
+    if batch_figures_index > 0:
+        batch_figures_index -= 1
+    else:
+        batch_figures_index = max_batch_figures_index
+
+    show_current_figure()
+
+def show_next():
+    global batch_figures_index
+    global max_batch_figures_index
+
+    if batch_figures_index == max_batch_figures_index:
+        batch_figures_index = 0
+    else:
+        batch_figures_index += 1
+
+    show_current_figure()
+
+def show_current_figure():
+    global batch_figures_index
+    global figures_batch_list
+    global batch_figure_show
+    global canvas_batch
+
+    batch_figure_show = figures_batch_list[batch_figures_index]
+    canvas_batch.figure = batch_figure_show
+    canvas_batch.draw()
+
 
 def tree_on_cell_click(event):
     global tree
@@ -751,6 +858,11 @@ def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
         if new:
             new_value = batch_get_latest_result(index, log_dir)
             update_cell_value(row_index, col_index, new_value)
+            # todo3 这里更新绘制新图
+            #   需要保留历史值
+            #   绘图后重新更新的逻辑（先更新list，如果当前显示的就是当前这张图，则重新draw）
+            #   绘图需要的：max_samples_num，problem_name，method_name，所需要的数值
+            #   所有的数值保留在一个全局的dict中，内层也是dict，最外层的dict的key是problem_name，里面的dict，key为method_name，值为一个list的value
 
             index += 1
 
@@ -922,6 +1034,7 @@ def init_fig(max_sample_nums):
         'size': 16
     }
 
+    # todo2 学习这里的初始化
     figures = plt.Figure(figsize=(4, 3), dpi=100)
     ax = figures.add_subplot(111)
 
@@ -962,7 +1075,7 @@ def get_results(log_dir, max_sample_nums):
                 fig, alg, best_obj = plot_fig(index, log_dir, max_sample_nums)
             except:
                 continue
-            display_plot(index - 1)
+            display_plot(index - 1) # todo2 图片更新
             if alg is not None:
                 display_alg(alg)
             objective_label['text'] = f'Current best objective:{best_obj}'
@@ -980,7 +1093,7 @@ def get_results(log_dir, max_sample_nums):
     plot_button['state'] = tk.NORMAL
     stop_button['state'] = tk.DISABLED
 
-def plot_fig(index, log_dir, max_sample_nums):
+def plot_fig(index, log_dir, max_sample_nums): # todo2 学习图片绘制
     global figures
     global ax
     ###############################################################
@@ -1052,7 +1165,7 @@ def plot_fig(index, log_dir, max_sample_nums):
 
     return figures, best_alg, all_best_value
 
-def display_plot(index):
+def display_plot(index): # todo2 图片更新
     global canvas
     canvas.draw()
 
@@ -1297,7 +1410,7 @@ if __name__ == '__main__':
     code_frame = ttk.Frame(right_frame)
     code_frame.grid(row=0, column=1, sticky='ns', padx=5, pady=5)
 
-    plot_frame = tk.Frame(right_frame, bg='white')
+    plot_frame = tk.Frame(right_frame, bg='white') # todo2 保存图片frame的
     plot_frame.grid(row=1, column=0, columnspan=2, sticky='nsew', padx=5, pady=5)
 
     right_frame.grid_rowconfigure(0, weight=400)
@@ -1337,7 +1450,10 @@ if __name__ == '__main__':
     right_frame2.grid(row=0, column=2, sticky="nsew")
     container_right_frame2 = tk.Frame(right_frame2)
     container_right_frame2.grid(row=0, column=0)
+    image_container_right_frame2 = tk.Frame(right_frame2)
+    image_container_right_frame2.grid(row=1, column=0)
     right_frame2.grid_rowconfigure(0, weight=1)
+    right_frame2.grid_rowconfigure(1, weight=1)
     right_frame2.grid_columnconfigure(0, weight=1)
 
     frame2.grid_rowconfigure(0, weight=1)
