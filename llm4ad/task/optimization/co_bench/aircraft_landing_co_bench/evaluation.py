@@ -34,7 +34,7 @@ class ALEvaluationCB(Evaluation):
     """Evaluator for aircraft landing."""
 
     def __init__(self,
-                 timeout_seconds=60,
+                 timeout_seconds=300,
                  **kwargs):
 
         """
@@ -97,7 +97,7 @@ class ALEvaluationCB(Evaluation):
                 schedule = eva(case['num_planes'], case['num_runways'], case['freeze_time'], case['planes'], case['separation'])
                 penalty = self.eval_func(num_planes=case['num_planes'], num_runways=case['num_runways'],
                                          freeze_time=case['freeze_time'], separation=case['separation'], planes=case['planes'],
-                                         schedule=schedule['schedule'])
+                                         schedule=schedule)
                 penalties.append(penalty)
 
             return -np.mean(penalties)

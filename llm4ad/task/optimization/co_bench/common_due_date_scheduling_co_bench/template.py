@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(jobs: List[Tuple[int, int, int]], h: float = 0.6) -> Dict[str, List[int]]:
     """
     Solves the restricted single‐machine common due date scheduling problem.

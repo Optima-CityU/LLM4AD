@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(num_planes: int, num_runways: int, freeze_time: float, planes: list[dict], separation: list[list[int]]) -> dict:
     """
     Problem:
@@ -27,7 +30,7 @@ def solve(num_planes: int, num_runways: int, freeze_time: float, planes: list[di
                       when they are assigned to the same runway.
     Returns:
         A dictionary named "schedule" mapping each plane id (1-indexed) to a dictionary with its scheduled landing time
-        and assigned runway, e.g., { plane_id: {"landing_time": float, "runway": int}, ... }.
+        and assigned runway, e.g., {"schedule": { plane_id: {"landing_time": float, "runway": int}, ... }}.
     """
     # -----------------------
     # For demonstration purposes, we simply schedule each plane at its target time

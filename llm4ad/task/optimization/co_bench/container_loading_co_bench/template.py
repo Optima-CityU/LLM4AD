@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(problem_index: int, container: tuple, box_types: dict) -> dict:
     """
     Solves a container loading problem.

@@ -71,8 +71,8 @@ class UGCEvaluationCB(Evaluation):
         try:
             for i in ins_cases:
                 for j in i:
-                    result = eva(j['m'], j['stock_width'], j['stock_height'], j['piece'], j['allow_rotation'])
-                    fitness = self.eval_func(m=j['m'], stock_width=j['stock_width'], stock_height=j['stock_height'], pieces=j['piece'], placements=result['placements'])
+                    result = eva(j['m'], j['stock_width'], j['stock_height'], j['pieces'], j['allow_rotation'])
+                    fitness = self.eval_func(m=j['m'], stock_width=j['stock_width'], stock_height=j['stock_height'], pieces=j['pieces'], placements=result['placements'])
                     fitness_list.append(fitness)
 
             return np.mean(fitness_list)  # itself is a maximize problem

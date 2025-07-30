@@ -1,5 +1,9 @@
 template_program = '''
 import numpy as np
+import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 from scipy.optimize import linear_sum_assignment
 def solve(num_items: int, cost_matrix: np.ndarray) -> dict:
     """

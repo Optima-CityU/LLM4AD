@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(n: int, m: int, matrix: list) -> dict:
     """
     Solves the flow shop scheduling problem.

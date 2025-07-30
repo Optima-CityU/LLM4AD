@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(N: int, target: int, countries: dict, withholding: dict) -> dict:
     """
     Input kwargs:
