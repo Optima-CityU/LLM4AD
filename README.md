@@ -177,9 +177,9 @@ Check [GUI Introduction](https://llm4ad-doc.readthedocs.io/en/latest/getting_sta
 | **FunSearch**                     | [Mathematical Discoveries from Program Search with Large Language Models](https://www.nature.com/articles/s41586-023-06924-6) (Nature 2024) |
 | **(1+1)-EPS** <br/>(HillClimbing) | [Understanding the Importance of Evolutionary Search in Automated Heuristic Design with Large Language Models](https://arxiv.org/abs/2407.10873) (PPSN 2024) |
 | **ReEvo**                         | [Reevo: Large language models as hyper-heuristics with reflective evolution](https://proceedings.neurips.cc/paper_files/paper/2024/hash/4ced59d480e07d290b6f29fc8798f195-Abstract-Conference.html) (NeurIPS 2024) |
+| **MCTS-AHD**                          | [Monte carlo tree search for comprehensive exploration in llm-based automatic heuristic design](https://arxiv.org/abs/2501.08603) (ICML 2025)                                                  |
 | **LHNS**                          | [LLM-Driven Neighborhood Search for Efficient Heuristic Design](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=wS0G_qQAAAAJ&sortby=pubdate&citation_for_view=wS0G_qQAAAAJ:sfnaS5RM6jYC) (CEC 2025) |
 | **RandomSampling**                | ----                                                         |
-| **MCTS**                          | Coming soon                                                  |
 | Others                            | Coming soon                                                  |
 | Others                            | Coming soon                                                  |
 
@@ -304,6 +304,8 @@ Thank you for contributing to LLM4AD and welcome to being part of the LLM4AD com
      <td align="center" valign="top" width="12.5%"><a href="https://github.com/RayZhhh"><img src="https://avatars.githubusercontent.com/RayZhhh" width="50px;" alt="Rui Zhang"/><br /><sub><b>Rui Zhang</b></sub>
         </td>
      <td align="center" valign="top" width="12.5%"><a href="https://github.com/sunnweiwei"><img src="https://avatars.githubusercontent.com/sunnweiwei" width="50px;" alt="Weiwei Sun"/><br /><sub><b>Weiwei Sun</b></sub>
+        </td>
+         <td align="center" valign="top" width="12.5%"><a href="https://github.com/zz1358m"><img src="https://avatars.githubusercontent.com/zz1358m" width="50px;" alt="Zhi Zheng"/><br /><sub><b>Zhi Zheng</b></sub>
         </td>
     </tr>
   </tbody>
