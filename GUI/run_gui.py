@@ -67,19 +67,19 @@ problem_para_value_name_list = []
 objectives_var2 = None
 selected_tasks_list = [] # 是个list，存了所有已经选了的task的name
 
-batch_last_para_type = 0 # todo
-batch_last_para_name = None # todo
-batch_para_entry_list = [] # todo
+batch_last_para_type = 0
+batch_last_para_name = None
+batch_para_entry_list = []
 
-algo_listbox2 = None # todo 左侧所有的algo
-real_algo_listbox2 = None # todo 所有选择了的algo
-selected_algorithms_list = [] # todo 是个list，存了所有已经选了的algo的name
-batch_method_para = {} # todo 存了所有已选algo的参数
+algo_listbox2 = None # 左侧所有的algo
+real_algo_listbox2 = None # 所有选择了的algo
+selected_algorithms_list = [] # 是个list，存了所有已经选了的algo的name
+batch_method_para = {} # 存了所有已选algo的参数
 
-problem_listbox2 = None # todo 左侧所有的task
-real_prob_listbox2 = None # todo 所有选择了的prob
-selected_problems_list = [] # todo
-batch_problem_para = {} # todo 存了所有已选problem的参数
+problem_listbox2 = None # 左侧所有的task
+real_prob_listbox2 = None # 所有选择了的prob
+selected_problems_list = []
+batch_problem_para = {} # 存了所有已选problem的参数
 
 llm_para_entry_list = []
 llm_para_entry_list2 = []
@@ -570,8 +570,6 @@ def batch_run():
 
         init_table(list(method_para),list(problem_para),method_para)
 
-        # todo
-
         with batch_lock:
             batch_stop_flag = False  # 重置停止标志
 
@@ -652,11 +650,11 @@ def init_table(methods_name, problems_name,method_para):
     tree = ttk.Treeview(container_right_frame2,bootstyle='secondary')
     tree["columns"] = problems_name
     # 配置行表头列（第一列）
-    tree.column("#0", width=150, minwidth=100, anchor=tk.CENTER) # todo1
+    tree.column("#0", width=150, minwidth=100, anchor=tk.CENTER)
     tree.heading("#0", text="", anchor=tk.CENTER)
     # 配置其他列（列表头）
     for col in problems_name:
-        tree.column(col, width=200, minwidth=100, anchor=tk.CENTER) # todo1
+        tree.column(col, width=200, minwidth=100, anchor=tk.CENTER)
         coL_text = col.split('/', 1)[-1]
         tree.heading(col, text=coL_text, anchor=tk.CENTER)
     # 添加行数据（包括行表头）
@@ -1255,7 +1253,6 @@ if __name__ == '__main__':
     style.configure("TLabel", font=('Comic Sans MS', 12))
     style.configure("TCombobox", font=('Comic Sans MS', 10))
 
-    # todo1 字体和行高
     style.configure("Treeview",font=('Helvetica', 12), rowheight=50)
     style.configure("Treeview.Heading",font=('Helvetica', 12))
 
