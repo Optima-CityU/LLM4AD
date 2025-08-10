@@ -719,13 +719,19 @@ def init_table(methods_name, problems_name,method_para):
 
     # 左侧按钮
     btn_prev = ttk.Button(image_container_right_frame2, text="←", width=5, command=show_previous)
-    btn_prev.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+    # btn_prev.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
     # 图表显示区域
     batch_canvas_frame = ttk.Frame(image_container_right_frame2)
-    batch_canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    # batch_canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     # 右侧按钮
     btn_next = ttk.Button(image_container_right_frame2, text="→", width=5, command=show_next)
-    btn_next.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+    # btn_next.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+
+    image_container_right_frame2.grid_columnconfigure(1, weight=1)  # 让中间列扩展
+    image_container_right_frame2.grid_rowconfigure(0, weight=1)
+    btn_prev.grid(row=0, column=0, sticky="ns", padx=(0, 10))
+    batch_canvas_frame.grid(row=0, column=1, sticky="nsew")
+    btn_next.grid(row=0, column=2, sticky="ns", padx=(10, 0))
 
     canvas_batch = FigureCanvasTkAgg(batch_figure_show, master=batch_canvas_frame)
     canvas_batch.draw()
@@ -1407,7 +1413,7 @@ if __name__ == '__main__':
     code_frame = ttk.Frame(right_frame)
     code_frame.grid(row=0, column=1, sticky='ns', padx=5, pady=5)
 
-    plot_frame = tk.Frame(right_frame, bg='white') # todo2 保存图片frame的
+    plot_frame = tk.Frame(right_frame, bg='white') # 保存图片frame的
     plot_frame.grid(row=1, column=0, columnspan=2, sticky='nsew', padx=5, pady=5)
 
     right_frame.grid_rowconfigure(0, weight=400)
@@ -1446,9 +1452,9 @@ if __name__ == '__main__':
     right_frame2 = ttk.Frame(frame2)
     right_frame2.grid(row=0, column=2, sticky="nsew")
     container_right_frame2 = tk.Frame(right_frame2)
-    container_right_frame2.grid(row=0, column=0)
+    container_right_frame2.grid(row=0, column=0, sticky="ew")
     image_container_right_frame2 = tk.Frame(right_frame2)
-    image_container_right_frame2.grid(row=1, column=0)
+    image_container_right_frame2.grid(row=1, column=0, sticky="nsew")
     right_frame2.grid_rowconfigure(0, weight=1)
     right_frame2.grid_rowconfigure(1, weight=1)
     right_frame2.grid_columnconfigure(0, weight=1)
