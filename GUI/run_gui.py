@@ -80,6 +80,8 @@ problem_listbox2 = None # 左侧所有的task
 real_prob_listbox2 = None # 所有选择了的prob
 selected_problems_list = []
 batch_problem_para = {} # 存了所有已选problem的参数
+batch_best_value_list = {}
+batch_max_sample_nums = None
 
 llm_para_entry_list = []
 llm_para_entry_list2 = []
@@ -600,7 +602,7 @@ def batch_run():
                 with batch_lock:
                     batch_current_process = multiprocessing.Process(target=main_gui, args=(llm_para, method_value, problem_value, profiler_para))
                     # thread = threading.Thread(target=get_results, args=(profiler_para['log_dir'], method_para['max_sample_nums'],))
-                    batch_current_thread = threading.Thread(target=batch_get_results,args=(profiler_para['log_dir'],method_value['max_sample_nums'],row_index,col_index))
+                    batch_current_thread = threading.Thread(target=batch_get_results,args=(profiler_para['log_dir'],method_value['max_sample_nums'],row_index,col_index,method_key,problem_key.split('/', 1)[-1]))
 
                 batch_current_process.start()
                 batch_current_thread.start()
@@ -635,6 +637,8 @@ def init_table(methods_name, problems_name,method_para):
     global max_batch_figures_index
     global batch_figure_show
     global canvas_batch
+    global batch_best_value_list
+    global batch_max_sample_nums
 
 
     batch_max_sample_nums = 0
@@ -646,6 +650,14 @@ def init_table(methods_name, problems_name,method_para):
 
     for widget in container_right_frame2.winfo_children():
         widget.destroy()
+
+    batch_best_value_list={}
+
+    for problem in problems_name:
+        problem_real_name = problem.split('/', 1)[-1]
+        batch_best_value_list[problem_real_name]={}
+        for method in methods_name:
+            batch_best_value_list[problem_real_name][method] = None
 
     tree = ttk.Treeview(container_right_frame2,bootstyle='secondary')
     tree["columns"] = problems_name
@@ -719,13 +731,8 @@ def init_table(methods_name, problems_name,method_para):
 
     # 左侧按钮
     btn_prev = ttk.Button(image_container_right_frame2, text="←", width=5, command=show_previous)
-    # btn_prev.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-    # 图表显示区域
     batch_canvas_frame = ttk.Frame(image_container_right_frame2)
-    # batch_canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    # 右侧按钮
     btn_next = ttk.Button(image_container_right_frame2, text="→", width=5, command=show_next)
-    # btn_next.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
 
     image_container_right_frame2.grid_columnconfigure(1, weight=1)  # 让中间列扩展
     image_container_right_frame2.grid_rowconfigure(0, weight=1)
@@ -734,8 +741,8 @@ def init_table(methods_name, problems_name,method_para):
     btn_next.grid(row=0, column=2, sticky="ns", padx=(10, 0))
 
     canvas_batch = FigureCanvasTkAgg(batch_figure_show, master=batch_canvas_frame)
-    canvas_batch.draw()
     canvas_batch.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    canvas_batch.draw()
 
 
 
@@ -768,8 +775,22 @@ def show_current_figure():
     global canvas_batch
 
     batch_figure_show = figures_batch_list[batch_figures_index]
-    canvas_batch.figure = batch_figure_show
-    canvas_batch.draw()
+
+    parent = canvas_batch.get_tk_widget().master
+
+    old_canvas_widget = canvas_batch.get_tk_widget()
+    width = old_canvas_widget.winfo_width()
+    height = old_canvas_widget.winfo_height()
+
+    new_canvas = FigureCanvasTkAgg(batch_figure_show, master=parent)
+    new_canvas.draw()
+    new_canvas_widget = new_canvas.get_tk_widget()
+    new_canvas_widget.config(width=width, height=height)
+    old_canvas = canvas_batch.get_tk_widget()
+    old_canvas.pack_forget()
+    new_canvas_widget.place(x=0, y=0, width=width, height=height)
+    canvas_batch = new_canvas
+    old_canvas_widget.after(100, old_canvas_widget.destroy)
 
 
 def tree_on_cell_click(event):
@@ -850,7 +871,11 @@ def batch_check_para():
             return False
     return True
 
-def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
+def batch_get_results(log_dir, max_sample_nums,row_index,col_index,method_name,problem_name):
+    global batch_best_value_list
+    global figures_batch_list
+    global batch_figures_index
+
     index = 1
 
     while (not check_finish(log_dir, index, max_sample_nums)) and (not batch_except_error()):
@@ -860,18 +885,66 @@ def batch_get_results(log_dir, max_sample_nums,row_index,col_index):
                 return
         new = check(index, log_dir)
         if new:
-            new_value = batch_get_latest_result(index, log_dir)
+            new_value,best_value_list = batch_get_latest_result(index, log_dir)
             update_cell_value(row_index, col_index, new_value)
-            # todo3 这里更新绘制新图
-            #   需要保留历史值
-            #   绘图后重新更新的逻辑（先更新list，如果当前显示的就是当前这张图，则重新draw）
-            #   绘图需要的：max_samples_num，problem_name，method_name，所需要的数值
-            #   所有的数值保留在一个全局的dict中，内层也是dict，最外层的dict的key是problem_name，里面的dict，key为method_name，值为一个list的value
+            # 保存值(所有的数值保留在一个全局的dict中，内层也是dict，最外层的dict的key是problem_name，里面的dict，key为method_name，值为一个list的value)
+            batch_best_value_list[problem_name][method_name] = best_value_list
+
+            # 绘制figure(绘图需要的：max_samples_num，problem_name，method_name，所需要的数值)
+            # 更改figures_batch_list中对应index的figure，这个index为col_index
+            fig = batch_draw_figure(problem_name)
+            figures_batch_list[col_index] = fig
+
+            # 判断是否要刷新gui(绘图后重新更新的逻辑（先更新list，如果当前显示的就是当前这张图，则重新draw）)
+            # 需要判断上一个”更改figures_batch_list中对应index的figure“的index和batch_figures_index是不是一致
+            # 如果一致，则调用show_current_figure()
+            if col_index == batch_figures_index:
+                show_current_figure()
 
             index += 1
 
     if batch_except_error():
         tk.messagebox.showerror("Error", "Except Error. Please check the terminal.")
+
+def batch_draw_figure(problem_name):
+    global batch_best_value_list
+    global batch_max_sample_nums
+
+    font = {
+        'family': 'Times New Roman',
+        'size': 16
+    }
+
+    figures_batch_temp_temp = plt.Figure(figsize=(4, 3), dpi=100)
+    ax_batch_temp_temp = figures_batch_temp_temp.add_subplot(111)
+    figures_batch_temp_temp.patch.set_facecolor('white')
+    ax_batch_temp_temp.set_facecolor('white')
+    ax_batch_temp_temp.set_title(f"Result Display_{problem_name}", fontdict=font)
+
+    for key, arr in batch_best_value_list[problem_name].items():
+        if arr is None:
+            continue
+        x = np.arange(1, len(arr) + 1)
+        ax_batch_temp_temp.plot(x, arr, label=f'{key}')
+
+    ax_batch_temp_temp.legend()
+    ax_batch_temp_temp.set_xlim(left=0)
+    ax_batch_temp_temp.set_xlabel('Samples', fontdict=font)
+    ax_batch_temp_temp.set_ylabel(f'Current best objective', fontdict=font)
+    ax_batch_temp_temp.grid(True)
+
+    max_sample_nums = batch_max_sample_nums
+    if max_sample_nums <= 20:
+        ax_batch_temp_temp.set_xticks(np.arange(0, max_sample_nums + 1, 1))
+    else:
+        ticks = np.linspace(0, max_sample_nums, 11)
+        ticks = np.round(ticks).astype(int)
+        ax_batch_temp_temp.set_xticks(ticks)
+
+    plt.close(figures_batch_temp_temp)
+    return figures_batch_temp_temp
+
+
 
 def batch_get_latest_result(index, log_dir):
     generation = []
@@ -905,7 +978,7 @@ def batch_get_latest_result(index, log_dir):
     generation = np.array(generation)
     best_value_list = np.array(best_value_list)
 
-    return all_best_value
+    return all_best_value,best_value_list
 
 def update_cell_value(row_index, col_index, new_value):
     global tree
