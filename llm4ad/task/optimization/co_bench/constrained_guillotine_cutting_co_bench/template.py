@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(m: int, stock_length: int, stock_width: int, piece_types: list) -> dict:
     """
     Solves the Fixed Orientation Guillotine Cutting problem.

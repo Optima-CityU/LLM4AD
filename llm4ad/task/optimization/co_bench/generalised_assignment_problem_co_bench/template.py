@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(m:int, n:int, cost_matrix:list, consumption_matrix:list, capacities:list, problem_type:str='max') -> dict:
     """
     Solve the Generalised Assignment Problem (GAP) for a single case.

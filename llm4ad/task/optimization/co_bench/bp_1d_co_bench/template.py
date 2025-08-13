@@ -1,5 +1,9 @@
 template_program = '''
 import numpy as np
+import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 from scipy.optimize import linear_sum_assignment
 def solve(id: str, bin_capacity: int, num_items: int, items: list[int], **kwargs) -> dict:
     """

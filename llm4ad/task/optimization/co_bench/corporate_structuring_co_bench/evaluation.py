@@ -71,8 +71,8 @@ class CSEvaluationCB(Evaluation):
         try:
             for i in ins_cases:
                 for j in i:
-                    result = eva(j['n'], j['target'], j['countries'], j['withholding'])
-                    fitness = self.eval_func(j['n'], j['target'], j['countries'], j['withholding'], result['structure'])
+                    result = eva(j['N'], j['target'], j['countries'], j['withholding'])
+                    fitness = self.eval_func(j['N'], j['target'], j['countries'], j['withholding'], result['structure'])
                     fitness_list.append(fitness)
 
             return np.mean(fitness_list)  # itself is a maximize problem

@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(num_rows: int, num_columns: int, columns_info: dict) -> dict:
     """
     Solve a set partitioning problem instance.

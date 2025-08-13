@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(m: int, n: int, costs: list, row_cover: list) -> dict:
     """
     Solves the set covering optimization problem.

@@ -1,6 +1,10 @@
 template_program = '''
 import numpy as np
 import networkx as nx
+import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(graph: networkx.Graph):
     """
     Solve the Maximum Independent Set problem for a given test case.

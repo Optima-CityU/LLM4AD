@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(stock_length: int, stock_width: int, pieces: list) -> dict:
     """
     Solves the constrained non-guillotine cutting problem.

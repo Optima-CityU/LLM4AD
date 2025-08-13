@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(depot: dict, customers: list, vehicles_per_day: list, vehicle_capacity: float, period_length: int) -> dict:
     """
     Solves an instance of the Period Vehicle Routing Problem.

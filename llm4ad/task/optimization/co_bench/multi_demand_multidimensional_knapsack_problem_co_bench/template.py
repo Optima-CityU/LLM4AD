@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(n:int, m:int, q:int, A_leq:list, b_leq:list, A_geq:list, b_geq:list, cost_vector:list, cost_type:str) -> dict:
     """
     Solve a given MDMKP test instance.
