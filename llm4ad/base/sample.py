@@ -24,7 +24,7 @@ import copy
 from abc import abstractmethod
 from typing import Any, List
 
-from .code import Program, Function, TextFunctionProgramConverter
+from .program import Program, Function, TextFunctionProgramConverter
 
 
 class LLM:

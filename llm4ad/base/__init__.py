@@ -1,5 +1,5 @@
-from . import code, evaluate, sample, modify_code
-from .code import (
+from . import program, evaluate, sample, modify_code
+from .program import (
     Function,
     Program,
     TextFunctionProgramConverter

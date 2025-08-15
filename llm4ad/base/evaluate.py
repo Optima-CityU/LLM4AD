@@ -25,7 +25,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from .code import TextFunctionProgramConverter, Program
+from .program import TextFunctionProgramConverter, Program
 from .modify_code import ModifyCode
 
 
