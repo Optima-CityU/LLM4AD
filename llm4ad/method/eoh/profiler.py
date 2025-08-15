@@ -12,7 +12,7 @@ except:
     pass
 
 from .population import Population
-from ...base import Function
+from ...base import Program
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
@@ -48,7 +48,7 @@ class EoHProfiler(ProfilerBase):
             if (self._num_samples == 0 or
                     pop.generation == self._cur_gen):
                 return
-            funcs = pop.population  # type: List[Function]
+            funcs = pop.population  # type: List[Program]
             funcs_json = []  # type: List[Dict]
             for f in funcs:
                 f_json = {
@@ -65,7 +65,7 @@ class EoHProfiler(ProfilerBase):
             if self._pop_lock.locked():
                 self._pop_lock.release()
 
-    def _write_json(self, function: Function, program='', *, record_type='history', record_sep=200):
+    def _write_json(self, function: Program, program='', *, record_type='history', record_sep=200):
         """Write function data to a JSON file.
         Args:
             function   : The function object containing score and string representation.

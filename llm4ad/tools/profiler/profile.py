@@ -31,7 +31,7 @@ import logging
 from threading import Lock
 from datetime import datetime
 
-from ...base import Function
+from ...base import Program
 
 
 class ProfilerBase:
@@ -86,7 +86,7 @@ class ProfilerBase:
         self._parameters = [llm, prob, method]
         self._create_log_path()
 
-    def register_function(self, function: Function, program: str = '', *, resume_mode=False):
+    def register_function(self, function: Program, program: str = '', *, resume_mode=False):
         """Record an obtained function.
         """
         if self._num_objs < 2:
@@ -115,7 +115,7 @@ class ProfilerBase:
     def resume(self, *args, **kwargs):
         pass
 
-    def _write_json(self, function: Function, program: str, *, record_type: Literal['history', 'best'] = 'history',
+    def _write_json(self, function: Program, program: str, *, record_type: Literal['history', 'best'] = 'history',
                     record_sep=200):
         """Write function data to a JSON file.
         Args:
