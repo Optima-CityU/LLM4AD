@@ -99,7 +99,7 @@ def _resume_pop(log_path: str, pop_size) -> Population:
         algorithm = d['algorithm']
         func.score = score
         func.algorithm = algorithm
-        pop.register_function(func)
+        pop.register_program(func)
     pop._generation = max_gen
     return pop
 
@@ -126,7 +126,7 @@ def _resume_pf(log_path: str, pf: EoHProfiler, template_func):
         f, s, algo = funcs[i], scores[i], algorithms[i]
         f = _resume_text2func(f, s, template_func)
         f.algorithm = algo
-        pf.register_function(f, resume_mode=True)
+        pf.register_program(f, resume_mode=True)
 
 
 def resume_eoh(eoh: EoH, path):

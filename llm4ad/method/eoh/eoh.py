@@ -36,7 +36,7 @@ from .profiler import EoHProfiler
 from .prompt import EoHPrompt
 from .sampler import EoHSampler
 from ...base import (
-    Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
+    Evaluation, LLM, Program, SecureEvaluator
 )
 from ...tools.profiler import ProfilerBase
 
@@ -74,7 +74,7 @@ class EoH:
             use_e2_operator : if use e2 operator.
             use_m1_operator : if use m1 operator.
             use_m2_operator : if use m2 operator.
-            resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
+            resume_mode     : in resume_mode, EoH will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
             debug_mode      : if set to True, we will print detailed information.
             multi_thread_or_process_eval: use 'concurrent.futures.ThreadPoolExecutor' or 'concurrent.futures.ProcessPoolExecutor' for the usage of
                 multi-core CPU while evaluation. Please note that both settings can leverage multi-core CPU. As a result on my personal computer (Mac OS, Intel chip),
@@ -100,11 +100,6 @@ class EoH:
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
-
-        # function to be evolved
-        self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
-        self._function_to_evolve_name: str = self._function_to_evolve.name
-        self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
 
         # adjust population size
         self._adjust_pop_size()
@@ -173,13 +168,9 @@ class EoH:
         3. Add the function to the population and register it to the profiler.
         """
         sample_start = time.time()
-        thought, func = self._sampler.get_thought_and_function(prompt)
+        thought, program = self._sampler.get_thought_and_function(prompt)
         sample_time = time.time() - sample_start
-        if thought is None or func is None:
-            return
-        # convert to Program instance
-        program = TextFunctionProgramConverter.function_to_program(func, self._template_program)
-        if program is None:
+        if thought is None or program is None:
             return
         # evaluate
         score, eval_time = self._evaluation_executor.submit(
@@ -187,18 +178,18 @@ class EoH:
             program
         ).result()
         # register to profiler
-        func.score = score
-        func.evaluate_time = eval_time
-        func.algorithm = thought
-        func.sample_time = sample_time
+        program.score = score
+        program.evaluate_time = eval_time
+        program.algorithm = thought
+        program.sample_time = sample_time
         if self._profiler is not None:
-            self._profiler.register_function(func, program=str(program))
+            self._profiler.register_function(program, program=str(program))
             if isinstance(self._profiler, EoHProfiler):
                 self._profiler.register_population(self._population)
             self._tot_sample_nums += 1
 
         # register to the population
-        self._population.register_function(func)
+        self._population.register_program(program)
 
     def _continue_loop(self) -> bool:
         if self._max_generations is None and self._max_sample_nums is None:

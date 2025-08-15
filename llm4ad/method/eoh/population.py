@@ -9,7 +9,7 @@ from ...base import *
 
 
 class Population:
-    def __init__(self, pop_size, generation=0, pop: List[Function] | Population | None = None):
+    def __init__(self, pop_size, generation=0, pop: List[Program] | Population | None = None):
         if pop is None:
             self._population = []
         elif isinstance(pop, list):
@@ -25,7 +25,7 @@ class Population:
     def __len__(self):
         return len(self._population)
 
-    def __getitem__(self, item) -> Function:
+    def __getitem__(self, item) -> Program:
         return self._population[item]
 
     def __setitem__(self, key, value):
@@ -46,7 +46,7 @@ class Population:
         self._next_gen_pop = []
         self._generation += 1
 
-    def register_function(self, func: Function):
+    def register_program(self, func: Program):
         # in population initialization, we only accept valid functions
         if self._generation == 0 and func.score is None:
             return
@@ -56,7 +56,7 @@ class Population:
             func.score = float('-inf')
         try:
             self._lock.acquire()
-            if self.has_duplicate_function(func):
+            if self.has_duplicate_program(func):
                 func.score = float('-inf')
             # register to next_gen
             self._next_gen_pop.append(func)
@@ -68,16 +68,16 @@ class Population:
         finally:
             self._lock.release()
 
-    def has_duplicate_function(self, func: str | Function) -> bool:
+    def has_duplicate_program(self, program: str | Program) -> bool:
         for f in self._population:
-            if str(f) == str(func) or func.score == f.score:
+            if str(f) == str(program) or program.score == f.score:
                 return True
         for f in self._next_gen_pop:
-            if str(f) == str(func) or func.score == f.score:
+            if str(f) == str(program) or program.score == f.score:
                 return True
         return False
 
-    def selection(self) -> Function:
+    def selection(self) -> Program:
         funcs = [f for f in self._population if not math.isinf(f.score)]
         func = sorted(funcs, key=lambda f: f.score, reverse=True)
         p = [1 / (r + len(func)) for r in range(len(func))]

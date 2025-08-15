@@ -1,18 +1,6 @@
 from . import (
-    funsearch,
-    hillclimb,
-    randsample,
     eoh,
-    meoh,
-    moead,
-    nsga2
 )
-
-# try to import reevo
-try:
-    from . import reevo
-except ImportError:
-    pass
 
 import os
 import inspect
