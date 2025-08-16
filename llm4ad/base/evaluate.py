@@ -25,7 +25,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from .program import TextFunctionProgramConverter, Program
+from .program import Program
 from .modify_code import ModifyCode
 
 
@@ -151,29 +151,10 @@ class SecureEvaluator:
             elif fork_proc is False:
                 multiprocessing.set_start_method('spawn', force=True)
 
-    def _modify_program_code(self, program_str: str) -> str:
-        function_name = TextFunctionProgramConverter.text_to_function(program_str).name
-        if self._evaluator.use_numba_accelerate:
-            program_str = ModifyCode.add_numba_decorator(
-                program_str, function_name=function_name
-            )
-        if self._evaluator.use_protected_div:
-            program_str = ModifyCode.replace_div_with_protected_div(
-                program_str, self._evaluator.protected_div_delta, self._evaluator.use_numba_accelerate
-            )
-        if self._evaluator.random_seed is not None:
-            program_str = ModifyCode.add_numpy_random_seed_to_func(
-                program_str, function_name, self._evaluator.random_seed
-            )
-        return program_str
-
     def evaluate_program(self, program: str | Program, **kwargs):
         try:
             program_str = str(program)
-            # record function name BEFORE modifying program code
-            function_name = TextFunctionProgramConverter.text_to_function(program_str).name
 
-            program_str = self._modify_program_code(program_str)
             if self._debug_mode:
                 print(f'DEBUG: evaluated program:\n{program_str}\n')
 
@@ -182,7 +163,7 @@ class SecureEvaluator:
                 result_queue = multiprocessing.Queue()
                 process = multiprocessing.Process(
                     target=self._evaluate_in_safe_process,
-                    args=(program_str, function_name, result_queue),
+                    args=(program_str, result_queue),
                     kwargs=kwargs,
                     daemon=self._evaluator.daemon_eval_process
                 )
@@ -217,7 +198,7 @@ class SecureEvaluator:
                         process.join()
                 return result
             else:
-                return self._evaluate(program_str, function_name, **kwargs)
+                return self._evaluate(program_str, **kwargs)
         except Exception as e:
             if self._debug_mode:
                 print(e)
@@ -228,40 +209,20 @@ class SecureEvaluator:
         result = self.evaluate_program(program, **kwargs)
         return result, time.time() - evaluate_start
 
-    def _evaluate_in_safe_process(self, program_str: str, function_name, result_queue: multiprocessing.Queue, **kwargs):
+    def _evaluate_in_safe_process(self, program_str: str, result_queue: multiprocessing.Queue, **kwargs):
         try:
-            if self._evaluator.exec_code:
-                # compile the program, and maps the global func/var/class name to its address
-                all_globals_namespace = {}
-                # execute the program, map func/var/class to global namespace
-                exec(program_str, all_globals_namespace)
-                # get the pointer of 'function_to_run'
-                program_callable = all_globals_namespace[function_name]
-            else:
-                program_callable = None
-
             # get evaluate result
-            res = self._evaluator.evaluate_program(program_str, program_callable, **kwargs)
+            res = self._evaluator.evaluate_program(program_str, None, **kwargs)
             result_queue.put(res)
         except Exception as e:
             if self._debug_mode:
                 print(e)
             result_queue.put(None)
 
-    def _evaluate(self, program_str: str, function_name, **kwargs):
+    def _evaluate(self, program_str: str, **kwargs):
         try:
-            if self._evaluator.exec_code:
-                # compile the program, and maps the global func/var/class name to its address
-                all_globals_namespace = {}
-                # execute the program, map func/var/class to global namespace
-                exec(program_str, all_globals_namespace)
-                # get the pointer of 'function_to_run'
-                program_callable = all_globals_namespace[function_name]
-            else:
-                program_callable = None
-
             # get evaluate result
-            res = self._evaluator.evaluate_program(program_str, program_callable, **kwargs)
+            res = self._evaluator.evaluate_program(program_str, None, **kwargs)
             return res
         except Exception as e:
             if self._debug_mode:
