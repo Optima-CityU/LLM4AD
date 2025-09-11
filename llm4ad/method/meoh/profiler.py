@@ -29,12 +29,14 @@ class MEoHProfiler(ProfilerBase):
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
         super().__init__(evaluation_name=evaluation_name,
                          method_name=method_name,
                          log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
+                         create_random_path=create_random_path,
                          num_objs=num_objs,
                          **kwargs)
         self._pop_lock = Lock()
@@ -152,9 +154,25 @@ class MEoHTensorboardProfiler(TensorboardProfiler, MEoHProfiler):
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        MEoHProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
-        TensorboardProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, initial_num_samples=initial_num_samples, log_style=log_style, **kwargs)
+        MEoHProfiler.__init__(
+            self, log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        TensorboardProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
 
     def finish(self):
         if self._log_dir:
@@ -178,15 +196,27 @@ class MEoHWandbProfiler(WandBProfiler, MEoHProfiler):
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        MEoHProfiler.__init__(self, log_dir=log_dir, evaluation_name=evaluation_name, method_name=method_name, **kwargs)
-        WandBProfiler.__init__(self,
-                               wandb_project_name=wandb_project_name,
-                               log_dir=log_dir,
-                               evaluation_name=evaluation_name,
-                               method_name=method_name,
-                               initial_num_samples=initial_num_samples,
-                               log_style=log_style, **kwargs)
+        MEoHProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        WandBProfiler.__init__(
+            self,
+            wandb_project_name=wandb_project_name,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
