@@ -1,4 +1,4 @@
-numpy<=2.0.0
+numpy<2.0.0
 scipy
 numba
 requests
@@ -8,8 +8,12 @@ tensorboard
 wandb
 pytz
 pandas
-gym
 matplotlib
 ttkbootstrap
 codebleu
 tree-sitter-python==0.21
+gym
+datasets
+huggingface_hub
+networkx
+# langchain_ollama

@@ -1,4 +1,3 @@
-
 template_program = '''
 import numpy as np
 

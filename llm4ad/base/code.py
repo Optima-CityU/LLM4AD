@@ -1,3 +1,22 @@
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+# Last Revision: 2025/2/16
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+# 
+# Permission is granted to use the LLM4AD platform for research purposes. 
+# All publications, software, or other works that utilize this platform 
+# or any part of its codebase must acknowledge the use of "LLM4AD" and 
+# cite the following reference:
+# 
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+# 
+# For inquiries regarding commercial use or licensing, please contact 
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 """
 This file implements 2 classes representing unities of code:
 
@@ -25,18 +44,20 @@ def func(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return a + b
 --------------------------------------------------------------------------------------------
 """
+
 from __future__ import annotations
 
 import ast
 import copy
 import dataclasses
-from typing import Any
+from typing import Any, List, Callable
 
 
 @dataclasses.dataclass
 class Function:
     """A parsed Python function."""
 
+    algorithm = ''
     name: str
     args: str
     body: str
@@ -111,6 +132,13 @@ class Program:
     def get_function(self, function_name: str) -> Function:
         index = self.find_function_index(function_name)
         return self.functions[index]
+
+    def exec(self) -> List[Callable]:
+        function_names = [f.name for f in self.functions]
+        g = {}
+        exec(str(self), g)
+        callable_funcs = [g[name] for name in function_names]
+        return callable_funcs
 
 
 class _ProgramVisitor(ast.NodeVisitor):

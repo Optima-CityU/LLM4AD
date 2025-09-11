@@ -1,4 +1,3 @@
-
 template_program = '''
 import numpy as np
 
@@ -18,5 +17,8 @@ def select_next_node(current_node: int, depot: int, unvisited_nodes: np.ndarray,
     return next_node
 '''
 
-task_description = "Help me design a novel algorithm to select the next node in each step."
-
+task_description = """
+Given a set of customers and a fleet of vehicles with limited capacity,
+the task is to design a novel algorithm to select the next node in each step,
+with the objective of minimizing the total cost.
+"""

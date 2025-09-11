@@ -1,7 +1,40 @@
-# name: str: BGEvaluation
+# Module Name: BGEvaluation
+# Last Revision: 2025/3/5
+# Description: Implements a mathematical function skeleton that models the growth rate of *E. Coli* bacteria.
+#              The function takes as input observations of population density, substrate concentration,
+#              temperature, and pH level, along with a set of parameters to be optimized. The output is
+#              the calculated bacterial growth rate. This module is part of the LLM4AD project
+#              (https://github.com/Optima-CityU/llm4ad).
+#
 # Parameters:
-# timeout_seconds: int: 20
-# end
+#    -   b: np.ndarray - population density of the bacterial species (default: None).
+#    -   s: np.ndarray - substrate concentration (default: None).
+#    -   temp: np.ndarray - temperature observations (default: None).
+#    -   pH: np.ndarray - pH level observations (default: None).
+#    -   params: np.ndarray - array of numeric constants or parameters to be optimized (default: None).
+#    -   timeout_seconds: int - Maximum allowed time (in seconds) for the evaluation process (default: 20).
+#
+# References:
+#   - Shojaee, Parshin, et al. "Llm-sr: Scientific equation discovery via programming
+#       with large language models." arXiv preprint arXiv:2404.18400 (2024).
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +56,7 @@ def evaluate(data: dict, equation: callable) -> float | None:
 
     # Load data observations
     inputs, outputs = data['inputs'], data['outputs']
-    b, s, temp, pH = inputs[:,0], inputs[:,1], inputs[:,2], inputs[:,3]
+    b, s, temp, pH = inputs[:, 0], inputs[:, 1], inputs[:, 2], inputs[:, 3]
 
     # Optimize parameters based on data
     from scipy.optimize import minimize
@@ -32,7 +65,7 @@ def evaluate(data: dict, equation: callable) -> float | None:
         return np.mean((y_pred - outputs) ** 2)
 
     loss_partial = lambda params: loss(params)
-    result = minimize(loss_partial, [1.0]*MAX_NPARAMS, method='BFGS')
+    result = minimize(loss_partial, [1.0] * MAX_NPARAMS, method='BFGS')
 
     # Return evaluation score
     optimized_params = result.x
@@ -47,7 +80,6 @@ def evaluate(data: dict, equation: callable) -> float | None:
 class BGEvaluation(Evaluation):
 
     def __init__(self, timeout_seconds=20, **kwargs):
-
         super().__init__(
             template_program=template_program,
             task_description=task_description,
@@ -66,6 +98,7 @@ class BGEvaluation(Evaluation):
     def evaluate_program(self, program_str: str, callable_func: callable) -> Any | None:
         return evaluate(self._datasets, callable_func)
 
+
 if __name__ == '__main__':
     def equation(b: np.ndarray, s: np.ndarray, temp: np.ndarray, pH: np.ndarray, params: np.ndarray) -> np.ndarray:
         """ Mathematical function for bacterial growth rate
@@ -81,6 +114,7 @@ if __name__ == '__main__':
             A numpy array representing bacterial growth rate as the result of applying the mathematical function to the inputs.
         """
         return params[0] * b + params[1] * s + params[2] * temp + params[3] * pH + params[4]
+
 
     eval = BGEvaluation()
     res = eval.evaluate_program('', equation)

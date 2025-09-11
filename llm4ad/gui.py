@@ -1,3 +1,22 @@
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+# Last Revision: 2025/2/16
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+# 
+# Permission is granted to use the LLM4AD platform for research purposes. 
+# All publications, software, or other works that utilize this platform 
+# or any part of its codebase must acknowledge the use of "LLM4AD" and 
+# cite the following reference:
+# 
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+# 
+# For inquiries regarding commercial use or licensing, please contact 
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 import os
 import sys
 from datetime import datetime
@@ -79,7 +98,7 @@ def main_gui(llm: dict,
 
     profiler = profiler_case(evaluation_name=evaluation['name'],
                              method_name=method['name'],
-                             log_dir='logs', log_style='complex', final_log_dir=profiler['log_dir'])
+                             log_dir=profiler['log_dir'], log_style='complex',create_random_path=False, final_log_dir=profiler['log_dir'])
 
     llm.pop('name')
 
@@ -90,12 +109,10 @@ def main_gui(llm: dict,
 
     llm_case = llm_case(**llm_params)
     eval_case = eval_case(**evaluation_params)
-
     method_case = method_case(llm=llm_case,
                               profiler=profiler,
                               evaluation=eval_case,
                               **method_params)
-
     method_case.run()
 
 

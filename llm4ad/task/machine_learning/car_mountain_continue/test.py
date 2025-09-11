@@ -37,6 +37,7 @@ def choose_action(pos: float, v: float, last_action: float) -> [float]:
     else:
         return [0.5]  # Move left away from the target
 
+
 def run_test():
     env = gym.make('MountainCarContinuous-v0', render_mode='human')
     observation, _ = env.reset()  # 状态包括以下因素

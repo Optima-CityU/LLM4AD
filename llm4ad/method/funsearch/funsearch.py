@@ -1,10 +1,27 @@
-# name: str: FunSearch
-# Parameters:
-# max_sample_nums: int: 20
-# samples_per_prompt: int: 4
-# num_samplers: int: 4
-# num_evaluators: int: 4
-# end
+# Module Name: FunSearch
+# Last Revision: 2025/2/16
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M. Pawan Kumar, Emilien Dupont, Francisco JR Ruiz et al. 
+#       "Mathematical discoveries from program search with large language models." 
+#       Nature 625, no. 7995 (2024): 468-475.
+# 
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+# 
+# Permission is granted to use the LLM4AD platform for research purposes. 
+# All publications, software, or other works that utilize this platform 
+# or any part of its codebase must acknowledge the use of "LLM4AD" and 
+# cite the following reference:
+# 
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+# 
+# For inquiries regarding commercial use or licensing, please contact 
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -12,6 +29,7 @@ import concurrent.futures
 import time
 from threading import Thread
 import traceback
+from typing import Optional, Literal
 
 from . import programs_database
 from .config import ProgramsDatabaseConfig
@@ -28,16 +46,14 @@ class FunSearch:
                  num_samplers: int = 4,
                  num_evaluators: int = 4,
                  samples_per_prompt: int = 4,
-                 max_sample_nums: int | None = 20,
+                 max_sample_nums: Optional[int] = 20,
                  *,
                  resume_mode: bool = False,
                  debug_mode: bool = False,
-                 multi_thread_or_process_eval: str = 'thread',
+                 multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
                  **kwargs):
-        """
+        """Function Search.
         Args:
-            template_program: the seed program (in str) as the initial function of the run.
-                the template_program should be executable, i.e., incorporating package import, and function definition, and function body.
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.funsearch.FunSearchProfiler'. If you do not want to use it, you can pass a 'None'.
@@ -78,8 +94,6 @@ class FunSearch:
         llm.debug_mode = debug_mode
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
-        if profiler is not None:
-            self._profiler.record_parameters(llm, evaluation, self)  # ZL: Necessary
 
         # statistics
         self._tot_sample_nums = 0
@@ -99,6 +113,10 @@ class FunSearch:
         self._sampler_threads = [
             Thread(target=self._sample_evaluate_register) for _ in range(self._num_samplers)
         ]
+
+        # pass parameters to profiler
+        if profiler is not None:
+            self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
     def _sample_evaluate_register(self):
         while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
@@ -152,7 +170,7 @@ class FunSearch:
                         function.score = score
                         function.sample_time = avg_time_for_each_sample
                         function.evaluate_time = eval_time
-                        self._profiler.register_function(function)
+                        self._profiler.register_function(function, program=str(program))
                         if isinstance(self._profiler, FunSearchProfiler):
                             self._profiler.register_program_db(self._database)
             except KeyboardInterrupt:
@@ -181,7 +199,7 @@ class FunSearch:
             if self._profiler:
                 self._function_to_evolve.score = score
                 self._function_to_evolve.evaluate_time = eval_time
-                self._profiler.register_function(self._function_to_evolve)
+                self._profiler.register_function(self._function_to_evolve, program=str(self._template_program))
 
         # start sampling using multiple threads
         for t in self._sampler_threads:
@@ -193,3 +211,5 @@ class FunSearch:
 
         if self._profiler is not None:
             self._profiler.finish()
+
+        self._sampler.llm.close()

@@ -39,6 +39,13 @@ class Population:
     def generation(self):
         return self._generation
 
+    def survival(self):
+        pop = self._population + self._next_gen_pop
+        pop = sorted(pop, key=lambda f: f.score, reverse=True)
+        self._population = pop[:self._pop_size]
+        self._next_gen_pop = []
+        self._generation += 1
+
     def register_function(self, func: Function):
         # in population initialization, we only accept valid functions
         if self._generation == 0 and func.score is None:
@@ -55,11 +62,7 @@ class Population:
             self._next_gen_pop.append(func)
             # update: perform survival if reach the pop size
             if len(self._next_gen_pop) >= self._pop_size:
-                pop = self._population + self._next_gen_pop
-                pop = sorted(pop, key=lambda f: f.score, reverse=True)
-                self._population = pop[:self._pop_size]
-                self._next_gen_pop = []
-                self._generation += 1
+                self.survival()
         except Exception as e:
             return
         finally:

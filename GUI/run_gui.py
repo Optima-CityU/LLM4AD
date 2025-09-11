@@ -1,3 +1,22 @@
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+# Last Revision: 2025/2/16
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -48,14 +67,15 @@ problem_para_value_name_list = []
 llm_para_entry_list = []
 llm_para_value_name_list = ['name', 'host', 'key', 'model']
 llm_para_default_value_list = ['HttpsApi', '', '', '']
-llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini-2024-07-18']
+llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini']
 
 default_method = 'eoh'
-default_problem = ['online_bin_packing', 'car_mountain', 'bactgrow']
+default_problem = ['admissible_set', 'car_mountain', 'bactgrow']
 
 log_dir = None
-figures = []
-
+figures = None
+ax = None
+canvas = None
 
 ##########################################################
 
@@ -174,7 +194,12 @@ def show_problem_parameters(problem_name):
 
     problem_param_frame['text'] = f"{problem_name}"
 
-    required_parameters, value_type, default_value = get_required_parameters(path=f"../llm4ad/task/{objectives_var.get()}/{problem_name}/paras.yaml")
+    if problem_name[-8:] == 'co_bench':
+        yaml_file_path = f"../llm4ad/task/{objectives_var.get()}/co_bench/{problem_name}/paras.yaml"
+    else:
+        yaml_file_path = f"../llm4ad/task/{objectives_var.get()}/{problem_name}/paras.yaml"
+
+    required_parameters, value_type, default_value = get_required_parameters(path=yaml_file_path)
     problem_para_value_type_list = value_type
     problem_para_value_name_list = required_parameters
     for i in range(len(required_parameters)):
@@ -246,12 +271,21 @@ def problem_type_select(event=None):
 
     problem_listbox = tk.Listbox(problem_frame, height=6, bg='white', selectbackground='lightgray', font=('Comic Sans MS', 12))
     problem_listbox.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
-    for _, dict_name, _ in os.walk(f'../llm4ad/task/{objectives_var.get()}'):
-        for name in dict_name:
-            if name != '__pycache__' and name != '_data':
+    path = f'../llm4ad/task/{objectives_var.get()}'
+    for name in os.listdir(path):
+        full_path = os.path.join(path, name)
+        if os.path.isdir(full_path) and name != '__pycache__' and name != '_data' and name != 'co_bench':
+            problem_listbox.insert(tk.END, name)
+        if name in default_problem:
+            default_problem_index = problem_listbox.size() - 1
+
+    if objectives_var.get() == 'optimization':
+        path = f'../llm4ad/task/{objectives_var.get()}/co_bench'  # todo
+        for name in os.listdir(path):
+            full_path = os.path.join(path, name)
+            if os.path.isdir(full_path) and name != '__pycache__' and name != '_data':
                 problem_listbox.insert(tk.END, name)
-            if name in default_problem:
-                default_problem_index = problem_listbox.size() - 1
+
     problem_listbox.bind("<<ListboxSelect>>", on_problem_select)
     on_problem_select(problem_listbox.select_set(default_problem_index))
 
@@ -295,55 +329,6 @@ def check_para():
         if not i.have_content:
             return False
     return True
-
-
-def init_fig(max_sample_nums):
-    global stop_thread
-    global have_stop_thread
-    global thread1
-    global process1
-
-    stop_run()
-    value_label.config(text=f"{0} samples")
-
-    stop_thread = False
-    have_stop_thread = False
-
-    right_frame_label['text'] = 'Running'
-
-    code_display.config(state='normal')
-    code_display.delete(1.0, 'end')
-    code_display.config(state='disabled')
-
-    objective_label['text'] = 'Current best objective:'
-
-    for widget in plot_frame.winfo_children():
-        widget.destroy()
-
-    font = {
-        'family': 'Times New Roman',
-        'size': 16
-    }
-
-    fig = plt.Figure(figsize=(4, 3), dpi=100)
-    ax = fig.add_subplot(111)
-
-    fig.patch.set_facecolor('white')
-    ax.set_facecolor('white')
-
-    ax.set_title(f"Result Display", fontdict=font)
-
-    ax.plot()
-    ax.set_xlim(left=0)
-    ax.set_xlabel('Samples', fontdict=font)
-    ax.set_ylabel('Current best objective', fontdict=font)
-    ax.grid(True)
-
-    ax.set_xticks(np.arange(0, max_sample_nums + 1, 1))
-
-    canvas = FigureCanvasTkAgg(fig, master=plot_frame)
-    canvas.draw()
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 
 def return_para():
@@ -390,12 +375,67 @@ def return_para():
 
     return llm_para, method_para, problem_para, profiler_para
 
+######################################################################
+
+def init_fig(max_sample_nums):
+    global stop_thread
+    global have_stop_thread
+    global thread1
+    global process1
+    global ax
+    global figures
+    global canvas
+
+    stop_run()
+    value_label.config(text=f"{0} samples")
+
+    stop_thread = False
+    have_stop_thread = False
+
+    right_frame_label['text'] = 'Running'
+
+    code_display.config(state='normal')
+    code_display.delete(1.0, 'end')
+    code_display.config(state='disabled')
+
+    objective_label['text'] = 'Current best objective:'
+
+    for widget in plot_frame.winfo_children():
+        widget.destroy()
+
+    font = {
+        'family': 'Times New Roman',
+        'size': 16
+    }
+
+    figures = plt.Figure(figsize=(4, 3), dpi=100)
+    ax = figures.add_subplot(111)
+
+    figures.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+
+    ax.set_title(f"Result Display", fontdict=font)
+
+    ax.plot()
+    ax.set_xlim(left=0)
+    ax.set_xlabel('Samples', fontdict=font)
+    ax.set_ylabel('Current best objective', fontdict=font)
+    ax.grid(True)
+
+    if max_sample_nums <= 20:
+        ax.set_xticks(np.arange(0, max_sample_nums + 1, 1))
+    else:
+        ticks = np.linspace(0, max_sample_nums, 11)
+        ticks = np.round(ticks).astype(int)
+        ax.set_xticks(ticks)
+
+    canvas = FigureCanvasTkAgg(figures, master=plot_frame)
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 def get_results(log_dir, max_sample_nums):
     global figures
     global stop_thread
     global have_stop_thread
-    figures = []
     index = 1
 
     while (not stop_thread) and (not check_finish(log_dir, index, max_sample_nums)) and (not except_error()):
@@ -406,7 +446,6 @@ def get_results(log_dir, max_sample_nums):
                 fig, alg, best_obj = plot_fig(index, log_dir, max_sample_nums)
             except:
                 continue
-            figures.append(fig)
             display_plot(index - 1)
             if alg is not None:
                 display_alg(alg)
@@ -425,54 +464,24 @@ def get_results(log_dir, max_sample_nums):
     plot_button['state'] = tk.NORMAL
     stop_button['state'] = tk.DISABLED
 
-
-def display_alg(alg):
-    code_display.config(state='normal')
-    code_display.delete(1.0, 'end')
-    code_display.insert(tk.END, alg)
-    code_display.config(state='disabled')
-
-
-def except_error():
-    global process1
-    try:
-        if process1.exitcode == 1:
-            return True
-        else:
-            return False
-    except:
-        return False
-
-
-def check_finish(log_dir, index, max_sample_nums):
-    return os.path.exists(log_dir + '/population/' + 'end.json') or index > max_sample_nums
-
-
-def check(index, log_dir):
-    return_value = False
-    file_name = log_dir + '/samples/samples_0~200.json'
-    if os.path.exists(file_name):
-        with open(file_name) as file:
-            data = json.load(file)
-        if len(data) >= index:
-            return_value = True
-    return return_value
-
-
 def plot_fig(index, log_dir, max_sample_nums):
+    global figures
+    global ax
     ###############################################################
     generation = []
     best_value_list = []
     all_best_value = float('-inf')
     best_alg = None
 
-    file_name = log_dir + '/samples/samples_0~200.json'
+    file_name_list = [log_dir + f'/samples/samples_{i * 200 + 1}~{(i + 1) * 200}.json' for i in range(((index - 1) // 200) + 1)]
 
-    with open(file_name) as file:
-        data = json.load(file)
+    data = []
+    for file_name in file_name_list:
+        with open(file_name) as file:
+            data.append(json.load(file))
 
     for i in range(index):
-        individual = data[i]
+        individual = data[i // 200][((i+1) % 200)-1]
         code = individual['function']
         # alg = individual['algorithm']
         obj = individual['score']
@@ -497,42 +506,78 @@ def plot_fig(index, log_dir, max_sample_nums):
         'size': 16
     }
 
-    fig = plt.Figure(figsize=(4, 3), dpi=100)
-    ax = fig.add_subplot(111)
-
-    fig.patch.set_facecolor('white')
+    figures.patch.set_facecolor('white')
     ax.set_facecolor('white')
 
     ax.set_title(f"Result display", fontdict=font)
 
-    ax.plot(generation, best_value_list, color='tab:blue', marker='o')
+    # ax.plot(generation, best_value_list, color='tab:blue', marker='o')
+    ax.plot(generation, best_value_list, color='tab:blue')
     ax.set_xlabel('Samples', fontdict=font)
     ax.set_ylabel('Current best objective', fontdict=font)
     ax.grid(True)
 
     if len(generation) <= max_sample_nums:
-        ax.set_xticks(np.arange(0, max_sample_nums + 1, 1))
+        if max_sample_nums<=20:
+            ax.set_xticks(np.arange(0, max_sample_nums + 1, 1))
+        else:
+            ticks = np.linspace(0, max_sample_nums, 11)
+            ticks = np.round(ticks).astype(int)
+            ax.set_xticks(ticks)
     else:
-        ax.set_xticks(np.arange(0, len(generation) + 1, 1))
+        if len(generation)<=20:
+            ax.set_xticks(np.arange(0, len(generation) + 1, 1))
+        else:
+            ticks = np.linspace(0, len(generation), 11)
+            ticks = np.round(ticks).astype(int)
+            ax.set_xticks(ticks)
 
     ###############################################################
 
-    return fig, best_alg, all_best_value
-
+    return figures, best_alg, all_best_value
 
 def display_plot(index):
-    global figures
-
-    for widget in plot_frame.winfo_children():
-        widget.destroy()
-
-    fig = figures[index]
-
-    canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+    global canvas
     canvas.draw()
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     value_label.config(text=f"{index + 1} samples")
+
+######################################################################
+
+def display_alg(alg):
+    code_display.config(state='normal')
+    code_display.delete(1.0, 'end')
+    code_display.insert(tk.END, alg)
+    code_display.config(state='disabled')
+
+
+def except_error():
+    global process1
+    try:
+        if process1.exitcode == 1:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+def check_finish(log_dir, index, max_sample_nums):
+    return os.path.exists(log_dir + '/population/' + 'end.json') or index > max_sample_nums
+
+
+def check(index, log_dir):
+    temp_var1 = (index - 1) // 200
+    return_value = False
+    file_name = log_dir + f'/samples/samples_{temp_var1*200+1}~{(temp_var1+1)*200}.json'
+
+    if os.path.exists(file_name):
+        with open(file_name) as file:
+            data = json.load(file)
+        if len(data) >= ((index-1) % 200)+1:
+            return_value = True
+    return return_value
+
 
 def stop_run_thread():
     thread_stop = threading.Thread(target=stop_run)
@@ -656,7 +701,7 @@ if __name__ == '__main__':
 
     algo_param_frame = ttk.Labelframe(container_frame_2, text="eoh", bootstyle="primary")
     algo_param_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-    problem_param_frame = ttk.Labelframe(container_frame_2, text="online_bin_packing", bootstyle="warning")
+    problem_param_frame = ttk.Labelframe(container_frame_2, text="admissible_set", bootstyle="warning")
     problem_param_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
     ############
@@ -664,12 +709,13 @@ if __name__ == '__main__':
     algo_listbox = tk.Listbox(algo_frame, height=6, bg='white', selectbackground='lightgray', font=('Comic Sans MS', 12))
     algo_listbox.pack(anchor=tk.NW, fill='both', expand=True, padx=5, pady=5)
     default_method_index = None
-    for _, dict_name, _ in os.walk('../llm4ad/method'):
-        for name in dict_name:
-            if name != '__pycache__':
-                algo_listbox.insert(tk.END, name)
-            if name == default_method:
-                default_method_index = algo_listbox.size() - 1
+    path = '../llm4ad/method'
+    for name in os.listdir(path):
+        full_path = os.path.join(path, name)
+        if os.path.isdir(full_path) and name != '__pycache__':
+            algo_listbox.insert(tk.END, name)
+        if name == default_method:
+            default_method_index = algo_listbox.size() - 1
 
     algo_listbox.bind("<<ListboxSelect>>", on_algo_select)
     on_algo_select(algo_listbox.select_set(default_method_index))
@@ -713,8 +759,8 @@ if __name__ == '__main__':
 
     right_frame.grid_rowconfigure(0, weight=400)
     right_frame.grid_rowconfigure(1, weight=2500)
-    right_frame.grid_columnconfigure(0, weight=400)
-    right_frame.grid_columnconfigure(1, weight=600)
+    right_frame.grid_columnconfigure(0, weight=500)
+    right_frame.grid_columnconfigure(1, weight=500)
 
     ###
 
@@ -731,7 +777,7 @@ if __name__ == '__main__':
 
     code_display_frame = ttk.Labelframe(code_frame, text="Current best algorithm:", bootstyle="dark")
     code_display_frame.pack(anchor=tk.NW, fill=tk.X, padx=5, pady=5)
-    code_display = tk.Text(code_display_frame, height=14, width=70)
+    code_display = tk.Text(code_display_frame, height=14, width=55)
     code_display.pack(fill='both', expand=True, padx=5, pady=5)
     sorting_algorithm = ""
     code_display.insert(tk.END, sorting_algorithm)

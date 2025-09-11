@@ -5,17 +5,19 @@ from typing import Tuple, List, Dict
 
 from .prompt import EoHPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
+from ...base.modify_code import ModifyCode
 
 
 class EoHSampler:
-    def __init__(self, sampler: LLM, template_program: str | Program):
-        self._sampler = sampler
+    def __init__(self, llm: LLM, template_program: str | Program):
+        self.llm = llm
         self._template_program = template_program
 
     def get_thought_and_function(self, prompt: str) -> Tuple[str, Function]:
-        response = self._sampler.draw_sample(prompt)
+        response = self.llm.draw_sample(prompt)
         thought = self.__class__.trim_thought_from_response(response)
         code = SampleTrimmer.trim_preface_of_function(response)
+
         function = SampleTrimmer.sample_to_function(code, self._template_program)
         return thought, function
 

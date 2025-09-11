@@ -1,7 +1,7 @@
 template_program = '''
 import numpy as np
 
-def choose_action(pos: float, v: float, last_action: [float]) -> [float]:
+def choose_action(pos: float, v: float, last_action: float) -> float:
     """Return the action for the car to proceed the next move.
     Args:
         pos: Car's position, a float ranges between [-1.2, 0.6].
@@ -11,7 +11,7 @@ def choose_action(pos: float, v: float, last_action: [float]) -> [float]:
          A [float] representing the force to be applied to the car.
          The value should be in the range of [-1.0, 1.0].
     """
-    return [np.random.uniform(-1.0, 1.0)]
+    return np.random.uniform(-1.0, 1.0)
 '''
 
 task_description = ("Implement a function that designing a novel strategy function that guide the car along an uneven "

@@ -9,13 +9,12 @@ from llm4ad.tools.profiler import ProfilerBase
 
 
 def main():
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+                   timeout=60)
 
-    llm = HttpsApi(host="xxx",  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key="sk-xxx",  # your key, e.g., sk-abcdefghijklmn
-                   model="xxx",  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
-                   timeout=20)
-    
-    task = OBPEvaluation() # local 
+    task = OBPEvaluation()  # local
 
     method = EoH(llm=llm,
                  profiler=ProfilerBase(log_dir='logs/eoh', log_style='simple'),
@@ -24,7 +23,7 @@ def main():
                  max_generations=10,
                  pop_size=4,
                  num_samplers=1,
-                 num_evaluators=1, 
+                 num_evaluators=1,
                  debug_mode=False)
 
     method.run()

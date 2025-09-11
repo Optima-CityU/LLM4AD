@@ -4,9 +4,10 @@ import numpy as np
 
 
 class GetData:
-    def __init__(self, n_instance, n_cities):
+    def __init__(self, n_instance, n_cities, capacity):
         self.n_instance = n_instance
         self.n_cities = n_cities
+        self.capacity = capacity
 
     def generate_instances(self):
         """each instance -> (coordinates, distances, demands, capacity)"""
@@ -15,9 +16,8 @@ class GetData:
         for _ in range(self.n_instance):
             coordinates = np.random.rand(self.n_cities, 2)
             demands = np.random.randint(1, 10, size=self.n_cities)
-            capacity = 40
             distances = np.linalg.norm(coordinates[:, np.newaxis] - coordinates, axis=2)
-            instance_data.append((coordinates, distances, demands, capacity))
+            instance_data.append((coordinates, distances, demands, self.capacity))
         return instance_data
 
 

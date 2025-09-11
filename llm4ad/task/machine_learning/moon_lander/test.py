@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import random
 
+
 def choose_action(state, reward, last_action):
     x, y, x_vel, y_vel, angle, angular_vel, leg1_contact, leg2_contact = state
 
@@ -22,6 +23,7 @@ def choose_action(state, reward, last_action):
             else:
                 action = 3  # Fire right orientation engine
     return action
+
 
 # 创建LunarLander-v2环境
 env = gym.make('LunarLander-v2', render_mode='human')

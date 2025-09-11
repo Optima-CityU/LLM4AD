@@ -32,4 +32,3 @@ task_description = ("I need help designing an innovative heuristic strategy func
                     "each step, the function should select a specific action based on the acrobot's joint angles and "
                     "angular velocities to efficiently reach the goal without unnecessary oscillations or excessive "
                     "control effort.")
-

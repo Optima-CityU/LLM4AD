@@ -82,6 +82,7 @@ def train():
     with open(os.getcwd() + '/tmp/carmountain.model', 'wb') as f:
         pickle.dump(agent, f)
 
+
 def test():
     env = gym.make('MountainCar-v0', render_mode='human')  # 指定渲染模式为 human
     print(env.action_space)
@@ -101,7 +102,6 @@ def test():
         state = next_state
         env.render()  # 渲染画面
     env.close()  # 关闭环境
-
 
 
 def run_test():

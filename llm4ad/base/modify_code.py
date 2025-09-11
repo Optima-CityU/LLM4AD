@@ -1,3 +1,22 @@
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+# Last Revision: 2025/2/16
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from __future__ import annotations
 
 import ast
@@ -26,40 +45,31 @@ class ModifyCode:
         Example 1:
         ----------------------------------------------------------------------------------
         >>> program = '''
-        >>> def f():
-        >>>     return 0
-        >>> '''
+        ... def f():
+        ...     return 0'''
         >>> ModifyCode.add_decorator(program, 'f', 'torch.jit.script')
-
-        @torch.jit.script
-        def f():
-            return 0
+        '@torch.jit.script()\\ndef f():\\n    return 0'
+        >>>
         ----------------------------------------------------------------------------------
 
         Example 2:
         ----------------------------------------------------------------------------------
         >>> program = '''
-        >>> def f():
-        >>>     return 0
-        >>> '''
+        ... def f():
+        ...     return 0'''
         >>> ModifyCode.add_decorator(program, 'f', ['numba', 'jit'], [('nopython', True)])
-
-        @numba.jit(nopython=True)
-        def f():
-            return 0
+        '@numba.jit(nopython=True)\\ndef f():\\n    return 0'
+        >>>
         ----------------------------------------------------------------------------------
 
         Example 3:
         ----------------------------------------------------------------------------------
         >>> program = '''
-        >>> def f():
-        >>>     return 0
-        >>> '''
+        ... def f():
+        ...     return 0'''
         >>> ModifyCode.add_decorator(program, 'f', 'a.b.c.d', [1, True, ('e', 'all'), ('f', True)])
-
-        @a.b.c.d(1, True, e='all', f=True)
-        def f():
-            return 0
+        "@a.b.c.d(1, True, e='all', f=True)\\ndef f():\\n    return 0"
+        >>>
         ----------------------------------------------------------------------------------
         """
         return _add_decorator(
@@ -168,7 +178,7 @@ def _protected_div(x, y, delta={delta}):
                             attr='seed',
                             ctx=ast.Load()
                         ),
-                        args=[ast.Num(n=seed)],
+                        args=[ast.Constant(value=seed)],
                         keywords=[]
                     )
                 )
@@ -306,12 +316,10 @@ def _add_decorator(
     args, kwargs = [], []
     if decorator_args is not None:
         for arg in decorator_args:
-            if isinstance(arg, str):
-                args.append(ast.arg(arg=arg))
-            elif isinstance(arg, tuple):
-                kwargs.append(ast.keyword(arg=arg[0], value=ast.NameConstant(value=arg[1])))
+            if isinstance(arg, tuple):
+                kwargs.append(ast.keyword(arg=arg[0], value=ast.Constant(value=arg[1])))
             else:
-                raise RuntimeError('Elements in args should be str or Tuple[str, Any].')
+                args.append(ast.arg(arg=str(arg)))
 
     # construct decorator
     if isinstance(decorator_name, str):
@@ -373,7 +381,7 @@ def _add_numba_decorator(
                     ctx=ast.Load()
                 ),
                 args=[],  # args do not have argument name
-                keywords=[ast.keyword(arg='nopython', value=ast.NameConstant(value=True))]
+                keywords=[ast.keyword(arg='nopython', value=ast.Constant(value=True))]
                 # keywords have argument name
             )
             # add the decorator to the decorator_list of the node
@@ -400,3 +408,11 @@ class _CustomDivisionTransformer(ast.NodeTransformer):
             )
             return custom_divide_call
         return node
+
+
+if __name__ == '__main__':
+    program = '''
+def f():
+    return 0'''
+    res = ModifyCode.add_decorator(program, 'f', 'a.b.c.d', [1, True, ('e', 'all'), ('f', True)])
+    print(res)

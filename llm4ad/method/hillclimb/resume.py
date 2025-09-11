@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os.path
+import re
 
 from tqdm.auto import tqdm
 
@@ -11,28 +12,41 @@ from .profiler import HillClimbProfiler
 from ...base import TextFunctionProgramConverter as tfpc, Function
 
 
-def _get_all_samples_and_scores(path):
-    path = os.path.join(path, 'samples')
+def _get_all_samples_and_scores(path, get_algorithm=False):
+    file_dir = os.path.join(path, 'samples')
+    # get all file directories
+    all_files = os.listdir(file_dir)
+    # filer `samples_*.json` files and ignore `samples_best.json`
+    sample_files = [f for f in all_files if f.startswith('samples_') and f != 'samples_best.json']
 
-    def path_to_int(path):
-        num = int(path.split('.')[0].split('_')[1])
-        return num
+    def extract_number(filename):
+        # match the first number of the filename
+        match = re.search(r'samples_(\d+)~', filename)
+        if match:
+            return int(match.group(1))
+        return 0
+
+    sorted_files = sorted(sample_files, key=extract_number)
 
     all_func = []
     all_score = []
-    dirs = list(os.listdir(path))
-    dirs = sorted(dirs, key=path_to_int)
-    max_o = path_to_int(dirs[-1])
+    all_algorithm = []
+    max_o = 0  # the max sample orders
 
-    for dir in dirs:
-        file_name = os.path.join(path, dir)
-        with open(file_name, 'r') as f:
-            sample = json.load(f)
-        func = sample['function']
-        acc = sample['score'] if sample['score'] else float('-inf')
-        all_func.append(func)
-        all_score.append(acc)
+    for file in sorted_files:
+        file_path = os.path.join(file_dir, file)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            samples = json.load(f)
+            for sample in samples:
+                func = sample['function']
+                acc = sample['score'] if sample['score'] else float('-inf')
+                all_func.append(func)
+                all_score.append(acc)
+                all_algorithm.append(sample['algorithm'])
+                max_o = sample['sample_order']
 
+    if get_algorithm:
+        return all_func, all_score, max_o, all_algorithm
     return all_func, all_score, max_o
 
 

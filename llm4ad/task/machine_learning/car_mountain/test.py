@@ -84,8 +84,9 @@ def train():
     with open(os.getcwd() + '/carmountain.model', 'wb') as f:
         pickle.dump(agent, f)
 
+
 def taste():
-    #env = gym.make('MountainCar-v0', render_mode='human')  # 指定渲染模式为 human
+    # env = gym.make('MountainCar-v0', render_mode='human')  # 指定渲染模式为 human
     env = gym.make('MountainCar-v0')  # 指定渲染模式为 human
 
     print(env.action_space)
@@ -106,7 +107,9 @@ def taste():
         env.render()  # 渲染画面
     env.close()  # 关闭环境
 
+
 import numpy as np
+
 
 def choose_action(pos: float, v: float, last_action: int) -> int:
     """Return the action for the car to proceed the next move.
@@ -136,6 +139,7 @@ def choose_action(pos: float, v: float, last_action: int) -> int:
         return 2  # Move right towards the target
     else:
         return 0  # Move left away from the target
+
 
 def run_test():
     env = gym.make('MountainCar-v0', render_mode='human')

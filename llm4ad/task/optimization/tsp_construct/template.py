@@ -1,4 +1,3 @@
-
 template_program = '''
 import numpy as np
 def select_next_node(current_node: int, destination_node: int, unvisited_nodes: np.ndarray, distance_matrix: np.ndarray) -> int: 
@@ -21,4 +20,3 @@ def select_next_node(current_node: int, destination_node: int, unvisited_nodes: 
 
 task_description = "Given a set of nodes with their coordinates, you need to find the shortest route that visits each node once and returns to the starting node. \
 The task can be solved step-by-step by starting from the current node and iteratively choosing the next node. Help me design a novel algorithm that is different from the algorithms in literature to select the next node in each step."
-

@@ -4,12 +4,9 @@ import numpy as np
 # 初始化Pendulum-v1环境
 env = gym.make('Pendulum-v1')  # 可选：设置 render_mode='human' 以显示图形界面
 
+
 # 定义动作选择函数
 def choose_action(x: float, y: float, angular_velocity: float, last_action: float) -> float:
-    """
-    一个简单的动作选择策略。
-    基于当前状态 (x, y, angular_velocity) 和上一次的动作 (last_action) 来选择新的动作。
-    """
     if angular_velocity > 0 and y > 0:
         action = -2.0  # 施加一个负力矩
     elif angular_velocity < 0 and y < 0:

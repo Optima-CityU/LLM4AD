@@ -1,3 +1,22 @@
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+# Last Revision: 2025/2/16
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+# 
+# Permission is granted to use the LLM4AD platform for research purposes. 
+# All publications, software, or other works that utilize this platform 
+# or any part of its codebase must acknowledge the use of "LLM4AD" and 
+# cite the following reference:
+# 
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+# 
+# For inquiries regarding commercial use or licensing, please contact 
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from __future__ import annotations
 
 import ast
@@ -9,9 +28,12 @@ from .code import Program, Function, TextFunctionProgramConverter
 
 
 class LLM:
-    """Language model that predicts continuation of provided source code."""
-
     def __init__(self, *, do_auto_trim=True, debug_mode=False):
+        """Language model interface.
+        This interface defines how to interact with LLM api / deployed LLM.
+        Args:
+            do_auto_trim: if set to True, then automatically trim the code from response content.
+        """
         self.do_auto_trim = do_auto_trim
         self.debug_mode = debug_mode
 
@@ -37,17 +59,23 @@ class LLM:
         """
         return [self.draw_sample(p, *args, **kwargs) for p in prompts]
 
+    def close(self):
+        """Defines how to close the connection to API,
+        or release the GPU resources at the end of the program search.
+        """
+        pass
+
 
 class SampleTrimmer:
-    def __init__(self, sampler: LLM):
-        self._sampler = sampler
+    def __init__(self, llm: LLM):
+        self.llm = llm
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
-        """Get a sample based on the provided 'Sampler' instance.
+        """Get a sample based on the provided 'LLM' instance.
         If the inner sampler sets 'auto_trim' to True, trim anything before the function body.
         """
-        generated_code = self._sampler.draw_sample(prompt, *args, **kwargs)
-        if self._sampler.do_auto_trim:
+        generated_code = self.llm.draw_sample(prompt, *args, **kwargs)
+        if self.llm.do_auto_trim:
             generated_code = self.__class__.auto_trim(generated_code)
         return generated_code
 
@@ -55,8 +83,8 @@ class SampleTrimmer:
         """Get samples based on the provided 'Sampler' instance.
         If the inner sampler sets 'auto_trim' to True, trim anything before the function body.
         """
-        ret = self._sampler.draw_samples(prompts, *args, **kwargs)
-        if self._sampler.do_auto_trim:
+        ret = self.llm.draw_samples(prompts, *args, **kwargs)
+        if self.llm.do_auto_trim:
             ret = [self.__class__.auto_trim(code) for code in ret]
         return ret
 

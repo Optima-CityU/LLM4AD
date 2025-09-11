@@ -1,2 +1,2 @@
-from .evaluation import MoonLander
+from .evaluation import MoonLanderEvaluation
 from .template import template_program

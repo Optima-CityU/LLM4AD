@@ -1,4 +1,3 @@
-
 template_program = '''
 def select_next_node(current_node: int, depot: int, unvisited_nodes: np.ndarray, rest_capacity: np.ndarray, current_time: np.ndarray,\
                         demands: np.ndarray, distance_matrix: np.ndarray, time_windows: np.ndarray) -> int:
@@ -19,5 +18,4 @@ def select_next_node(current_node: int, depot: int, unvisited_nodes: np.ndarray,
     return next_node
 '''
 
-task_description = "Help me design a novel algorithm to select the next node in each step."
-
+task_description = "The task involves finding optimal routes for a fleet of vehicles to serve a set of customers, respecting time windows and vehicle capacity constraints. Help me design an algorithm to select the next node in each step."

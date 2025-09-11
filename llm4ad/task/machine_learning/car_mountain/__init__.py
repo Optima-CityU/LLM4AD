@@ -1,2 +1,2 @@
-from .evaluation import CarMountain
+from .evaluation import CarMountainEvaluation
 from .template import template_program

@@ -1,12 +1,8 @@
 import numpy as np
 
-# from .registry import get_sampling_obj, register_sampling_class, register_sampling_func
-
-np.random.seed(2025)
-
-# @register_sampling_func
 def default_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     # x ~ either U(0.1, 10.0) or U(-10.0, -0.1) with 50% chance
+    np.random.seed(2025)
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
     log10_min = np.log10(min_value)
@@ -18,25 +14,25 @@ def default_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     return all_samples
 
 
-# @register_sampling_func
 def default_positive_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     # x ~ U(0.1, 10.0)
+    np.random.seed(2025)
     log10_min = np.log10(min_value)
     log10_max = np.log10(max_value)
     return 10.0 ** np.random.uniform(log10_min, log10_max, size=sample_size)
 
 
-# @register_sampling_func
 def default_negative_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     # x ~ U(-10.0, -0.1)
+    np.random.seed(2025)
     log10_min = np.log10(abs(min_value))
     log10_max = np.log10(abs(max_value))
     return -10.0 ** np.random.uniform(log10_min, log10_max, size=sample_size)
 
 
-# @register_sampling_func
 def simple_sampling(sample_size, min_value=0.0, max_value=1.0):
     # x ~ either U(0.0, 1.0) or U(-1.0, 0.) with 50% chance
+    np.random.seed(2025)
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
     pos_samples = np.random.uniform(min_value, max_value, size=num_positives)
@@ -46,21 +42,23 @@ def simple_sampling(sample_size, min_value=0.0, max_value=1.0):
     return all_samples
 
 
-# @register_sampling_func
 def simple_positive_sampling(sample_size, min_value=0.0, max_value=1.0):
     # x ~ U(0.0, 1.0)
+    np.random.seed(2025)
     return np.random.uniform(min_value, max_value, size=sample_size)
 
 
-# @register_sampling_func
+
 def simple_negative_sampling(sample_size, min_value=0.0, max_value=1.0):
     # x ~ U(-1, 0.0)
+    np.random.seed(2025)
     return -np.random.uniform(min_value, max_value, size=sample_size)
 
 
-# @register_sampling_func
+
 def integer_sampling(sample_size, min_value=1, max_value=100):
     # x ~ either U(1, 100) or U(-100, -1) with 50% chance
+    np.random.seed(2025)
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
     pos_samples = np.random.randint(min_value, max_value, size=num_positives)
@@ -70,15 +68,16 @@ def integer_sampling(sample_size, min_value=1, max_value=100):
     return all_samples
 
 
-# @register_sampling_func
 def integer_positive_sampling(sample_size, min_value=1, max_value=100):
     # x ~ U(1, 100)
+    np.random.seed(2025)
     return np.random.randint(min_value, max_value, size=sample_size)
 
 
-# @register_sampling_func
+
 def integer_negative_sampling(sample_size, min_value=1, max_value=100):
     # x ~ U(-100, -1)
+    np.random.seed(2025)
     return -np.random.randint(min_value, max_value, size=sample_size)
 
 

@@ -1,9 +1,9 @@
 import numpy as np
 
-def generate_weibull_dataset(num_instances, num_items, capacity_limit):
 
+def generate_weibull_dataset(num_instances, num_items, capacity_limit):
     np.random.seed(2024)
-    
+
     dataset = {}
 
     for i in range(num_instances):
