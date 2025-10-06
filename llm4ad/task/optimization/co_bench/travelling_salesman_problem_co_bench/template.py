@@ -1,7 +1,10 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
-def solve(nudes: list) -> dict:
+import math
+import random
+from typing import List, Tuple, Dict
+def solve(nodes: list) -> dict:
     """
     Solve a TSP instance.
     Args:

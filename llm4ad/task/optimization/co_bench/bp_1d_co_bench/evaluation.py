@@ -72,7 +72,7 @@ class BP1DEvaluationCB(Evaluation):
             for i in ins_cases:
                 for j in i:
                     result = eva(j['id'], j['bin_capacity'], j['num_items'], j['items'])
-                    fitness = self.eval_func(j['id'], j['bin_capacity'], j['num_items'], j['best_known'], j['items'], result['nim_bins'], result['bins'])
+                    fitness = self.eval_func(j['id'], j['bin_capacity'], j['num_items'], j['best_known'], j['items'], result['num_bins'], result['bins'])
                     fitness_list.append(fitness)
 
             return -np.mean(fitness_list)

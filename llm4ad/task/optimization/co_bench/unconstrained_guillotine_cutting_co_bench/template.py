@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(m: int, stock_width: int, stock_height: int, pieces: dict, allow_rotation: bool = False) -> dict:
     """
     Solves the unconstrained guillotine cutting problem.

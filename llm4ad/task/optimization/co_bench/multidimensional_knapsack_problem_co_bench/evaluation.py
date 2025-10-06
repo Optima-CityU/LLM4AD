@@ -33,7 +33,7 @@ __all__ = ['MKPEvaluationCB']
 class MKPEvaluationCB(Evaluation):
 
     def __init__(self,
-                 timeout_seconds=50,
+                 timeout_seconds=300,
                  **kwargs):
 
         """

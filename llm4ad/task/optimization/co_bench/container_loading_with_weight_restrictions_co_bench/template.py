@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(container: tuple, n: int, cargo_vol: float, box_types: list) -> dict:
     """
     Solves the Container Loading with Weight Restrictions problem.

@@ -72,7 +72,7 @@ class PMCEvaluationCB(Evaluation):
             for i in ins_cases:
                 for j in i:
                     result = eva(j['best_known'], j['n'], j['p'], j['Q'], j['customers'])
-                    fitness = self.eval_func(best_known=j['best_known'], n=j['n'], p=j['p'], Q=j['Q'], objective=result['objective'], medians=result['medians'], assignments=result['assignments'])
+                    fitness = self.eval_func(best_known=j['best_known'], n=j['n'], p=j['p'], Q=j['Q'], customers=j['customers'], objective=result['objective'], medians=result['medians'], assignments=result['assignments'])
                     fitness_list.append(fitness)
 
             return -np.mean(fitness_list)

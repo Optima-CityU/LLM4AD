@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(n_jobs: int, n_machines: int, times: list, machines: list) -> dict:
     """
     Solves a single job shop scheduling test case.

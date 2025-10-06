@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(n: int, cx: float, cy: float, R: float, radii: list) -> dict:
     """
     Solve the unequal circle packing problem for the maximize-number case.

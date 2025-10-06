@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(best_known: float, n: int, p: int, Q: float, customers: list) -> dict:
     """
     Solve the Capacitated P-Median Problem.

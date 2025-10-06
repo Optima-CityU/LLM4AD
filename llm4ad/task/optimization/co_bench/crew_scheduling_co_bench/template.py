@@ -1,6 +1,9 @@
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
+import math
+import random
+from typing import List, Tuple, Dict
 def solve(N: int, K: int, time_limit: float, tasks: dict, arcs: dict) -> dict:
     """
     Solves the crew scheduling problem.

@@ -71,8 +71,8 @@ class RCSPEvaluationCB(Evaluation):
         try:
             for i in ins_cases:
                 for j in i:
-                    result = eva(j['n'], j['m'], j['K'], j['R'], j['lower_bounds'], j['upper_bounds'], j['vertex_resources'], j['graph'])
-                    fitness = self.eval_func(j['n'], j['m'], j['K'], j['R'], j['lower_bounds'], j['upper_bounds'], j['vertex_resources'], j['graph'], result['total_cost'], result['path'])
+                    result = eva(j['n'], j['m'], j['K'], j['lower_bounds'], j['upper_bounds'], j['vertex_resources'], j['graph'])
+                    fitness = self.eval_func(j['n'], j['m'], j['K'], j['lower_bounds'], j['upper_bounds'], j['vertex_resources'], j['graph'], result['total_cost'], result['path'])
                     fitness_list.append(fitness)
 
             return -np.mean(fitness_list)
