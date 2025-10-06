@@ -47,40 +47,50 @@ class Population:
     def generation(self):
         return self._generation
 
+    def survival(self):
+        pop = self._population + self._next_gen_pop
+
+        # elitist
+        pop_elitist = pop + self._elitist
+        objs = [ind.score for ind in pop_elitist]
+        objs_array = -np.array(objs)
+        nondom_idx = NonDominatedSorting().do(objs_array, only_non_dominated_front=True)
+        self._elitist = []
+        for idx in nondom_idx.tolist():
+            self._elitist.append(pop_elitist[idx])
+
+        crt_pop_size = len(pop)
+        dominated_counts = np.zeros((crt_pop_size, crt_pop_size))
+        for i in range(crt_pop_size):
+            for j in range(i + 1, crt_pop_size):
+                if (np.array(pop[i].score) >= np.array(pop[j].score)).all():
+                    dominated_counts[i, j] = -calc_syntax_match([str(pop[i])], str(pop[j]), 'python')
+                    # dominated_counts[i, j] = -calc_syntax_match([pop[i].entire_code], pop[j].entire_code, 'python')
+                elif (np.array(pop[j].score) >= np.array(pop[i].score)).all():
+                    dominated_counts[j, i] = -calc_syntax_match([str(pop[j])], str(pop[i]), 'python')
+                    # dominated_counts[j, i] = -calc_syntax_match([pop[j].entire_code], pop[i].entire_code, 'python')
+        dominated_counts_ = dominated_counts.sum(0)
+        self._population = [pop[i] for i in np.argsort(-dominated_counts_)[:self._pop_size // 4]]  # minus for descending, //4 for keep the original pop_size
+        self._next_gen_pop = []
+        self._generation += 1
+
     def register_function(self, func: Function):
-        # we only accept valid functions
-        if func.score is None:
+        # in population initialization, we only accept valid functions
+        if self._generation == 0 and func.score is None:
             return
+        # if the score is None, we still put it into the population,
+        # we set the score to '-inf'
+        if func.score is None:
+            func.score = np.array([float('-inf'), float('-inf')])
         try:
             self._lock.acquire()
+            if self.has_duplicate_function(func):
+                func.score = np.array([float('-inf'), float('-inf')])
             # register to next_gen
-            if not self.has_duplicate_function(func):
-                self._next_gen_pop.append(func)
-
+            self._next_gen_pop.append(func)
             # update: perform survival if reach the pop size
-            if len(self._next_gen_pop) >= self._pop_size or (len(self._next_gen_pop) >= self._pop_size // 4 and self._generation == 0):
-                pop = self._population + self._next_gen_pop
-
-                pop_elitist = pop + self._elitist
-                objs = [ind.score for ind in pop_elitist]
-                objs_array = -np.array(objs)
-                nondom_idx = NonDominatedSorting().do(objs_array, only_non_dominated_front=True)
-                self._elitist = []
-                for idx in nondom_idx.tolist():
-                    self._elitist.append(pop_elitist[idx])
-
-                crt_pop_size = len(pop)
-                dominated_counts = np.zeros((crt_pop_size, crt_pop_size))
-                for i in range(crt_pop_size):
-                    for j in range(i + 1, crt_pop_size):
-                        if (np.array(pop[i].score) >= np.array(pop[j].score)).all():
-                            dominated_counts[i, j] = -calc_syntax_match([pop[i].entire_code], pop[j].entire_code, 'python')
-                        elif (np.array(pop[j].score) >= np.array(pop[i].score)).all():
-                            dominated_counts[j, i] = -calc_syntax_match([pop[j].entire_code], pop[i].entire_code, 'python')
-                dominated_counts_ = dominated_counts.sum(0)
-                self._population = [pop[i] for i in np.argsort(-dominated_counts_)[:self._pop_size // 5]]  # minus for descending, //5 for keep the original pop_size
-                self._next_gen_pop = []
-                self._generation += 1
+            if len(self._next_gen_pop) >= self._pop_size:
+                self.survival()
         except Exception as e:
             traceback.print_exc()
             return
@@ -88,28 +98,12 @@ class Population:
             self._lock.release()
 
     def has_duplicate_function(self, func: str | Function) -> bool:
-        if func.score is None:
-            return True
-
-        for i in range(len(self._population)):
-            f = self._population[i]
-            if str(f) == str(func):
-                if func.score[0] > f.score[0]:
-                    self._population[i] = func
-                    return True
-                if func.score[0] == f.score[0] and func.score[1] > f.score[1]:
-                    self._population[i] = func
-                    return True
-
-        for i in range(len(self._next_gen_pop)):
-            f = self._next_gen_pop[i]
-            if str(f) == str(func):
-                if func.score[0] > f.score[0]:
-                    self._next_gen_pop[i] = func
-                    return True
-                if func.score[0] == f.score[0] and func.score[1] > f.score[1]:
-                    self._next_gen_pop[i] = func
-                    return True
+        for f in self._population:
+            if str(f) == str(func) or (func.score[0] == f.score[0] and func.score[1] <= f.score[1]):
+                return True
+        for f in self._next_gen_pop:
+            if str(f) == str(func) or (func.score[0] == f.score[0] and func.score[1] <= f.score[1]):
+                return True
         return False
 
     def selection(self) -> Function:
@@ -123,9 +117,9 @@ class Population:
             for i in range(crt_pop_size):
                 for j in range(i + 1, crt_pop_size):
                     if (np.array(funcs[i].score) >= np.array(funcs[j].score)).all():
-                        dominated_counts[i, j] = -calc_syntax_match([funcs[i].entire_code], funcs[j].entire_code, 'python')
+                        dominated_counts[i, j] = -calc_syntax_match([str(funcs[i])], str(funcs[j]), 'python')
                     elif (np.array(funcs[j].score) >= np.array(funcs[i].score)).all():
-                        dominated_counts[j, i] = -calc_syntax_match([funcs[j].entire_code], funcs[i].entire_code, 'python')
+                        dominated_counts[j, i] = -calc_syntax_match([str(funcs[j])], str(funcs[i]), 'python')
             dominated_counts_ = dominated_counts.sum(0)
             p = np.exp(dominated_counts_) / np.exp(dominated_counts_).sum()
 
