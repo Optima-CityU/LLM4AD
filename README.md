@@ -179,6 +179,7 @@ Check [GUI Introduction](https://llm4ad-doc.readthedocs.io/en/latest/getting_sta
 | **ReEvo**                         | [Reevo: Large language models as hyper-heuristics with reflective evolution](https://proceedings.neurips.cc/paper_files/paper/2024/hash/4ced59d480e07d290b6f29fc8798f195-Abstract-Conference.html) (NeurIPS 2024) |
 | **MCTS-AHD**                          | [Monte carlo tree search for comprehensive exploration in llm-based automatic heuristic design](https://arxiv.org/abs/2501.08603) (ICML 2025)                                                  |
 | **LHNS**                          | [LLM-Driven Neighborhood Search for Efficient Heuristic Design](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=wS0G_qQAAAAJ&sortby=pubdate&citation_for_view=wS0G_qQAAAAJ:sfnaS5RM6jYC) (CEC 2025) |
+| **PartEvo**                | Partition to Evolve: Niching-enhanced Evolution with LLMs for Automated Algorithm Discovery (NeurIPS 2025)           |
 | **RandomSampling**                | ----                                                         |
 | Others                            | Coming soon                                                  |
 | Others                            | Coming soon                                                  |
@@ -229,6 +230,8 @@ A Step-by-step Tutorial on using LLM4AD to solve your algorithm design task is p
 ## :question:QAs
 
 Find responses to some common questions in our [Discussion Area](https://github.com/Optima-CityU/llm4ad/discussions)
+
+[常见问题答疑](https://github.com/Optima-CityU/LLM4AD/discussions/48)
 
 ## 🪪 Licence
 
