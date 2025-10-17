@@ -180,6 +180,7 @@ Check [GUI Introduction](https://llm4ad-doc.readthedocs.io/en/latest/getting_sta
 | **MCTS-AHD**                          | [Monte carlo tree search for comprehensive exploration in llm-based automatic heuristic design](https://arxiv.org/abs/2501.08603) (ICML 2025)                                                  |
 | **LHNS**                          | [LLM-Driven Neighborhood Search for Efficient Heuristic Design](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=wS0G_qQAAAAJ&sortby=pubdate&citation_for_view=wS0G_qQAAAAJ:sfnaS5RM6jYC) (CEC 2025) |
 | **RandomSampling**                | ----                                                         |
+| **LLaMEA**                        | [LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics](https://ieeexplore.ieee.org/abstract/document/10752628)(IEEE TEVC 2025)|
 | Others                            | Coming soon                                                  |
 | Others                            | Coming soon                                                  |
 
