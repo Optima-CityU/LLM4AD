@@ -40,6 +40,7 @@ setup(
         'pytz',
         'matplotlib',
         'python-docx',
-        'ttkbootstrap'
+        'ttkbootstrap',
+        'llamea @ git+https://github.com/XAI-liacs/LLaMEA.git@main'
     ]
 )
