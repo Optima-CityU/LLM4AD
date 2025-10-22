@@ -32,7 +32,7 @@ def generate_evaluator(for_instance: Evaluation):
 
         except Exception as e:
             solution.set_scores(
-                float("inf"),
+                float("-inf"),  # Always maximisation problem in llm4ad.
                 (possible_issue if possible_issue else "") + f". Exec block failed to execute.",
                 e
             )
@@ -48,7 +48,7 @@ def generate_evaluator(for_instance: Evaluation):
             return solution
         except Exception as e:
             solution.set_scores(
-                float("inf"),
+                float("-inf"),
                 f"Code failed to execute {e}.",
                 e
             )

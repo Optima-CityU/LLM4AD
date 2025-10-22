@@ -18,6 +18,7 @@ class LLaMEA(LLaMEA_Algorithm):
             task_prompt: str = "",
             example_prompt :str | None = None,
             minimization: bool = False,
+            elitism: bool = True,
             **kwargs
     ):
         """
@@ -32,6 +33,7 @@ class LLaMEA(LLaMEA_Algorithm):
             task_prompt: Task prompt is llm4ad.tasks.*.template.task_description for solving a problem,
             example_prompt: Example propmt is llm4ad.tasks.*.template.template_program for solving a problem,
             minimisation: Flag to define direction of optimality.
+            elitism: A bool flag to run algorithm in (λ + µ) if set True, else (λ , µ).
         """    
         evaluation_function = generate_evaluator(evaluator)
         super().__init__(
@@ -44,6 +46,7 @@ class LLaMEA(LLaMEA_Algorithm):
             task_prompt=task_prompt,
             example_prompt=example_prompt,
             minimization=minimization,
+            elitism=elitism,
             **kwargs
         )
         
