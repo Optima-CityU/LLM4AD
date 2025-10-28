@@ -85,7 +85,7 @@ class Ails2Evaluation(Evaluation):
         target_change_java = os.path.join(target_dir, aim_java_relative_path)  # 被 LLM 修改的 Java 文件
 
         # --- 1. 构建Java命令 ---
-        instances_dir = os.path.join(target_dir, "XLDemo_eohtest")
+        instances_dir = os.path.join(target_dir, "XLDemo")
         instance_files = glob.glob(os.path.join(instances_dir, "*.vrp"))
 
         if not instance_files:
@@ -234,9 +234,6 @@ class Ails2Evaluation(Evaluation):
 
 
 if __name__ == '__main__':
-    # ... (if __name__ == '__main__' 部分保持不变) ...
-    # 这是一个用于测试的空代码字符串
-    # 实际使用中，这里应该是 LLM 生成的代码
     java_script = """
 /**
  * 	Copyright 2022, Vinícius R. Máximo
