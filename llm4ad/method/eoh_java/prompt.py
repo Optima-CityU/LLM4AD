@@ -20,16 +20,29 @@ class EoHPrompt:
         return ''
 
     @classmethod
-    def get_prompt_i1(cls, task_prompt: str, template_function: Function):
-        # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
+    def get_prompt_i1(cls, task_prompt: str, template_function: str):
         # create prompt content
-        prompt_content = f'''{task_prompt}
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}. 
-2. Next, implement the following Python function:
-{str(temp_func)}
-Do not give additional explanations.'''
+        prompt_content = f'''\
+{task_prompt}
+
+Below is the current baseline Java implementation:
+-------------------------
+{template_function}
+-------------------------
+Now, please:
+1. Briefly describe your improved approach and its core idea in **one concise sentence**, 
+   enclosed within << >>.
+2. Then, output the **complete improved Java implementation** (the full Java script) in a clearly labeled block,
+   enclosed within double square brackets [[ ]] as follows:
+   [[JAVA_CODE_START
+   // Your complete improved Java code here
+   JAVA_CODE_END]]
+   
+Ensure that:
+- The new version must remain **fully compatible** with all original interfaces;
+- All Java code should be fully runnable and well-formatted;
+- Comments are **concise, clear, and informative**, explaining key design choices.
+'''
         return prompt_content
 
     @classmethod

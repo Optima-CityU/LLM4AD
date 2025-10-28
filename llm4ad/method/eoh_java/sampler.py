@@ -1,31 +1,60 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple, List, Dict
+from typing import Tuple
 
-from .prompt import EoHPrompt
-from ...base import LLM, SampleTrimmer, Function, Program
-from ...base.modify_code import ModifyCode
+from ...base import LLM
 
 
-class EoHSampler:
-    def __init__(self, llm: LLM, template_program: str | Program):
+class EoH_Java_Sampler:
+    def __init__(self, llm: LLM):
         self.llm = llm
-        self._template_program = template_program
 
-    def get_thought_and_function(self, prompt: str) -> Tuple[str, Function]:
+    def get_thought_and_function(self, prompt: str) -> Tuple[str, str]:
         response = self.llm.draw_sample(prompt)
         thought = self.__class__.trim_thought_from_response(response)
-        code = SampleTrimmer.trim_preface_of_function(response)
-
-        function = SampleTrimmer.sample_to_function(code, self._template_program)
-        return thought, function
+        java_code = self.__class__.trim_java_from_response(response)
+        return thought, java_code
 
     @classmethod
     def trim_thought_from_response(cls, response: str) -> str | None:
+        """
+        Extract the idea/thought from LLM response.
+        Expected format: <<your idea here>>
+        """
         try:
-            pattern = r'\{.*?\}'  # Compared with r'\{(.*)\}'
-            bracketed_texts = re.findall(pattern, response)
-            return bracketed_texts[0]
-        except:
+            pattern = r"<<(.*?)>>"
+            match = re.search(pattern, response, re.DOTALL)
+            return match.group(1).strip() if match else None
+        except Exception:
             return None
+
+    @classmethod
+    def trim_java_from_response(cls, response: str) -> str | None:
+        """
+                Extract the Java implementation from LLM response.
+                Expected format: [[JAVA_CODE_START ... JAVA_CODE_END]]
+                """
+        try:
+            pattern = r"\[\[\s*JAVA_CODE_START\s*(.*?)\s*JAVA_CODE_END\s*\]\]"
+            match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
+            return match.group(1).strip() if match else None
+        except Exception:
+            return None
+
+if __name__ == '__main__':
+    response = """
+    <<This version introduces adaptive cosine decay for smoother distance adjustment.>>
+    [[JAVA_CODE_START
+    public class DistAdjustment {
+        // Improved implementation
+    }
+    JAVA_CODE_END]]
+    """
+
+    sampler = EoH_Java_Sampler(llm=None)  # llm 为你的 LLM 实例
+    thought = sampler.trim_thought_from_response(response)
+    java_code = sampler.trim_java_from_response(response)
+
+    print("Thought:", thought)
+    print("Java Code:", java_code)

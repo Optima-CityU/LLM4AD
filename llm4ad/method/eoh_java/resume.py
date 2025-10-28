@@ -7,7 +7,7 @@ import re
 
 from tqdm.auto import tqdm
 
-from .eoh import EoH
+from .eoh_java import EoH
 from .profiler import EoHProfiler
 from .population import Population
 from ...base import TextFunctionProgramConverter as tfpc, Function

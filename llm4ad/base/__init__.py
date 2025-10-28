@@ -2,7 +2,8 @@ from . import code, evaluate, sample, modify_code
 from .code import (
     Function,
     Program,
-    TextFunctionProgramConverter
+    TextFunctionProgramConverter,
+    JavaScripts
 )
 from .evaluate import Evaluation, SecureEvaluator
 from .modify_code import ModifyCode

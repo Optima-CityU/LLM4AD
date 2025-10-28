@@ -1,2 +1,2 @@
-from .eoh import EoH
-from .profiler import EoHProfiler, EoHTensorboardProfiler, EoHWandbProfiler
+from .eoh_java import EoH_Java
+from .profiler import EoH_java_Profiler

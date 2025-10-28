@@ -4,13 +4,16 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from llm4ad.base import Evaluation
-from llm4ad.task.optimization.ails2.template import template_program, task_description, aim_java_relative_path, java_dir        # java_dir = CVRPLIB-2025-AILSII 是为了多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
-import os                                                                                                                       # aim_java_relative_path 是被修改的java文件相对于java_dir的相对路径 比如"./././xxx.java"
+from llm4ad.task.optimization.ails2.template import template_program, task_description, aim_java_relative_path, \
+    java_dir  # java_dir = CVRPLIB-2025-AILSII 是为了多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
+import os  # aim_java_relative_path 是被修改的java文件相对于java_dir的相对路径 比如"./././xxx.java"
 import subprocess
 import sys
 import glob
+import shutil
 
 __all__ = ['Ails2Evaluation']
+
 
 class Ails2Evaluation(Evaluation):
     """Evaluator for AILSII Java."""
@@ -32,6 +35,36 @@ class Ails2Evaluation(Evaluation):
         self.timeout_seconds = timeout_seconds
         self.dump_java_output_on_finish = dump_java_output_on_finish
         self.java_commands = []  # 用于存储生成的 Java 命令
+
+    def copy_dir_multiple_times(self, n: int):
+        """
+        Copy `src_dir` N times into `dst_base_dir`,
+        appending _i to each new directory name.
+
+        Args:
+            src_dir: str, path to the source directory
+            dst_base_dir: str, path where copies will be created
+            n: int, number of copies
+        """
+
+        dst_base_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.join(dst_base_dir, java_dir)
+
+        if not os.path.exists(src_dir):
+            raise FileNotFoundError(f"Source directory {src_dir} does not exist.")
+
+        os.makedirs(dst_base_dir, exist_ok=True)
+
+        for i in range(n):
+            # 构造目标目录名
+            dst_dir = os.path.join(dst_base_dir, os.path.basename(src_dir) + f"_{i}")
+            # 如果目标目录已存在，可以选择覆盖或跳过
+            if os.path.exists(dst_dir):
+                print(f"{dst_dir} already exists, removing it first.")
+                shutil.rmtree(dst_dir)
+            # 复制整个目录
+            shutil.copytree(src_dir, dst_dir)
+            print(f"Copied {src_dir} -> {dst_dir}")
 
     def run_command(self, commands) -> Tuple[str, int]:
         """
@@ -128,7 +161,6 @@ class Ails2Evaluation(Evaluation):
                 return "TIMEOUT_NO_SCORE", return_code
             else:
                 return "NO_SCORE_OUTPUT", return_code
-
 
     # def run_command(self, commands) -> Tuple[str, int]:
     #     """
@@ -230,8 +262,8 @@ class Ails2Evaluation(Evaluation):
 
     def evaluate(self, java_script: str, subprocess_index=0) -> float | None:
         current_path = os.path.dirname(os.path.abspath(__file__))
-        # target_dir = os.path.join(current_path, java_dir + f"_{subprocess_index}")  # Java 项目沙盒根目录
-        target_dir = os.path.join(current_path, java_dir)  # Java 项目沙盒根目录
+        target_dir = os.path.join(current_path, java_dir + f"_{subprocess_index}")  # Java 项目沙盒根目录
+        # target_dir = os.path.join(current_path, java_dir)  # Java 项目沙盒根目录
         target_change_java = os.path.join(target_dir, aim_java_relative_path)  # 被 LLM 修改的 Java 文件
 
         # 自动处理 Windows (;) 和 Linux (:) 的 classpath 分隔符
@@ -249,7 +281,8 @@ class Ails2Evaluation(Evaluation):
             classpath_compile = libs_path_glob
             classpath_run = f"{compile_output_dir}{classpath_separator}{libs_path_glob}"
         else:
-            print(f"Subprocess {subprocess_index}: 'libs' directory not found in {target_dir}. Assuming no dependencies.")
+            print(
+                f"Subprocess {subprocess_index}: 'libs' directory not found in {target_dir}. Assuming no dependencies.")
             classpath_compile = ""
             classpath_run = f"{compile_output_dir}"  # 运行时只包含 bin 目录
 
@@ -317,9 +350,9 @@ class Ails2Evaluation(Evaluation):
         # 编译命令
         compile_cmd = [
             "javac",
-            "-d", compile_output_dir,  # 【补完】输出目录
-            "-sourcepath", src_path,  # 【新增】源码根目录
-            # f"@{sources_file}"              # 旧代码
+            "-d", compile_output_dir,
+            "-sourcepath", src_path,
+            # f"@{sources_file}"
         ]
         if classpath_compile:
             compile_cmd.extend(["-cp", classpath_compile])
@@ -338,7 +371,7 @@ class Ails2Evaluation(Evaluation):
         try:
             if compile_process.returncode != 0:
                 print(f"Subprocess {subprocess_index}: Compilation failed! Return code: {compile_process.returncode}",
-                    file=sys.stderr)
+                      file=sys.stderr)
                 print("--- Javac Stderr DUMP ---", file=sys.stderr)
                 print(compile_process.stderr, file=sys.stderr)
                 print("---------------------------", file=sys.stderr)
@@ -376,7 +409,7 @@ class Ails2Evaluation(Evaluation):
             print(f"Serial evaluation failed: {e}", file=sys.stderr)
             return None
 
-    def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
+    def evaluate_program(self, program_str: str, **kwargs) -> Any | None:
         subprocess_index = kwargs.get("subprocess_index", 0)
         return self.evaluate(program_str, subprocess_index=subprocess_index)
 
@@ -623,8 +656,6 @@ public abstract class Perturbation
 
     eval = Ails2Evaluation(timeout_seconds=5, dump_java_output_on_finish=True)  # 设置超时
 
-
     print("开始评估...")
     res = eval.evaluate_program(java_script, None)
     print(f"评估完成。平均适应度: {res}")
-

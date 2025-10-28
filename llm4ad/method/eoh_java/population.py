@@ -46,7 +46,7 @@ class Population:
         self._next_gen_pop = []
         self._generation += 1
 
-    def register_function(self, func: Function):
+    def register_function(self, func: JavaScripts):
         # in population initialization, we only accept valid functions
         if self._generation == 0 and func.score is None:
             return
@@ -68,7 +68,7 @@ class Population:
         finally:
             self._lock.release()
 
-    def has_duplicate_function(self, func: str | Function) -> bool:
+    def has_duplicate_function(self, func: str | JavaScripts) -> bool:
         for f in self._population:
             if str(f) == str(func) or func.score == f.score:
                 return True

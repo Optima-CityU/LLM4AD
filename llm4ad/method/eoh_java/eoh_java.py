@@ -32,16 +32,17 @@ from threading import Thread
 from typing import Optional, Literal
 
 from .population import Population
-from .profiler import EoHProfiler
+from .profiler import EoH_java_Profiler
 from .prompt import EoHPrompt
-from .sampler import EoHSampler
+from .sampler import EoH_Java_Sampler
 from ...base import (
-    Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
+    Evaluation, LLM, SecureEvaluator, JavaScripts
 )
 from ...tools.profiler import ProfilerBase
 
+# TODO: 开始运行时把task复制几份
 
-class EoH:
+class EoH_Java:
     def __init__(self,
                  llm: LLM,
                  evaluation: Evaluation,
@@ -83,8 +84,8 @@ class EoH:
                 and you set this argument to 'thread'.
             **kwargs                    : some args pass to 'llm4ad.base.SecureEvaluator'. Such as 'fork_proc'.
         """
-        self._template_program_str = evaluation.template_program
         self._task_description_str = evaluation.task_description
+        self._template_program = evaluation.template_program
         self._max_generations = max_generations
         self._max_sample_nums = max_sample_nums
         self._pop_size = pop_size
@@ -96,22 +97,20 @@ class EoH:
         # samplers and evaluators
         self._num_samplers = num_samplers
         self._num_evaluators = num_evaluators
+
+        evaluation.copy_dir_multiple_times(self._num_evaluators)
+
         self._resume_mode = resume_mode
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
-
-        # function to be evolved
-        self._function_to_evolve: Function = TextFunctionProgramConverter.text_to_function(self._template_program_str)
-        self._function_to_evolve_name: str = self._function_to_evolve.name
-        self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
 
         # adjust population size
         self._adjust_pop_size()
 
         # population, sampler, and evaluator
         self._population = Population(pop_size=self._pop_size)
-        self._sampler = EoHSampler(llm, self._template_program_str)
+        self._sampler = EoH_Java_Sampler(llm)
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
@@ -173,32 +172,34 @@ class EoH:
         3. Add the function to the population and register it to the profiler.
         """
         sample_start = time.time()
-        thought, func = self._sampler.get_thought_and_function(prompt)
+        thought, java_code = self._sampler.get_thought_and_function(prompt)
         sample_time = time.time() - sample_start
-        if thought is None or func is None:
+        if thought is None or java_code is None:
             return
-        # convert to Program instance
-        program = TextFunctionProgramConverter.function_to_program(func, self._template_program)
-        if program is None:
-            return
+
         # evaluate
         score, eval_time = self._evaluation_executor.submit(
-            self._evaluator.evaluate_program_record_time,
-            program
+            self._evaluator.evaluate_java_record_time,
+            java_code
         ).result()
         # register to profiler
-        func.score = score
-        func.evaluate_time = eval_time
-        func.algorithm = thought
-        func.sample_time = sample_time
+
+        java_script = JavaScripts(
+            algorithm=thought,
+            java_code=java_code,
+            score=score,
+            sample_time=sample_time,
+            evaluate_time=eval_time,
+        )
+
         if self._profiler is not None:
-            self._profiler.register_function(func, program=str(program))
-            if isinstance(self._profiler, EoHProfiler):
+            self._profiler.register_java(java_script)
+            if isinstance(self._profiler, EoH_java_Profiler):
                 self._profiler.register_population(self._population)
             self._tot_sample_nums += 1
 
         # register to the population
-        self._population.register_function(func)
+        self._population.register_function(java_script)
 
     def _continue_loop(self) -> bool:
         if self._max_generations is None and self._max_sample_nums is None:
@@ -260,12 +261,6 @@ class EoH:
                     exit()
                 continue
 
-        # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
-            pass
-
     def _iteratively_init_population(self):
         """Let a thread repeat {sample -> evaluate -> register to population}
         to initialize a population.
@@ -273,7 +268,7 @@ class EoH:
         while self._population.generation == 0:
             try:
                 # get a new func using i1
-                prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
+                prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._template_program)
                 self._sample_evaluate_register(prompt)
                 if self._tot_sample_nums >= self._initial_sample_nums_max:
                     # print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
@@ -314,8 +309,14 @@ class EoH:
                     f'Please also check your evaluation implementation and LLM implementation.')
                 return
 
-        # evolutionary search
-        self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
+        # # # evolutionary search
+        # self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
+
+        # shutdown evaluation_executor
+        try:
+            self._evaluation_executor.shutdown(cancel_futures=True)
+        except:
+            pass
 
         # finish
         if self._profiler is not None:

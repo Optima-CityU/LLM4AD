@@ -98,6 +98,26 @@ class Function:
                 self.return_type == other.return_type and
                 self.body == other.body)
 
+class JavaScripts:
+    def __init__(self, algorithm: str = '', java_code: str | None = None,
+                 score: float | None = None,
+                 evaluate_time: float | None = None,
+                 sample_time: float | None = None):
+        self.algorithm = algorithm
+        self.java_code = java_code
+        self.score = score
+        self.evaluate_time = evaluate_time
+        self.sample_time = sample_time
+
+    def __str__(self) -> str:
+        return self.java_code or ''
+
+    def __eq__(self, other: JavaScripts):
+        assert isinstance(other, JavaScripts)
+        return (self.algorithm == other.algorithm and
+                self.java_code == other.java_code)
+
+
 
 @dataclasses.dataclass(frozen=True)
 class Program:

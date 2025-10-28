@@ -223,9 +223,67 @@ class SecureEvaluator:
                 print(e)
             return None
 
+    def evaluate_java(self, program: str | Program, **kwargs):
+        try:
+            program_str = str(program)
+
+            if self._debug_mode:
+                print(f'DEBUG: evaluated program:\n{program_str}\n')
+
+            # safe evaluate
+            if self._evaluator.safe_evaluate:
+                result_queue = multiprocessing.Queue()
+                process = multiprocessing.Process(
+                    target=self._evaluate_java_in_safe_process,
+                    args=(program_str, result_queue),
+                    kwargs=kwargs,
+                    daemon=self._evaluator.daemon_eval_process
+                )
+                process.start()
+
+                if self._evaluator.timeout_seconds is not None:
+                    try:
+                        # get the result in timeout seconds
+                        result = result_queue.get(timeout=self._evaluator.timeout_seconds * 2)      # 因为有“编译”时间，所以给他的时间要比我们限定的时间多一点
+                        # after getting the result, terminate/kill the process
+                        process.terminate()
+                        process.join(timeout=5)
+                        if process.is_alive():
+                            process.kill()
+                            process.join()
+                    except:
+                        # timeout
+                        if self._debug_mode:
+                            print(f'DEBUG: the evaluation time exceeds {self._evaluator.timeout_seconds * 2}s.')
+                        process.terminate()
+                        process.join(timeout=5)
+                        if process.is_alive():
+                            process.kill()
+                            process.join()
+                        result = None
+                else:
+                    result = result_queue.get()
+                    process.terminate()
+                    process.join(timeout=5)
+                    if process.is_alive():
+                        process.kill()
+                        process.join()
+                return result
+            else:
+                return self._evaluate_java(program_str, **kwargs)
+        except Exception as e:
+            if self._debug_mode:
+                print(e)
+            return None
+
     def evaluate_program_record_time(self, program: str | Program, **kwargs):
         evaluate_start = time.time()
         result = self.evaluate_program(program, **kwargs)
+        return result, time.time() - evaluate_start
+
+    def evaluate_java_record_time(self, program: str | Program, **kwargs):
+        evaluate_start = time.time()
+        result = self.evaluate_java(program, **kwargs)
         return result, time.time() - evaluate_start
 
     def _evaluate_in_safe_process(self, program_str: str, function_name, result_queue: multiprocessing.Queue, **kwargs):
@@ -248,6 +306,16 @@ class SecureEvaluator:
                 print(e)
             result_queue.put(None)
 
+    def _evaluate_java_in_safe_process(self, program_str: str, result_queue: multiprocessing.Queue, **kwargs):
+        try:
+            # get evaluate result
+            res = self._evaluator.evaluate_program(program_str, **kwargs)
+            result_queue.put(res)
+        except Exception as e:
+            if self._debug_mode:
+                print(e)
+            result_queue.put(None)
+
     def _evaluate(self, program_str: str, function_name, **kwargs):
         try:
             if self._evaluator.exec_code:
@@ -262,6 +330,16 @@ class SecureEvaluator:
 
             # get evaluate result
             res = self._evaluator.evaluate_program(program_str, program_callable, **kwargs)
+            return res
+        except Exception as e:
+            if self._debug_mode:
+                print(e)
+            return None
+
+    def _evaluate_java(self, program_str: str, **kwargs):
+        try:
+            # get evaluate result
+            res = self._evaluator.evaluate_program(program_str, **kwargs)
             return res
         except Exception as e:
             if self._debug_mode:
