@@ -94,7 +94,8 @@ class ProfilerBase:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
                 self._record_and_print_verbose(function, resume_mode=resume_mode)
-                self._write_json(function, program)
+                if not resume_mode:
+                    self._write_json(function, program)
             finally:
                 self._register_function_lock.release()
         else:
@@ -102,7 +103,8 @@ class ProfilerBase:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
                 self._record_and_print_verbose(function, resume_mode=resume_mode)
-                self._write_json(function, program)
+                if not resume_mode:
+                    self._write_json(function, program)
             finally:
                 self._register_function_lock.release()
 
@@ -166,7 +168,8 @@ class ProfilerBase:
                 self._cur_best_function = function
                 self._cur_best_program_score = score
                 self._cur_best_program_sample_order = self._num_samples
-                self._write_json(function, record_type='best', program=program)
+                if not resume_mode:
+                        self._write_json(function, record_type='best', program=program)
         else:
             if score is not None:
                 for i in range(self._num_objs):
@@ -174,7 +177,8 @@ class ProfilerBase:
                         self._cur_best_function[i] = function
                         self._cur_best_program_score[i] = score[i]
                         self._cur_best_program_sample_order[i] = self._num_samples
-                        self._write_json(function, record_type='best', program=program)
+                        if not resume_mode:
+                                self._write_json(function, record_type='best', program=program)
 
         if not resume_mode:
             # log attributes of the function
