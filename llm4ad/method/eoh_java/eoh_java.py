@@ -192,12 +192,13 @@ class EoH_Java:
             score=score,
             sample_time=sample_time,
             evaluate_time=eval_time,
+            operator=operator,
         )
 
         if self._profiler is not None:
-            self._profiler.register_java(java_script, operator)
+            self._profiler.register_java(java_script)
             if isinstance(self._profiler, EoH_java_Profiler):
-                self._profiler.register_population(self._population, operator)
+                self._profiler.register_population(self._population)
             self._tot_sample_nums += 1
 
         # register to the population

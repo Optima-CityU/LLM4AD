@@ -4,67 +4,81 @@ import SearchMethod.Config;
 import SearchMethod.StoppingCriterionType;
 
 public class DistAdjustment {
-    // Minimum and maximum diversity distances
     private int distMMin;
     private int distMMax;
     private int iterator;
     private long ini;
-    private double executionMaximumLimit;
+    private final double executionMaximumLimit;
     private double alpha = 1;
-    private StoppingCriterionType stoppingCriterionType;
-    private IdealDist idealDist;
+    private final StoppingCriterionType stoppingCriterionType;
+    private final IdealDist idealDist;
+    private DecayFunction decayFunction; // Flexible decay function implementation
 
-    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit) {
+    // DecayFunction interface for adaptive decay schedules
+    interface DecayFunction {
+        double calculateAlpha(int currentIteration, int totalIterations, double executionLimit);
+    }
+
+    // Exponential decay function implementation
+    private static class ExponentialDecay implements DecayFunction {
+        @Override
+        public double calculateAlpha(int currentIteration, int totalIterations, double executionLimit) {
+            return Math.exp(-((double) currentIteration / executionLimit));
+        }
+    }
+
+    // Cosine decay function implementation
+    private static class CosineDecay implements DecayFunction {
+        @Override
+        public double calculateAlpha(int currentIteration, int totalIterations, double executionLimit) {
+            return 0.5 * (1 + Math.cos(Math.PI * currentIteration / executionLimit));
+        }
+    }
+
+    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit, DecayFunction decayFunction) {
         this.idealDist = idealDist;
         this.executionMaximumLimit = executionMaximumLimit;
         this.distMMin = config.getDMin();
         this.distMMax = config.getDMax();
-        this.idealDist.idealDist = distMMax; // Start at maximum distance
+        this.idealDist.idealDist = distMMax;
         this.stoppingCriterionType = config.getStoppingCriterionType();
+        this.decayFunction = decayFunction; // Assigning decay function
     }
 
     public void distAdjustment() {
-        // Initialize iterator and starting time
-        if (iterator == 0) ini = System.currentTimeMillis();
+        if (iterator == 0) {
+            ini = System.currentTimeMillis();
+        }
+
         iterator++;
 
-        // Adjustably change distance based on the stopping criterion
+        // Calls the appropriate adjustment based on stoppingCriterionType
         switch (stoppingCriterionType) {
             case Iteration:
-                iterationAdjustment();
+                alpha = iterationAdjustment();
                 break;
             case Time:
-                timeAdjustment();
+                alpha = timeAdjustment();
                 break;
             default:
                 break;
         }
 
-        // Update the ideal distance with capped alpha adjustment for stability
+        // Apply the decay factor and clamp the ideal distance
         idealDist.idealDist *= alpha;
-        idealDist.idealDist = clamp(idealDist.idealDist, distMMin, distMMax);
+        idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
     }
 
-    // Linear decay adjustment based on the iteration count
-    private void iterationAdjustment() {
-        alpha = getDecayFactor(distMMin, distMMax, executionMaximumLimit, iterator);
+    // Iterative adjustment utilizing the chosen decay function
+    private double iterationAdjustment() {
+        return decayFunction.calculateAlpha(iterator, distMMax, executionMaximumLimit);
     }
 
-    // Time-based decay adjustment
-    private void timeAdjustment() {
+    // Time-based adjustment utilizing the chosen decay function
+    private double timeAdjustment() {
         double current = (double) (System.currentTimeMillis() - ini) / 1000;
         double timePercentage = current / executionMaximumLimit;
-        double total = (double) iterator / timePercentage;
-        alpha = getDecayFactor(distMMin, distMMax, total, iterator);
-    }
-
-    // Generalized method to compute the decay factor, allowing flexibility for different decay schedules
-    private double getDecayFactor(int min, int max, double decayBase, int step) {
-        return Math.pow((double) min / (double) max, (1.0 / decayBase) * step);
-    }
-
-    // Clamp method to ensure the ideal distance remains within bounds
-    private double clamp(double value, double min, double max) {
-        return Math.min(max, Math.max(value, min));
+        int currentIter = Math.min(iterator, (int)(timePercentage * executionMaximumLimit)); // Clamp iterations
+        return decayFunction.calculateAlpha(currentIter, (int)executionMaximumLimit, executionMaximumLimit);
     }
 }

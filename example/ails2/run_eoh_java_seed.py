@@ -58,7 +58,7 @@ def main():
         )
 
         if profiler is not None:
-            profiler.register_java(java_script, operator='load')
+            profiler.register_java(java_script)
             if isinstance(profiler, EoH_java_Profiler):
                 profiler.register_population(prog_db)
             method._tot_sample_nums += 1

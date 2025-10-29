@@ -106,23 +106,23 @@ class ProfilerBase:
             finally:
                 self._register_function_lock.release()
 
-    def register_java(self, java: JavaScripts, *, resume_mode=False, operator=''):
+    def register_java(self, java: JavaScripts, *, resume_mode=False):
         """Record an obtained function.
         """
         if self._num_objs < 2:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose_java(java, resume_mode=resume_mode, operator=operator)
-                self._write_json_java(java, operator=operator)
+                self._record_and_print_verbose_java(java, resume_mode=resume_mode)
+                self._write_json_java(java)
             finally:
                 self._register_function_lock.release()
         else:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose_java(java, resume_mode=resume_mode, operator=operator)
-                self._write_json_java(java, operator=operator)
+                self._record_and_print_verbose_java(java, resume_mode=resume_mode)
+                self._write_json_java(java)
             finally:
                 self._register_function_lock.release()
 
@@ -175,7 +175,7 @@ class ProfilerBase:
             json.dump(data, json_file, indent=4)
 
     def _write_json_java(self, java: JavaScripts, *, record_type: Literal['history', 'best'] = 'history',
-                    record_sep=200, operator=''):
+                    record_sep=200):
         """Write function data to a JSON file.
         Args:
             function   : The function object containing score and string representation.
@@ -188,7 +188,7 @@ class ProfilerBase:
         sample_order = self._num_samples
         content = {
             'sample_order': sample_order,
-            'operator': operator,
+            'operator': java.operator,
             'score': java.score,
             'algorithm': java.algorithm,  # Added when recording
             'function': str(java),
@@ -214,11 +214,12 @@ class ProfilerBase:
         with open(path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
-    def _record_and_print_verbose_java(self, function, program='', *, resume_mode=False, operator=''):
+    def _record_and_print_verbose_java(self, function, program='', *, resume_mode=False):
         function_str = str(function).strip('\n')
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
         score = function.score
+        operator = function.operator
 
         # update best function
         if self._num_objs < 2:
@@ -226,7 +227,7 @@ class ProfilerBase:
                 self._cur_best_function = function
                 self._cur_best_program_score = score
                 self._cur_best_program_sample_order = self._num_samples
-                self._write_json(function, record_type='best', program=program)
+                self._write_json_java(function, record_type='best')
         else:
             if score is not None:
                 for i in range(self._num_objs):
@@ -234,7 +235,7 @@ class ProfilerBase:
                         self._cur_best_function[i] = function
                         self._cur_best_program_score[i] = score[i]
                         self._cur_best_program_sample_order[i] = self._num_samples
-                        self._write_json(function, record_type='best', program=program)
+                        self._write_json_java(function, record_type='best')
 
         if not resume_mode:
             # log attributes of the function

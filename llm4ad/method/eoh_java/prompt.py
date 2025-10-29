@@ -55,7 +55,9 @@ Ensure that:
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
             indivs_prompt += f'No. {i + 1} approach and the corresponding java script are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += '\n'
             indivs_prompt += '-' * 20
+            indivs_prompt += '\n'
         # create prmpt content
         prompt_content = f'''{task_prompt}
 I have {len(indivs)} existing approaches with their java scripts as follows:
@@ -85,7 +87,9 @@ Ensure that:
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
             indivs_prompt += f'No. {i + 1} approach and the corresponding java script are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += '\n'
             indivs_prompt += '-' * 20
+            indivs_prompt += '\n'
         # create prmpt content
         prompt_content = f'''{task_prompt}
 I have {len(indivs)} existing approaches with their java scripts as follows:

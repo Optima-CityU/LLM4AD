@@ -13,23 +13,40 @@ public class DistAdjustment {
     private StoppingCriterionType stoppingCriterionType;
     private IdealDist idealDist;
 
+    // Enum to represent different types of decay schedules
+    public enum DecayType {
+        LINEAR,
+        EXPONENTIAL,
+        COSINE,
+        LOGARITHMIC,
+        PIECEWISE
+    }
+
+    private DecayType decayType;
+
     public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit) {
         this.idealDist = idealDist;
         this.executionMaximumLimit = executionMaximumLimit;
         this.distMMin = config.getDMin();
         this.distMMax = config.getDMax();
-        this.idealDist.idealDist = distMMax; // Initialize to maximum diversity distance
+        this.idealDist.idealDist = distMMax; // Start with maximum ideal distance
         this.stoppingCriterionType = config.getStoppingCriterionType();
+        this.decayType = DecayType.EXPONENTIAL; // Default decay method
+    }
+
+    // Public method to set the decay type
+    public void setDecayType(DecayType decayType) {
+        this.decayType = decayType;
     }
 
     public void distAdjustment() {
         if (iterator == 0) {
-            ini = System.currentTimeMillis();
+            ini = System.currentTimeMillis(); // Initialize the start time
         }
 
         iterator++;
 
-        // Adjust based on stopping criterion
+        // Adjust alpha based on the selected stopping criterion
         switch (stoppingCriterionType) {
             case Iteration:
                 iterationAdjustment();
@@ -41,33 +58,64 @@ public class DistAdjustment {
                 break;
         }
 
-        // Update idealDist with a smooth decay using alpha
-        idealDist.idealDist *= alpha;
-        idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin)); // Clamp the value
+        // Apply decay calculation based on selected decay type
+        applyDecay();
+        
+        // Ensure idealDist remains within defined limits
+        idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
     }
 
+    // Adjustment of alpha based on the number of iterations
     private void iterationAdjustment() {
-        // Use nonlinear decay: decay faster at first, slowing down over time
-        alpha = computeDecayFactor(iterator, distMMin, distMMax, executionMaximumLimit, "exponential");
+        double decayRatio = (double) (iterator < distMMin ? distMMin : distMMax) / distMMax;
+        alpha = calculateDecay(decayRatio);
     }
 
+    // Adjustment of alpha based on the elapsed time
     private void timeAdjustment() {
-        double current = (double) (System.currentTimeMillis() - ini) / 1000;
-        double timePercentage = current / executionMaximumLimit;
-        // Total based on time and iteration for more nuanced adjustment
-        double total = (double) iterator / timePercentage;
-        alpha = computeDecayFactor(total, distMMin, distMMax, executionMaximumLimit, "time-based");
+        double currentTime = (double) (System.currentTimeMillis() - ini) / 1000;
+        double timePercentage = currentTime / executionMaximumLimit;
+        double total = (double) iterator / Math.max(timePercentage, 1);
+        alpha = calculateDecay(1.0 - (double) distMMax / distMMin, total);
     }
 
-    private double computeDecayFactor(double input, int dMin, int dMax, double maxLimit, String method) {
-        // Different decay methods can be implemented here for flexibility and adaptiveness
-        switch (method) {
-            case "exponential":
-                return Math.pow((double) dMin / (double) dMax, (1.0 / maxLimit) * input);
-            case "time-based":
-                return Math.pow((double) dMin / (double) dMax, (1.0 / input));
-            default:
-                return 1.0; // Default to 1 if an invalid method is specified
+    // Apply decay calculation based on selected decay type
+    private void applyDecay() {
+        switch (decayType) {
+            case LINEAR:
+                idealDist.idealDist *= alpha;
+                break;
+            case EXPONENTIAL:
+                idealDist.idealDist *= Math.exp(-alpha);
+                break;
+            case COSINE:
+                idealDist.idealDist *= (1 - Math.cos(Math.PI * ((double) iterator / executionMaximumLimit)));
+                break;
+            case LOGARITHMIC:
+                idealDist.idealDist *= (1 / (1 + Math.log(1 + iterator)));
+                break;
+            case PIECEWISE:
+                idealDist.idealDist *= piecewiseDecay(iterator);
+                break;
+        }
+    }
+
+    // Calculate the decay factor with better stability
+    private double calculateDecay(double decayRatio) {
+        return Math.pow(decayRatio, 1.0 / Math.max(executionMaximumLimit, 1));
+    }
+
+    // Overloaded method for calculating decay with additional parameters
+    private double calculateDecay(double decayRatio, double factor) {
+        return Math.pow(decayRatio, 1.0 / Math.max(factor, 1));
+    }
+
+    // Implementing a simple piecewise function as an example
+    private double piecewiseDecay(int iterator) {
+        if (iterator < executionMaximumLimit / 2) {
+            return 1.0 - (double) iterator / (executionMaximumLimit / 2);
+        } else {
+            return 0.5; // Constant decay after half the iterations
         }
     }
 }

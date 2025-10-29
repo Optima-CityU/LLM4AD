@@ -102,12 +102,14 @@ class JavaScripts:
     def __init__(self, algorithm: str = '', java_code: str | None = None,
                  score: float | None = None,
                  evaluate_time: float | None = None,
-                 sample_time: float | None = None):
+                 sample_time: float | None = None,
+                 operator: str | None = '') -> None:
         self.algorithm = algorithm
         self.java_code = java_code
         self.score = score
         self.evaluate_time = evaluate_time
         self.sample_time = sample_time
+        self.operator = operator
 
     def __str__(self) -> str:
         return self.java_code or ''
