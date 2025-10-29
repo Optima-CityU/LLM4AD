@@ -18,7 +18,9 @@ __all__ = ['Ails2Evaluation']
 class Ails2Evaluation(Evaluation):
     """Evaluator for AILSII Java."""
 
-    def __init__(self, timeout_seconds=10, dump_java_output_on_finish: bool = False, **kwargs):
+    def __init__(self, timeout_seconds=10, dump_java_output_on_finish: bool = False,
+                 jdk_bin_path: str = r";C:\Program Files\Common Files\Oracle\Java\javapath",            # TODO 1
+                 ** kwargs):
         """
             Args:
                 - 'dimension' (int): The dimension of tested case (default is 15).
@@ -31,10 +33,10 @@ class Ails2Evaluation(Evaluation):
             use_numba_accelerate=False,
             timeout_seconds=timeout_seconds
         )
-        # 将 timeout_seconds 存为成员变量，以便 run_command 使用
         self.timeout_seconds = timeout_seconds
         self.dump_java_output_on_finish = dump_java_output_on_finish
-        self.java_commands = []  # 用于存储生成的 Java 命令
+        self.java_commands = []  # 用于存储生成的 执行Java脚本 的命令
+        self.jdk_bin_path = jdk_bin_path
 
     def copy_dir_multiple_times(self, n: int):
         """
@@ -162,108 +164,9 @@ class Ails2Evaluation(Evaluation):
             else:
                 return "NO_SCORE_OUTPUT", return_code
 
-    # def run_command(self, commands) -> Tuple[str, int]:
-    #     """
-    #     使用 Popen 启动一个 Java 子进程，实时流式传输其输出，
-    #     并捕获最后一行输出中的分数部分（假定格式为 '时间;分数'）。
-    #     """
-    #     last_line_score = ""  # 只存储最后的分数
-    #     full_stdout = []  # 用于在出错时转储
-    #     full_stderr = []  # 用于在出错时转储
-    #
-    #     try:
-    #         # 1. 启动 Popen 进程
-    #         process = subprocess.Popen(
-    #             commands,
-    #             stdout=subprocess.PIPE,
-    #             stderr=subprocess.PIPE,
-    #             text=True,
-    #             encoding='utf-8',  # 明确指定编码
-    #             bufsize=1  # 行缓冲
-    #         )
-    #
-    #         # 2. 实时读取 stdout
-    #         if process.stdout:
-    #             for line in iter(process.stdout.readline, ''):
-    #                 line_full = line.strip()
-    #                 if not line_full:  # 跳过空行
-    #                     continue
-    #
-    #                 if self.realtime_print_java_output:
-    #                     # 实时打印到 Python 控制台
-    #                     print(f"[Java]: {line_full}")
-    #
-    #                 # --- 分数解析逻辑 ---
-    #                 # 捕获最后一行非空行，并只取分号后的部分
-    #                 try:
-    #                     # 假设格式为 "时间;分数"
-    #                     score_part = line_full.split(';', 1)[1].strip()
-    #                     if score_part:  # 确保分号后有内容
-    #                         last_line_score = score_part
-    #                 except IndexError:
-    #                     # 如果某行没有分号, 保持上一行的 last_line_score 不变
-    #                     # 忽略没有分号的行 (比如 "编译成功", "文件读取错误" 等)
-    #                     pass
-    #                     # --- 分数解析逻辑结束 ---
-    #
-    #                 full_stdout.append(line)
-    #             process.stdout.close()  # 关闭流
-    #
-    #         # 3. 实时读取 stderr
-    #         if process.stderr:
-    #             for line in iter(process.stderr.readline, ''):
-    #                 line_stripped = line.strip()
-    #                 if self.realtime_print_java_output:
-    #                     # 实时打印到 Python 控制台
-    #                     print(f"[Java ERR]: {line_stripped}", file=sys.stderr)
-    #                 full_stderr.append(line)
-    #             process.stderr.close()  # 关闭流
-    #
-    #         # 4. 等待进程结束（并处理超时）
-    #         return_code = process.wait(timeout=self.timeout_seconds)
-    #
-    #         # 5. 检查返回码和最后一行
-    #         if return_code != 0:
-    #             print(f"Java process {commands[0]}... failed. Return code: {return_code}", file=sys.stderr)
-    #             if not self.realtime_print_java_output:
-    #                 print("--- Java Stderr DUMP ---", file=sys.stderr)
-    #                 print("".join(full_stderr), file=sys.stderr)
-    #                 print("--------------------------", file=sys.stderr)
-    #             return "CRASH", return_code
-    #
-    #         if not last_line_score:
-    #             print(f"Java process {commands[0]}... succeeded but captured no valid score output.", file=sys.stderr)
-    #             if not self.realtime_print_java_output:  # 如果实时打印关闭了，转储 stdout 帮助调试
-    #                 print("--- Java Stdout DUMP ---", file=sys.stderr)
-    #                 print("".join(full_stdout), file=sys.stderr)
-    #                 print("--------------------------", file=sys.stderr)
-    #             return "NO_SCORE_OUTPUT", return_code
-    #
-    #         # 成功
-    #         return last_line_score, return_code
-    #
-    #     except subprocess.TimeoutExpired:
-    #         print(f"Java process {commands[0]}... timed out (> {self.timeout_seconds}s). Terminating...", file=sys.stderr)
-    #         process.kill()
-    #         try:
-    #             _stdout_data, _stderr_data = process.communicate(timeout=5)
-    #             if self.realtime_print_java_output:
-    #                 print(f"[Java TIMEOUT STDOUT]: {_stdout_data}")
-    #                 print(f"[Java TIMEOUT STDERR]: {_stderr_data}", file=sys.stderr)
-    #         except Exception as e:
-    #             print(f"Error while terminating timed-out process: {e}", file=sys.stderr)
-    #         return "TIMEOUT", -1
-    #
-    #     except Exception as e:
-    #         print(f"Python error during run_command: {e}", file=sys.stderr)
-    #         if 'process' in locals() and process.poll() is None:
-    #             process.kill()
-    #         return "PY_ERROR", -2
-
     def evaluate(self, java_script: str, subprocess_index=0) -> float | None:
         current_path = os.path.dirname(os.path.abspath(__file__))
         target_dir = os.path.join(current_path, java_dir + f"_{subprocess_index}")  # Java 项目沙盒根目录
-        # target_dir = os.path.join(current_path, java_dir)  # Java 项目沙盒根目录
         target_change_java = os.path.join(target_dir, aim_java_relative_path)  # 被 LLM 修改的 Java 文件
 
         # 自动处理 Windows (;) 和 Linux (:) 的 classpath 分隔符
@@ -289,20 +192,19 @@ class Ails2Evaluation(Evaluation):
         # --- 1. 构建Java命令 ---
         if not self.java_commands:
             print(f"Subprocess {subprocess_index}: First run, building Java command list...")
-            instances_dir = os.path.join(target_dir, "XLDemo_eohtest")
+            instances_dir = os.path.join(target_dir, "XLDemo_eohtest")                                # TODO 2 此处是AILSII需要评估的实例存放目录
             instance_files = glob.glob(os.path.join(instances_dir, "*.vrp"))
 
             if not instance_files:
                 print(f"Error: No .vrp instance files were found in {instances_dir}.", file=sys.stderr)
                 return None
 
-            main_class = "SearchMethod.AILSII"
+            main_class = "SearchMethod.AILSII"                                                        # TODO 3 如果还是AILSII就不需要改
 
             # 根据原始命令，为每个实例生成运行命令
             instance_commands = []
-            for instance_file_path in instance_files:
-                # 仿照原始命令: java -jar AILSII.jar -file data/X-n214-k11.vrp -rounded true -best 10856 -limit 100 -stoppingCriterion Time
-                # 我们省略 -best 参数，因为它用于比较，而不是运行
+            for instance_file_path in instance_files:                                                 # TODO 4  如果还是AILSII就不需要改
+                # 仿照原始命令创建command, 比如: java -jar AILSII.jar -file data/X-n214-k11.vrp -rounded true -best 10856 -limit 100 -stoppingCriterion Time
                 command = [
                     "java",
                     "-cp", classpath_run,
@@ -314,16 +216,19 @@ class Ails2Evaluation(Evaluation):
                 ]
                 instance_commands.append(command)
 
+            self.java_commands = instance_commands
+
         # --- 2. 设置JDK环境 ---
         if "JDK_PATH" not in os.environ:
-            jdk_bin_path = r";C:\Program Files\Common Files\Oracle\Java\javapath"  # <== 示例路径，请修改
+            jdk_bin_path = self.jdk_bin_path  # <== 示例路径，请修改
             os.environ['PATH'] += jdk_bin_path
             os.environ["JDK_PATH"] = "set"
 
         # --- 3. 注入和编译 ---
         # 【!!!】假设 Java 源代码在 'Method/AILS-II/src' 目录下
         # 这基于你的代码骨架。如果不对请修改。
-        src_path = os.path.join(target_dir, "Method", "AILS-II", "src")
+
+        src_path = os.path.join(target_dir, "Method", "AILS-II", "src")                             # TODO 5  如果还是AILSII就不需要改
         sources_file = os.path.join(target_dir, "sources.txt")
 
         # 注入 LLM 生成的 Java 代码
@@ -385,9 +290,9 @@ class Ails2Evaluation(Evaluation):
 
         # --- 4. 【修改】串行评估 ---
         try:
-            print(f"Subprocess {subprocess_index}: Starting serial evaluation of {len(instance_commands)} instances...")
+            print(f"Subprocess {subprocess_index}: Starting serial evaluation of {len(self.java_commands)} instances...")
             results = []
-            for cmd in instance_commands:
+            for cmd in self.java_commands:
                 result = self.run_command(cmd)
                 results.append(result)
 
