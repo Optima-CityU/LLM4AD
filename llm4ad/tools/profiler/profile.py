@@ -106,23 +106,23 @@ class ProfilerBase:
             finally:
                 self._register_function_lock.release()
 
-    def register_java(self, java: JavaScripts, *, resume_mode=False):
+    def register_java(self, java: JavaScripts, *, resume_mode=False, operator=''):
         """Record an obtained function.
         """
         if self._num_objs < 2:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose_java(java, resume_mode=resume_mode)
-                self._write_json_java(java)
+                self._record_and_print_verbose_java(java, resume_mode=resume_mode, operator=operator)
+                self._write_json_java(java, operator=operator)
             finally:
                 self._register_function_lock.release()
         else:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose_java(java, resume_mode=resume_mode)
-                self._write_json_java(java)
+                self._record_and_print_verbose_java(java, resume_mode=resume_mode, operator=operator)
+                self._write_json_java(java, operator=operator)
             finally:
                 self._register_function_lock.release()
 
@@ -175,7 +175,7 @@ class ProfilerBase:
             json.dump(data, json_file, indent=4)
 
     def _write_json_java(self, java: JavaScripts, *, record_type: Literal['history', 'best'] = 'history',
-                    record_sep=200):
+                    record_sep=200, operator=''):
         """Write function data to a JSON file.
         Args:
             function   : The function object containing score and string representation.
@@ -188,6 +188,7 @@ class ProfilerBase:
         sample_order = self._num_samples
         content = {
             'sample_order': sample_order,
+            'operator': operator,
             'score': java.score,
             'algorithm': java.algorithm,  # Added when recording
             'function': str(java),
@@ -213,7 +214,7 @@ class ProfilerBase:
         with open(path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
-    def _record_and_print_verbose_java(self, function, program='', *, resume_mode=False):
+    def _record_and_print_verbose_java(self, function, program='', *, resume_mode=False, operator=''):
         function_str = str(function).strip('\n')
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
@@ -241,6 +242,7 @@ class ProfilerBase:
                 print(f'================= Evaluated Function =================')
                 print(f'{function_str}')
                 print(f'------------------------------------------------------')
+                print(f'Operator     : {operator}')
                 print(f'Score        : {str(score)}')
                 print(f'Sample time  : {str(sample_time)}')
                 print(f'Evaluate time: {str(evaluate_time)}')

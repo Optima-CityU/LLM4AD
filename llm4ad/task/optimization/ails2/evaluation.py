@@ -403,7 +403,7 @@ class Ails2Evaluation(Evaluation):
             final_fitness = np.mean(fitness_values)
 
             print(f"Subprocess {subprocess_index}: Evaluation complete. Average fitness: {final_fitness}")
-            return float(final_fitness)
+            return -float(final_fitness)
 
         except Exception as e:
             print(f"Serial evaluation failed: {e}", file=sys.stderr)

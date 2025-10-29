@@ -45,89 +45,123 @@ Ensure that:
 '''
         return prompt_content
 
+    # ！！ TODO: e1, e2, m1, m2 prompt构造
+
     @classmethod
-    def get_prompt_e1(cls, task_prompt: str, indivs: List[Function], template_function: Function):
+    def get_prompt_e1(cls, task_prompt: str, indivs: List[JavaScripts], template_function: str | None=None):
         for indi in indivs:
             assert hasattr(indi, 'algorithm')
-        # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
         # create prompt content for all individuals
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
-            indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += f'No. {i + 1} approach and the corresponding java script are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += '-' * 20
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
+I have {len(indivs)} existing approaches with their java scripts as follows:
 {indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones. 
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Do not give additional explanations.'''
+Please help me create a new approach that has a totally different form from the given ones. 
+1. Briefly describe your improved approach and its core idea in **one concise sentence**, 
+   enclosed within <<Your backbone idea here>>.
+2. Then, output the **complete improved Java implementation** (the full Java script) in a clearly labeled block,
+   enclosed within double square brackets [[ ]] as follows:
+   [[JAVA_CODE_START
+   // Your complete improved Java code here
+   JAVA_CODE_END]]
+   
+Ensure that:
+- The new version must remain **fully compatible** with all original interfaces;
+- All Java code should be fully runnable and well-formatted;
+- Comments are **concise, clear, and informative**, explaining key design choices.
+'''
         return prompt_content
 
     @classmethod
-    def get_prompt_e2(cls, task_prompt: str, indivs: List[Function], template_function: Function):
+    def get_prompt_e2(cls, task_prompt: str, indivs: List[JavaScripts], template_function: str | None=None):
         for indi in indivs:
             assert hasattr(indi, 'algorithm')
 
-        # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
         # create prompt content for all individuals
         indivs_prompt = ''
         for i, indi in enumerate(indivs):
-            indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += f'No. {i + 1} approach and the corresponding java script are:\n{indi.algorithm}\n{str(indi)}'
+            indivs_prompt += '-' * 20
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
+I have {len(indivs)} existing approaches with their java scripts as follows:
 {indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones but can be motivated from them.
-1. Firstly, identify the common backbone idea in the provided algorithms. 
-2. Secondly, based on the backbone idea describe your new algorithm in one sentence. The description must be inside within boxed {{}}.
-3. Thirdly, implement the following Python function:
-{str(temp_func)}
-Do not give additional explanations.'''
+Please help me create a new approach that has a totally different form from the given ones but can be motivated from them.
+1. Firstly, identify the common backbone idea in the provided approaches. 
+2. Secondly, based on the backbone idea describe your new approach in one sentence. The description must be inside within boxed <<Your backbone idea here>>.
+3. Thirdly, output the **complete improved Java implementation** (the full Java script) in a clearly labeled block,
+   enclosed within double square brackets [[ ]] as follows:
+   [[JAVA_CODE_START
+   // Your complete improved Java code here
+   JAVA_CODE_END]]
+   
+Ensure that:
+- The new version must remain **fully compatible** with all original interfaces;
+- All Java code should be fully runnable and well-formatted;
+- Comments are **concise, clear, and informative**, explaining key design choices.
+'''
         return prompt_content
 
     @classmethod
-    def get_prompt_m1(cls, task_prompt: str, indi: Function, template_function: Function):
+    def get_prompt_m1(cls, task_prompt: str, indi: JavaScripts, template_function: str | None=None):
         assert hasattr(indi, 'algorithm')
         # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
+        # temp_func = copy.deepcopy(template_function)
+        # temp_func.body = ''
 
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
+I have one approach with its java script as follows. Approach description:
 {indi.algorithm}
-Code:
+-------------------
+Java script:
 {str(indi)}
+-------------------
 Please assist me in creating a new algorithm that has a different form but can be a modified version of the algorithm provided.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Do not give additional explanations.'''
+1. Briefly describe your improved approach and its core idea in **one concise sentence**, 
+   enclosed within <<Your backbone idea here>>.
+2. Then, output the **complete improved Java implementation** (the full Java script) in a clearly labeled block,
+   enclosed within double square brackets [[ ]] as follows:
+   [[JAVA_CODE_START
+   // Your complete improved Java code here
+   JAVA_CODE_END]]
+   
+Ensure that:
+- The new version must remain **fully compatible** with all original interfaces;
+- All Java code should be fully runnable and well-formatted;
+- Comments are **concise, clear, and informative**, explaining key design choices.
+'''
         return prompt_content
 
     @classmethod
-    def get_prompt_m2(cls, task_prompt: str, indi: Function, template_function: Function):
+    def get_prompt_m2(cls, task_prompt: str, indi: JavaScripts, template_function: str | None=None):
         assert hasattr(indi, 'algorithm')
         # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
+        # temp_func = copy.deepcopy(template_function)
+        # temp_func.body = ''
         # create prmpt content
         prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
+I have one approach with its java script as follows. Approach description:
 {indi.algorithm}
-Code:
+-------------------
+Java script:
 {str(indi)}
+-------------------
 Please identify the main algorithm parameters and assist me in creating a new algorithm that has a different parameter settings of the score function provided.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Do not give additional explanations.'''
+1. Briefly describe your improved approach and its core idea in **one concise sentence**, 
+   enclosed within <<Your backbone idea here>>.
+2. Then, output the **complete improved Java implementation** (the full Java script) in a clearly labeled block,
+   enclosed within double square brackets [[ ]] as follows:
+   [[JAVA_CODE_START
+   // Your complete improved Java code here
+   JAVA_CODE_END]]
+   
+Ensure that:
+- The new version must remain **fully compatible** with all original interfaces;
+- All Java code should be fully runnable and well-formatted;
+- Comments are **concise, clear, and informative**, explaining key design choices.'''
         return prompt_content

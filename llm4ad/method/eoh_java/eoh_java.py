@@ -30,6 +30,7 @@ import time
 import traceback
 from threading import Thread
 from typing import Optional, Literal
+import itertools
 
 from .population import Population
 from .profiler import EoH_java_Profiler
@@ -40,7 +41,6 @@ from ...base import (
 )
 from ...tools.profiler import ProfilerBase
 
-# TODO: 开始运行时把task复制几份
 
 class EoH_Java:
     def __init__(self,
@@ -75,7 +75,7 @@ class EoH_Java:
             use_e2_operator : if use e2 operator.
             use_m1_operator : if use m1 operator.
             use_m2_operator : if use m2 operator.
-            resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
+            resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process.
             debug_mode      : if set to True, we will print detailed information.
             multi_thread_or_process_eval: use 'concurrent.futures.ThreadPoolExecutor' or 'concurrent.futures.ProcessPoolExecutor' for the usage of
                 multi-core CPU while evaluation. Please note that both settings can leverage multi-core CPU. As a result on my personal computer (Mac OS, Intel chip),
@@ -97,8 +97,8 @@ class EoH_Java:
         # samplers and evaluators
         self._num_samplers = num_samplers
         self._num_evaluators = num_evaluators
-
-        evaluation.copy_dir_multiple_times(self._num_evaluators)
+        self.poller = itertools.cycle(range(self._num_evaluators))      # 轮询器，让多进程的java评估在不同的备份目录上进行
+        evaluation.copy_dir_multiple_times(self._num_evaluators)        # 复制源目录为多份，以便多进程评估
 
         self._resume_mode = resume_mode
         self._debug_mode = debug_mode
@@ -120,7 +120,7 @@ class EoH_Java:
         # reset _initial_sample_nums_max
         self._initial_sample_nums_max = min(
             self._max_sample_nums,
-            2 * self._pop_size
+            3 * self._pop_size
         )
 
         # multi-thread executor for evaluation
@@ -165,7 +165,7 @@ class EoH_Java:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 5.')
 
-    def _sample_evaluate_register(self, prompt):
+    def _sample_evaluate_register(self, prompt, operator='init'):
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
         2. Evaluate it by submitting to the process/thread pool, and get the results.
@@ -177,10 +177,12 @@ class EoH_Java:
         if thought is None or java_code is None:
             return
 
+        subprocess_index = next(self.poller)
         # evaluate
         score, eval_time = self._evaluation_executor.submit(
             self._evaluator.evaluate_java_record_time,
-            java_code
+            java_code,
+            subprocess_index=subprocess_index
         ).result()
         # register to profiler
 
@@ -193,9 +195,9 @@ class EoH_Java:
         )
 
         if self._profiler is not None:
-            self._profiler.register_java(java_script)
+            self._profiler.register_java(java_script, operator)
             if isinstance(self._profiler, EoH_java_Profiler):
-                self._profiler.register_population(self._population)
+                self._profiler.register_population(self._population, operator)
             self._tot_sample_nums += 1
 
         # register to the population
@@ -216,41 +218,45 @@ class EoH_Java:
         while self._continue_loop():
             try:
                 # get a new func using e1
+                operator = 'e1'
                 indivs = [self._population.selection() for _ in range(self._selection_num)]
-                prompt = EoHPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                prompt = EoHPrompt.get_prompt_e1(self._task_description_str, indivs, None)
                 if self._debug_mode:
                     print(f'E1 Prompt: {prompt}')
-                self._sample_evaluate_register(prompt)
+                self._sample_evaluate_register(prompt, operator=operator)
                 if not self._continue_loop():
                     break
 
                 # get a new func using e2
                 if self._use_e2_operator:
+                    operator = 'e2'
                     indivs = [self._population.selection() for _ in range(self._selection_num)]
-                    prompt = EoHPrompt.get_prompt_e2(self._task_description_str, indivs, self._function_to_evolve)
+                    prompt = EoHPrompt.get_prompt_e2(self._task_description_str, indivs, None)
                     if self._debug_mode:
                         print(f'E2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
+                    self._sample_evaluate_register(prompt, operator=operator)
                     if not self._continue_loop():
                         break
 
                 # get a new func using m1
                 if self._use_m1_operator:
+                    operator = 'm1'
                     indiv = self._population.selection()
-                    prompt = EoHPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
+                    prompt = EoHPrompt.get_prompt_m1(self._task_description_str, indiv, None)
                     if self._debug_mode:
                         print(f'M1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
+                    self._sample_evaluate_register(prompt, operator=operator)
                     if not self._continue_loop():
                         break
 
                 # get a new func using m2
                 if self._use_m2_operator:
+                    operator = 'm2'
                     indiv = self._population.selection()
-                    prompt = EoHPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
+                    prompt = EoHPrompt.get_prompt_m2(self._task_description_str, indiv, None)
                     if self._debug_mode:
                         print(f'M2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt)
+                    self._sample_evaluate_register(prompt, operator=operator)
                     if not self._continue_loop():
                         break
             except KeyboardInterrupt:
@@ -310,7 +316,7 @@ class EoH_Java:
                 return
 
         # # # evolutionary search
-        # self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
+        self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
 
         # shutdown evaluation_executor
         try:

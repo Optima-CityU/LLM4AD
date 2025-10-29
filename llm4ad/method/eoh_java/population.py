@@ -77,7 +77,7 @@ class Population:
                 return True
         return False
 
-    def selection(self) -> Function:
+    def selection(self) -> JavaScripts:
         funcs = [f for f in self._population if not math.isinf(f.score)]
         func = sorted(funcs, key=lambda f: f.score, reverse=True)
         p = [1 / (r + len(func)) for r in range(len(func))]

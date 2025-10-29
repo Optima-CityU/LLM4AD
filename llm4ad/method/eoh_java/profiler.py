@@ -42,7 +42,7 @@ class EoH_java_Profiler(ProfilerBase):
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
             os.makedirs(self._ckpt_dir, exist_ok=True)
 
-    def register_population(self, pop: Population):
+    def register_population(self, pop: Population, operator=''):
         try:
             self._pop_lock.acquire()
             if (self._num_samples == 0 or
@@ -52,9 +52,10 @@ class EoH_java_Profiler(ProfilerBase):
             funcs_json = []  # type: List[Dict]
             for f in funcs:
                 f_json = {
+                    'score': f.score,
+                    'operator': operator,
                     'algorithm': f.algorithm,
-                    'function': str(f),
-                    'score': f.score
+                    'function': str(f)
                 }
                 funcs_json.append(f_json)
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
@@ -65,7 +66,7 @@ class EoH_java_Profiler(ProfilerBase):
             if self._pop_lock.locked():
                 self._pop_lock.release()
 
-    def _write_json_java(self, java: JavaScripts, *, record_type='history', record_sep=200):
+    def _write_json_java(self, java: JavaScripts, *, record_type='history', record_sep=200, operator=''):
         """Write function data to a JSON file.
         Args:
             function   : The function object containing score and string representation.
@@ -80,6 +81,7 @@ class EoH_java_Profiler(ProfilerBase):
         sample_order = self._num_samples
         content = {
             'sample_order': sample_order,
+            'operator': operator,
             'score': java.score,
             'algorithm': java.algorithm,  # Added when recording
             'function': str(java),
