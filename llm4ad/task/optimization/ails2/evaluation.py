@@ -11,6 +11,8 @@ import subprocess
 import sys
 import glob
 import shutil
+import re
+import concurrent.futures # 导入 concurrent.futures
 
 __all__ = ['Ails2Evaluation']
 
@@ -18,9 +20,12 @@ __all__ = ['Ails2Evaluation']
 class Ails2Evaluation(Evaluation):
     """Evaluator for AILSII Java."""
 
-    def __init__(self, timeout_seconds=10, dump_java_output_on_finish: bool = False,
+    def __init__(self, default_instance_timeout=10,
+                 dump_java_output_on_finish: bool = False,
                  jdk_bin_path: str = r";C:\Program Files\Common Files\Oracle\Java\javapath",            # TODO 1
-                 ** kwargs):
+                 max_parallel_instances: int = 4,
+                 instances_subdir: str = "XLDemo_eohtest",  # AILSII 实例子目录
+                 **kwargs):
         """
             Args:
                 - 'dimension' (int): The dimension of tested case (default is 15).
@@ -31,12 +36,113 @@ class Ails2Evaluation(Evaluation):
             template_program=template_program,
             task_description=task_description,
             use_numba_accelerate=False,
-            timeout_seconds=timeout_seconds
+            timeout_seconds=default_instance_timeout
         )
-        self.timeout_seconds = timeout_seconds
+
+        self.default_instance_timeout = default_instance_timeout
         self.dump_java_output_on_finish = dump_java_output_on_finish
-        self.java_commands = []  # 用于存储生成的 执行Java脚本 的命令
+        self.java_commands = []  # 将存储 (command, python_timeout) 元组
         self.jdk_bin_path = jdk_bin_path
+        self.max_parallel_instances = max(1, max_parallel_instances)
+        self.instances_subdir = instances_subdir  # 存储实例子目录
+
+        # 3. 【核心修正】预计算总时间并覆盖 self.timeout_seconds
+        try:
+            # 【修改】现在返回 (total, max) 两个值
+            total_serial_time, max_instance_time = self._calculate_total_time(
+                self.instances_subdir,
+                self.default_instance_timeout
+            )
+
+            if total_serial_time == 0:
+                print(f"Warning: Could not find/parse any .vrp files in source directory. Using default timeout.",
+                      file=sys.stderr)
+                estimated_robust_time = self.default_instance_timeout
+            else:
+                # 【修正公式】 (总时间 / 并行数) + 最长时间 (防止“落后者”问题)
+                # 这是一个更保守、更安全的上限估算
+                estimated_robust_time = (total_serial_time / self.max_parallel_instances) + max_instance_time
+
+            # 增加 60 秒的编译缓冲 和 10% 的调度/方差缓冲
+            compilation_buffer = 60
+            variance_buffer_percent = 0.10
+
+            final_framework_timeout = (estimated_robust_time * (1 + variance_buffer_percent)) + compilation_buffer
+
+            # 【关键】覆盖父类的 timeout_seconds 属性
+            # SecureEvaluator 将读取这个新值
+            self.timeout_seconds = final_framework_timeout
+
+            print(f"Ails2Evaluation Initialized (Robust Timeout):")
+            print(f"  - Total serial time calculated: {total_serial_time:.2f} s")
+            print(f"  - Max instance time: {max_instance_time:.2f} s")
+            print(f"  - L2 Parallelism: {self.max_parallel_instances} workers")
+            print(f"  - Estimated robust parallel time: {estimated_robust_time:.2f} s")
+            print(f"  - ==> Setting SecureEvaluator framework timeout to: {self.timeout_seconds:.2f} s")
+
+        except Exception as e:
+            print(f"FATAL ERROR during Ails2Evaluation __init__ time calculation: {e}", file=sys.stderr)
+            # 出现异常时，回退到一个非常大的硬编码值（3小时），以防万一
+            self.timeout_seconds = 10800
+
+    def _calculate_total_time(self, instances_subdir: str, default_timeout: int) -> Tuple[float, float]:
+        """
+        扫描 *源* VRP 目录, 累加所有实例的动态时间。
+        【修改】: 同时返回 total_time 和 max_time。
+        """
+        total_time = 0.0
+        max_time = 0.0
+
+        try:
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            # 查找 *源* 目录, 而不是_0, _1...
+            src_java_dir = os.path.join(current_path, java_dir)
+            src_instances_dir = os.path.join(src_java_dir, instances_subdir)
+
+            if not os.path.isdir(src_instances_dir):
+                print(f"Warning: Source instance directory not found at: {src_instances_dir}", file=sys.stderr)
+                return default_timeout, default_timeout
+
+            instance_files = glob.glob(os.path.join(src_instances_dir, "*.vrp"))
+
+            if not instance_files:
+                print(f"Warning: No .vrp files found in {src_instances_dir}", file=sys.stderr)
+                return default_timeout, default_timeout
+
+            all_times = []
+            for instance_file_path in instance_files:
+                filename = os.path.basename(instance_file_path)
+                match = re.search(r'n(\d+)', filename)
+
+                java_limit_time = default_timeout  # 默认
+
+                if match:
+                    try:
+                        node_count = int(match.group(1))
+                        calculated_time = (node_count // 25) * 60
+
+                        if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
+                            java_limit_time = calculated_time
+
+                    except (ValueError, IndexError):
+                        pass  # 保持 default_timeout
+
+                # Python 的硬超时 = Java的限制 + 5秒缓冲
+                python_timeout = java_limit_time + 5
+                all_times.append(python_timeout)
+
+            if not all_times:
+                return default_timeout, default_timeout
+
+            total_time = sum(all_times)
+            max_time = max(all_times)
+
+            return total_time, max_time
+
+        except Exception as e:
+            print(f"Error in _calculate_total_time: {e}", file=sys.stderr)
+            return default_timeout, default_timeout  # 出错时返回默认值
+
 
     def copy_dir_multiple_times(self, n: int):
         """
@@ -68,7 +174,7 @@ class Ails2Evaluation(Evaluation):
             shutil.copytree(src_dir, dst_dir)
             print(f"Copied {src_dir} -> {dst_dir}")
 
-    def run_command(self, commands) -> Tuple[str, int]:
+    def run_command(self, commands, python_timeout: int) -> Tuple[str, int]:
         """
         [重构] 使用 Popen.communicate() 来正确施加超时，
         并能在超时或正常结束时解析最后的分数。
@@ -91,7 +197,7 @@ class Ails2Evaluation(Evaluation):
             # 2. 使用 communicate() 来处理 stdout/stderr 并施加超时
             # 这会等待进程结束，或在超时后抛出 TimeoutExpired
             # 它会一次性读取所有输出
-            full_stdout, full_stderr = process.communicate(timeout=self.timeout_seconds)
+            full_stdout, full_stderr = process.communicate(timeout=python_timeout)
 
             return_code = process.returncode
 
@@ -105,7 +211,7 @@ class Ails2Evaluation(Evaluation):
                 return "CRASH", return_code
 
         except subprocess.TimeoutExpired as e:
-            print(f"Java process {commands[0]}... timed out (> {self.timeout_seconds}s). Terminating...",
+            print(f"Java process {commands[0]}... timed out (> {python_timeout}s). Terminating...",
                   file=sys.stderr)
             process.kill()  # 确保进程被终止
 
@@ -192,7 +298,7 @@ class Ails2Evaluation(Evaluation):
         # --- 1. 构建Java命令 ---
         if not self.java_commands:
             print(f"Subprocess {subprocess_index}: First run, building Java command list...")
-            instances_dir = os.path.join(target_dir, "XLDemo_eohtest")                                # TODO 2 此处是AILSII需要评估的实例存放目录
+            instances_dir = os.path.join(target_dir, self.instances_subdir)                                # TODO 2 此处是AILSII需要评估的实例存放目录
             instance_files = glob.glob(os.path.join(instances_dir, "*.vrp"))
 
             if not instance_files:
@@ -204,6 +310,25 @@ class Ails2Evaluation(Evaluation):
             # 根据原始命令，为每个实例生成运行命令
             instance_commands = []
             for instance_file_path in instance_files:                                                 # TODO 4  如果还是AILSII就不需要改
+                # --- 3. START: 动态时间计算 ---
+                filename = os.path.basename(instance_file_path)
+                match = re.search(r'n(\d+)', filename)
+
+                java_limit_time = self.default_instance_timeout
+
+                if match:
+                    try:
+                        node_count = int(match.group(1))
+                        calculated_time = (node_count // 25) * 60
+
+                        if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
+                            java_limit_time = calculated_time
+
+                    except (ValueError, IndexError):
+                        pass  # 使用 default
+
+                python_timeout = java_limit_time + 5
+
                 # 仿照原始命令创建command, 比如: java -jar AILSII.jar -file data/X-n214-k11.vrp -rounded true -best 10856 -limit 100 -stoppingCriterion Time
                 command = [
                     "java",
@@ -211,12 +336,13 @@ class Ails2Evaluation(Evaluation):
                     main_class,
                     "-file", instance_file_path,
                     "-rounded", "true",
-                    "-limit", str(self.timeout_seconds),  # 使用 __init__ 中的超时设置
+                    "-limit", str(java_limit_time),  # 使用 __init__ 中的超时设置
                     "-stoppingCriterion", "Time"
                 ]
-                instance_commands.append(command)
+                instance_commands.append( (command, python_timeout) )
 
             self.java_commands = instance_commands
+            print(f"Java command list built with dynamic timeouts.")
 
         # --- 2. 设置JDK环境 ---
         if "JDK_PATH" not in os.environ:
@@ -288,24 +414,58 @@ class Ails2Evaluation(Evaluation):
             print(f"Error during compilation check: {e}", file=sys.stderr)
             return None
 
-        # --- 4. 【修改】串行评估 ---
+        # --- 4. 【修改】并行评估 ---
         try:
-            print(f"Subprocess {subprocess_index}: Starting serial evaluation of {len(self.java_commands)} instances...")
+            print(
+                f"Subprocess {subprocess_index}: Starting PARALLEL evaluation of {len(self.java_commands)} instances (max_workers={self.max_parallel_instances})...")
             results = []
-            for cmd in self.java_commands:
-                result = self.run_command(cmd)
-                results.append(result)
+            futures = []
+
+            # 使用 ThreadPoolExecutor 来管理并发的 subprocesses
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_parallel_instances) as executor:
+                # 提交所有任务
+                for cmd, cmd_timeout in self.java_commands:
+                    if self.dump_java_output_on_finish:
+                        instance_name = os.path.basename(cmd[6])
+                        java_limit = cmd[10]
+                        print(
+                            f"Submitting: {instance_name} (Java Limit: {java_limit}s, Python Timeout: {cmd_timeout}s)")
+
+                    # 提交任务到线程池 (self.run_command 是线程安全的)
+                    futures.append(executor.submit(self.run_command, cmd, cmd_timeout))
+
+                # 按完成顺序收集结果
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()  # (last_line, return_code)
+                        results.append(result)
+                    except Exception as e:
+                        print(f"Error collecting future result: {e}", file=sys.stderr)
+                        results.append(("FUTURE_ERROR", -99))
+
+            # --- 结果聚合 ---
+            if not results:
+                print(f"Subprocess {subprocess_index}: No results collected from parallel evaluation.",
+                      file=sys.stderr)
+                return None
 
             # 打印结果
             fitness = []
+            valid_results_count = 0
             for (last_line, return_code) in results:
-                fitness.append(last_line)
+                try:
+                    fitness_value = float(last_line)
+                    fitness.append(fitness_value)
+                    valid_results_count += 1
+                except (ValueError, TypeError):
+                    print(f"Warning: Discarding invalid result '{last_line}' (Code: {return_code})", file=sys.stderr)
 
-            # 转换为浮点数
-            fitness_values = [float(e) for e in fitness]
+            if not fitness:
+                print(f"Subprocess {subprocess_index}: Evaluation failed. No valid fitness scores found.",
+                      file=sys.stderr)
+                return None  # 所有实例都失败了
 
-            # 计算平均值
-            final_fitness = np.mean(fitness_values)
+            final_fitness = np.mean(fitness)
 
             print(f"Subprocess {subprocess_index}: Evaluation complete. Average fitness: {final_fitness}")
             return -float(final_fitness)

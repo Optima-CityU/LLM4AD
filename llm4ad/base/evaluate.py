@@ -244,7 +244,7 @@ class SecureEvaluator:
                 if self._evaluator.timeout_seconds is not None:
                     try:
                         # get the result in timeout seconds
-                        result = result_queue.get(timeout=self._evaluator.timeout_seconds * 2)      # 因为有“编译”时间，所以给他的时间要比我们限定的时间多一点
+                        result = result_queue.get(timeout=self._evaluator.timeout_seconds * 1.2)      # 因为有“编译”时间，所以给他的时间要比我们限定的时间多一点
                         # after getting the result, terminate/kill the process
                         process.terminate()
                         process.join(timeout=5)
@@ -254,7 +254,7 @@ class SecureEvaluator:
                     except:
                         # timeout
                         if self._debug_mode:
-                            print(f'DEBUG: the evaluation time exceeds {self._evaluator.timeout_seconds * 2}s.')
+                            print(f'DEBUG: the evaluation time exceeds {self._evaluator.timeout_seconds * 1.2}s.')
                         process.terminate()
                         process.join(timeout=5)
                         if process.is_alive():

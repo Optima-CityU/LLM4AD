@@ -8,54 +8,33 @@ public class DistAdjustment {
     private int distMMax;
     private int iterator;
     private long ini;
-    private double executionMaximumLimit;
+    private final double executionMaximumLimit;
     private double alpha = 1;
-    private StoppingCriterionType stoppingCriterionType;
-    private IdealDist idealDist;
-    
-    // Interface for customizable decay functions
-    public interface DecayFunction {
-        double calculate(double currentDist, double alpha, int iteration, double maxIteration);
+    private final StoppingCriterionType stoppingCriterionType;
+    private final IdealDist idealDist;
+
+    // DecayFunction interface for adaptive decay schedules
+    interface DecayFunction {
+        double calculateAlpha(int currentIteration, double executionLimit);
     }
 
-    // Default decay functions
-    public static class DecayFunctions {
-        public static double linearDecay(double currentDist, double alpha, int iteration, double maxIteration) {
-            return currentDist * alpha;
-        }
-
-        public static double exponentialDecay(double currentDist, double alpha, int iteration, double maxIteration) {
-            return currentDist * Math.exp(-alpha);
-        }
-
-        public static double cosineDecay(double currentDist, double alpha, int iteration, double maxIteration) {
-            return currentDist * (1 - Math.cos(Math.PI * (iteration / maxIteration)));
-        }
-        
-        public static double sophisticatedDecay(double currentDist, double alpha, int iteration, double maxIteration) {
-            double decayFactor = 1 / (1 + Math.exp(-alpha * (iteration - (maxIteration / 2))));
-            return currentDist * decayFactor;
-        }
+    // Predefined decay types
+    public enum DecayType {
+        LINEAR,
+        EXPONENTIAL,
+        COSINE
     }
 
-    private DecayFunction decayFunction;
+    private DecayType decayType;
 
-    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit) {
+    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit, DecayType decayType) {
         this.idealDist = idealDist;
         this.executionMaximumLimit = executionMaximumLimit;
         this.distMMin = config.getDMin();
         this.distMMax = config.getDMax();
         this.idealDist.idealDist = distMMax;
         this.stoppingCriterionType = config.getStoppingCriterionType();
-        this.decayFunction = DecayFunctions.exponentialDecay;  // Default decay function
-    }
-
-    // Public method to set custom decay function
-    public void setDecayFunction(DecayFunction decayFunction) {
-        if (decayFunction == null) {
-            throw new IllegalArgumentException("Decay function cannot be null");
-        }
-        this.decayFunction = decayFunction;
+        this.decayType = decayType; // Assign the decay type chosen by the user
     }
 
     public void distAdjustment() {
@@ -65,40 +44,63 @@ public class DistAdjustment {
 
         iterator++;
 
-        // Adjust alpha based on stopping criteria
-        adjustBasedOnStopCriteria();
+        // Calls the appropriate adjustment based on stoppingCriterionType
+        switch (stoppingCriterionType) {
+            case Iteration:
+                alpha = iterationAdjustment();
+                break;
+            case Time:
+                alpha = timeAdjustment();
+                break;
+            default:
+                break;
+        }
 
-        // Apply decay calculation using the custom decay function
-        applyDecay();
-
-        // Ensure idealDist remains within defined limits
+        // Apply the decay factor and clamp the ideal distance
+        idealDist.idealDist *= alpha;
         idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
     }
 
-    // Adjust based on stopping criteria
-    private void adjustBasedOnStopCriteria() {
-        if (stoppingCriterionType == StoppingCriterionType.Iteration) {
-            alpha = calculateDecay(1.0 - (double) distMMax / distMMin);
-        } else if (stoppingCriterionType == StoppingCriterionType.Time) {
-            double current = (double) (System.currentTimeMillis() - ini) / 1000;
-            double timePercentage = current / executionMaximumLimit;
-            double total = (double) iterator / timePercentage;
-            alpha = calculateDecay(1.0 - (double) distMMax / distMMin, total);
+    // Method for iterative adjustment with flexible decay
+    private double iterationAdjustment() {
+        return computeDecayAlpha(iterator);
+    }
+
+    // Method for time-based adjustment with flexible decay
+    private double timeAdjustment() {
+        double current = (double) (System.currentTimeMillis() - ini) / 1000;
+        double timePercentage = current / executionMaximumLimit;
+        double total = Math.max(1, (double) iterator / timePercentage); // Prevent division by zero
+        return computeDecayAlpha((int) total); // Adapted for time
+    }
+
+    // General method to compute decay alpha selecting the decay type
+    private double computeDecayAlpha(int param) {
+        double normalizedParam = (double) param / executionMaximumLimit; // Normalizing parameter for decay function
+        switch (decayType) {
+            case LINEAR:
+                return linearDecay(normalizedParam);
+            case EXPONENTIAL:
+                return exponentialDecay(normalizedParam);
+            case COSINE:
+                return cosineDecay(normalizedParam);
+            default:
+                return 1.0; // No decay
         }
     }
 
-    // Apply the selected decay function
-    private void applyDecay() {
-        idealDist.idealDist = decayFunction.calculate(idealDist.idealDist, alpha, iterator, executionMaximumLimit);
+    // Linear decay function
+    private double linearDecay(double t) {
+        return Math.max((1 - t), 0); // Decays linearly to a minimum of 0
     }
 
-    // Calculate decay based on a linear decay ratio
-    private double calculateDecay(double decayRatio) {
-        return Math.pow(decayRatio, 1 / executionMaximumLimit);
+    // Exponential decay function for more aggressively decreasing ideal distance
+    private double exponentialDecay(double t) {
+        return Math.exp(-5 * t); // Adjustable decay factor (5) for speed
     }
 
-    // Overloaded method for decay calculation with additional parameters for flexibility
-    private double calculateDecay(double decayRatio, double factor) {
-        return Math.pow(decayRatio, 1 / factor);
+    // Cosine decay function for smoother transitions
+    private double cosineDecay(double t) {
+        return 0.5 * (1 + Math.cos(Math.PI * t)); // Ranges from 1 to 0 as t goes from 0 to 1
     }
 }

@@ -12,29 +12,19 @@ public class DistAdjustment {
     private double alpha = 1;
     private final StoppingCriterionType stoppingCriterionType;
     private final IdealDist idealDist;
-    private DecayFunction decayFunction; // Flexible decay function implementation
+    private final DecayFunction decayFunction; // New field for customizable decay function
 
     // DecayFunction interface for adaptive decay schedules
     interface DecayFunction {
-        double calculateAlpha(int currentIteration, int totalIterations, double executionLimit);
+        double calculateAlpha(int currentIteration, double executionLimit);
     }
 
-    // Exponential decay function implementation
-    private static class ExponentialDecay implements DecayFunction {
-        @Override
-        public double calculateAlpha(int currentIteration, int totalIterations, double executionLimit) {
-            return Math.exp(-((double) currentIteration / executionLimit));
-        }
+    // Constructor for linear decay
+    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit) {
+        this(idealDist, config, executionMaximumLimit, DistAdjustment::linearDecay);
     }
 
-    // Cosine decay function implementation
-    private static class CosineDecay implements DecayFunction {
-        @Override
-        public double calculateAlpha(int currentIteration, int totalIterations, double executionLimit) {
-            return 0.5 * (1 + Math.cos(Math.PI * currentIteration / executionLimit));
-        }
-    }
-
+    // Constructor allowing custom decay function
     public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit, DecayFunction decayFunction) {
         this.idealDist = idealDist;
         this.executionMaximumLimit = executionMaximumLimit;
@@ -42,7 +32,7 @@ public class DistAdjustment {
         this.distMMax = config.getDMax();
         this.idealDist.idealDist = distMMax;
         this.stoppingCriterionType = config.getStoppingCriterionType();
-        this.decayFunction = decayFunction; // Assigning decay function
+        this.decayFunction = decayFunction; // Set the custom decay function
     }
 
     public void distAdjustment() {
@@ -69,16 +59,30 @@ public class DistAdjustment {
         idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
     }
 
-    // Iterative adjustment utilizing the chosen decay function
+    // Method for iterative adjustment considering decay function
     private double iterationAdjustment() {
-        return decayFunction.calculateAlpha(iterator, distMMax, executionMaximumLimit);
+        return decayFunction.calculateAlpha(iterator, executionMaximumLimit);
     }
 
-    // Time-based adjustment utilizing the chosen decay function
+    // Method for time-based adjustment considering decay function
     private double timeAdjustment() {
         double current = (double) (System.currentTimeMillis() - ini) / 1000;
         double timePercentage = current / executionMaximumLimit;
-        int currentIter = Math.min(iterator, (int)(timePercentage * executionMaximumLimit)); // Clamp iterations
-        return decayFunction.calculateAlpha(currentIter, (int)executionMaximumLimit, executionMaximumLimit);
+        return decayFunction.calculateAlpha((int) (timePercentage * iterator), executionMaximumLimit); // Adapted for time
+    }
+
+    // Example linear decay function
+    private static double linearDecay(int currentIteration, double limit) {
+        return Math.max(1.0 - (double) currentIteration / limit, 0.1); // Example linear approach to decay
+    }
+
+    // Example exponential decay function
+    private static double exponentialDecay(int currentIteration, double limit) {
+        return Math.exp(-((double) currentIteration / limit)); // Exponential decay function
+    }
+
+    // Example cosine decay function
+    private static double cosineDecay(int currentIteration, double limit) {
+        return (1 + Math.cos(Math.PI * currentIteration / limit)) / 2; // Cosine decay function
     }
 }

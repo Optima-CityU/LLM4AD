@@ -9,42 +9,48 @@ public class DistAdjustment {
     private int iterator;
     private long ini;
     private final double executionMaximumLimit;
+    private double alpha = 1;
     private final StoppingCriterionType stoppingCriterionType;
     private final IdealDist idealDist;
 
-    // DecayFunction interface for customizable decay schedules
+    // DecayFunction interface for adaptive decay schedules
     interface DecayFunction {
         double calculateAlpha(int currentIteration, double executionLimit);
     }
-
-    // SigmoidDecayFunction implements a smooth transition approach
-    static class SigmoidDecayFunction implements DecayFunction {
-        private final double steepness;
-        private final double midpoint;
-
-        public SigmoidDecayFunction(double steepness, double midpoint) {
-            this.steepness = steepness;
-            this.midpoint = midpoint;
-        }
-
-        @Override
+    
+    // Predefined decay functions for different schedules
+    public static class ExponentialDecay implements DecayFunction {
         public double calculateAlpha(int currentIteration, double executionLimit) {
-            // Utilizing the sigmoid function for smooth gradual adjustment
-            return 1 / (1 + Math.exp(-steepness * (currentIteration - midpoint)));
+            return Math.exp(-((double) currentIteration / executionLimit));
         }
     }
 
-    // Default decay function instance
-    private final DecayFunction decayFunction;
+    public static class CosineDecay implements DecayFunction {
+        public double calculateAlpha(int currentIteration, double executionLimit) {
+            return 0.5 * (1 + Math.cos(Math.PI * currentIteration / executionLimit));
+        }
+    }
 
-    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit) {
+    public static class PiecewiseDecay implements DecayFunction {
+        public double calculateAlpha(int currentIteration, double executionLimit) {
+            if (currentIteration < executionLimit / 2) {
+                return Math.pow((double) currentIteration / (executionLimit / 2), 0.5); // Squared root for early phase
+            } else {
+                return 1.0; // Maintain stability in late phase
+            }
+        }
+    }
+
+    private DecayFunction decayFunction;
+
+    public DistAdjustment(IdealDist idealDist, Config config, double executionMaximumLimit, DecayFunction decayFunction) {
         this.idealDist = idealDist;
         this.executionMaximumLimit = executionMaximumLimit;
         this.distMMin = config.getDMin();
         this.distMMax = config.getDMax();
         this.idealDist.idealDist = distMMax;
         this.stoppingCriterionType = config.getStoppingCriterionType();
-        this.decayFunction = new SigmoidDecayFunction(0.1, executionMaximumLimit / 2);  // Example settings
+        this.decayFunction = decayFunction;
     }
 
     public void distAdjustment() {
@@ -53,14 +59,18 @@ public class DistAdjustment {
         }
 
         iterator++;
-
-        // Calculate decay factor
-        double alpha = decayFunction.calculateAlpha(iterator, executionMaximumLimit);
-
-        // Apply the decay factor
+        
+        // Calls the adjustment based on stoppingCriterionType
+        if (stoppingCriterionType == StoppingCriterionType.Iteration) {
+            alpha = decayFunction.calculateAlpha(iterator, executionMaximumLimit);
+        } else if (stoppingCriterionType == StoppingCriterionType.Time) {
+            double current = (double) (System.currentTimeMillis() - ini) / 1000;
+            double timePercentage = current / executionMaximumLimit;
+            alpha = decayFunction.calculateAlpha((int)(timePercentage * executionMaximumLimit), executionMaximumLimit);
+        }
+        
+        // Apply the decay factor and clamp the ideal distance
         idealDist.idealDist *= alpha;
-
-        // Ensure idealDist is clamped within defined limits
         idealDist.idealDist = Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
     }
 }

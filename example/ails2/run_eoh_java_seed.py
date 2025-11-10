@@ -21,15 +21,15 @@ def main():
     method = EoH_Java(llm=llm,
                       profiler=EoH_java_Profiler(log_dir='logs', log_style='complex'),
                       evaluation=task,
-                      max_sample_nums=48,
-                      max_generations=5,
-                      pop_size=8,
+                      max_sample_nums=30,
+                      max_generations=None,
+                      pop_size=6,
                       num_samplers=4,
-                      num_evaluators=8,
-                      debug_mode=True)
+                      num_evaluators=4,
+                      debug_mode=False)
 
     # 定义JSON文件路径
-    seedpath = r'pop_initial.json'  # 12代
+    seedpath = r'pop_initial_3indi.json'  # 12代
 
     # 检查文件是否存在
     if os.path.exists(seedpath):
