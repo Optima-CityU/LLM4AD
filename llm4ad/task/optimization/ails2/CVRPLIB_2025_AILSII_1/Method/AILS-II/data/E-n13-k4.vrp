@@ -1,0 +1,35 @@
+NAME : E-n13-k4
+COMMENT : (Eilon et al, Min no of trucks: 4, Optimal value: 247)
+TYPE : CVRP
+DIMENSION : 13
+EDGE_WEIGHT_TYPE : EXPLICIT
+EDGE_WEIGHT_FORMAT: LOWER_ROW 
+DISPLAY_DATA_TYPE: NO_DISPLAY
+CAPACITY : 6000
+EDGE_WEIGHT_SECTION
+     9    14    21    23    22    25    32    36    38    42
+    50    52     5    12    22    21    24    31    35    37
+    41    49    51     7    17    16    23    26    30    36
+    36    44    46    10    21    30    27    37    43    31
+    37    39    19    28    25    35    41    29    31    29
+     9    10    16    22    20    28    30     7    11    13
+    17    25    27    10    16    10    18    20     6     6
+    14    16    12    12    20     8    10    10
+DEMAND_SECTION
+1 0
+2 1200 
+3 1700 
+4 1500 
+5 1400 
+6 1700 
+7 1400  
+8 1200 
+9 1900 
+10 1800 
+11 1600
+12 1700 
+13 1100
+DEPOT_SECTION
+1
+-1
+EOF
