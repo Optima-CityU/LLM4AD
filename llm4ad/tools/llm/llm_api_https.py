@@ -26,6 +26,7 @@ from typing import Any
 import traceback
 from ...base import LLM
 
+import ssl
 
 class HttpsApi(LLM):
     def __init__(self, host, key, model, timeout=60, **kwargs):
@@ -48,9 +49,18 @@ class HttpsApi(LLM):
         if isinstance(prompt, str):
             prompt = [{'role': 'user', 'content': prompt.strip()}]
 
+        try:
+            # 这适用于大多数情况
+            unverified_context = ssl._create_unverified_context()
+        except AttributeError:
+            # 以防旧版本的Python没有 _create_unverified_context
+            unverified_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            unverified_context.check_hostname = False
+            unverified_context.verify_mode = ssl.CERT_NONE
+
         while True:
             try:
-                conn = http.client.HTTPSConnection(self._host, timeout=self._timeout)
+                conn = http.client.HTTPSConnection(self._host, timeout=self._timeout, context=unverified_context)
                 payload = json.dumps({
                     'max_tokens': self._kwargs.get('max_tokens', 4096),
                     'top_p': self._kwargs.get('top_p', None),
