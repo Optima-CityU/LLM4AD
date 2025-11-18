@@ -73,8 +73,30 @@ class HttpsApi(LLM):
                     'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
                     'Content-Type': 'application/json'
                 }
+
+                print(f"--- 诊断信息 ---")
+                print(f"HOST: {self._host}")
+                print(f"MODEL: {self._model}")
+                print(f"PROMPT (Snippet): {prompt[0]['content'][:50]}...")
+                print(f"PAYLOAD Size: {len(payload)} bytes")
+                print(f"------------------")
+
                 conn.request('POST', '/v1/chat/completions', payload, headers)
                 res = conn.getresponse()
+
+                # 2. 检查 HTTP 响应状态码
+                print(f"HTTP Status: {res.status}")
+                print(f"HTTP Reason: {res.reason}")
+
+                # 确保状态码是成功的 (200 OK)
+                if res.status != 200:
+                    data = res.read().decode('utf-8')
+                    print(f"!!! HTTP ERROR !!!")
+                    print(f"Failed Status Code: {res.status}")
+                    print(f"Raw Response Body: {data}")
+                    # 抛出异常以便被下面的except捕获，或自行处理错误
+                    raise RuntimeError(f"API request failed with status {res.status}: {res.reason}. Response: {data}")
+
                 data = res.read().decode('utf-8')
                 data = json.loads(data)
                 # print(data)
