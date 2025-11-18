@@ -59,8 +59,22 @@ class HttpsApi(LLM):
             unverified_context.verify_mode = ssl.CERT_NONE
 
         while True:
+            start_time = time.time()
             try:
+                print(f"[{time.strftime('%H:%M:%S', time.localtime(start_time))}] --- 诊断信息 ---")
+                print(f"HOST: {self._host}, MODEL: {self._model}, TIMEOUT: {self._timeout}s")
+
+                # --- 步骤 1: 建立连接 ---
+                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试建立 HTTPS 连接...")
+
                 conn = http.client.HTTPSConnection(self._host, timeout=self._timeout, context=unverified_context)
+                # 注：实际连接通常在第一个 I/O 操作（如 request）时发生，但这一行是为了设置对象。
+                # 尝试提前调用 connect() 来隔离连接建立时间
+                conn.connect()
+                connect_end_time = time.time()
+                print(
+                    f"[{time.strftime('%H:%M:%S', time.localtime())}] 连接建立成功。耗时: {connect_end_time - start_time:.2f}s")
+
                 payload = json.dumps({
                     'max_tokens': self._kwargs.get('max_tokens', 4096),
                     'top_p': self._kwargs.get('top_p', None),
@@ -81,12 +95,23 @@ class HttpsApi(LLM):
                 print(f"PAYLOAD Size: {len(payload)} bytes")
                 print(f"------------------")
 
+                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试发送 POST 请求...")
                 conn.request('POST', '/v1/chat/completions', payload, headers)
+
+                request_end_time = time.time()
+                print(
+                    f"[{time.strftime('%H:%M:%S', time.localtime())}] 请求发送完成。耗时: {request_end_time - connect_end_time:.2f}s")
+
+                # --- 步骤 3: 获取响应 ---
+                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 等待接收响应头...")
                 res = conn.getresponse()
 
-                # 2. 检查 HTTP 响应状态码
-                print(f"HTTP Status: {res.status}")
-                print(f"HTTP Reason: {res.reason}")
+                response_start_time = time.time()
+                print(
+                    f"[{time.strftime('%H:%M:%S', time.localtime())}] 收到响应头。耗时: {response_start_time - request_end_time:.2f}s")
+
+                # 检查状态码和处理数据... (保持上次的逻辑)
+                print(f"HTTP Status: {res.status}, Reason: {res.reason}")
 
                 # 确保状态码是成功的 (200 OK)
                 if res.status != 200:
