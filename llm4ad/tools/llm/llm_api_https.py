@@ -22,20 +22,30 @@ from __future__ import annotations
 import http.client
 import json
 import time
+import socket  # <--- 新增：用于底层代理连接
+import ssl  # <--- 新增：用于 SSL 握手和跳过验证
 from typing import Any
 import traceback
-from ...base import LLM
 
-import ssl
+
+class LLM:
+    def __init__(self, debug_mode=False):
+        self.debug_mode = debug_mode
+
+    def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
+        raise NotImplementedError
+
 
 class HttpsApi(LLM):
-    def __init__(self, host, key, model, timeout=60, **kwargs):
+    def __init__(self, host, key, model, timeout=60, proxy_host=None, proxy_port=None, **kwargs):
         """Https API
         Args:
             host   : host name. please note that the host name does not include 'https://'
             key    : API key.
             model  : LLM model name.
             timeout: API timeout.
+            proxy_host: 代理服务器主机名或IP（可选）。
+            proxy_port: 代理服务器端口（可选）。
         """
         super().__init__(**kwargs)
         self._host = host
@@ -45,35 +55,76 @@ class HttpsApi(LLM):
         self._kwargs = kwargs
         self._cumulative_error = 0
 
+        # --- 新增：代理配置 ---
+        self._proxy_host = proxy_host
+        self._proxy_port = proxy_port
+        # ----------------------
+
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
         if isinstance(prompt, str):
             prompt = [{'role': 'user', 'content': prompt.strip()}]
 
+        # 创建不验证 SSL 证书的上下文（相当于 curl -k）
         try:
-            # 这适用于大多数情况
             unverified_context = ssl._create_unverified_context()
         except AttributeError:
-            # 以防旧版本的Python没有 _create_unverified_context
             unverified_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             unverified_context.check_hostname = False
             unverified_context.verify_mode = ssl.CERT_NONE
 
         while True:
             start_time = time.time()
+            conn = None
             try:
-                print(f"[{time.strftime('%H:%M:%S', time.localtime(start_time))}] --- 诊断信息 ---")
-                print(f"HOST: {self._host}, MODEL: {self._model}, TIMEOUT: {self._timeout}s")
+                # -----------------------------------------------------------------
+                # --- 连接建立逻辑：区分代理和直接连接 ---
+                # -----------------------------------------------------------------
 
-                # --- 步骤 1: 建立连接 ---
-                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试建立 HTTPS 连接...")
+                if self._proxy_host and self._proxy_port:
+                    # ====== 启用代理连接 ======
+                    print(
+                        f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试通过代理 {self._proxy_host}:{self._proxy_port} 建立连接...")
 
-                conn = http.client.HTTPSConnection(self._host, timeout=self._timeout, context=unverified_context)
-                # 注：实际连接通常在第一个 I/O 操作（如 request）时发生，但这一行是为了设置对象。
-                # 尝试提前调用 connect() 来隔离连接建立时间
-                conn.connect()
+                    target_host = self._host
+                    target_port = 443
+                    if ':' in target_host:
+                        target_host, target_port = target_host.split(':')
+                        target_port = int(target_port)
+
+                    # 1. 连接到代理服务器
+                    s = socket.create_connection((self._proxy_host, self._proxy_port), timeout=self._timeout)
+
+                    # 2. 建立 CONNECT 隧道
+                    connect_msg = f"CONNECT {target_host}:{target_port} HTTP/1.1\r\nHost: {target_host}\r\n\r\n"
+                    s.sendall(connect_msg.encode('ascii'))
+
+                    # 3. 接收代理响应（检查 200 OK）
+                    proxy_response = s.recv(4096).decode('ascii')
+
+                    if not proxy_response.startswith('HTTP/1.1 200'):
+                        s.close()
+                        raise RuntimeError(f"Proxy tunnel failed. Response: {proxy_response.splitlines()[0]}")
+
+                    # 4. 将 socket 转换为 SSL socket
+                    conn_socket = unverified_context.wrap_socket(s, server_hostname=target_host)
+
+                    # 5. 替换 http.client.HTTPSConnection 对象
+                    conn = http.client.HTTPSConnection(target_host, port=target_port, timeout=self._timeout)
+                    conn.sock = conn_socket  # 传入已连接且 SSL 包装过的 socket
+
+                else:
+                    # ====== 无代理直接连接 (原有逻辑) ======
+                    print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试建立直接 HTTPS 连接...")
+                    conn = http.client.HTTPSConnection(self._host, timeout=self._timeout, context=unverified_context)
+                    conn.connect()  # 原有代码在这里隐式或显式地连接
+
                 connect_end_time = time.time()
                 print(
                     f"[{time.strftime('%H:%M:%S', time.localtime())}] 连接建立成功。耗时: {connect_end_time - start_time:.2f}s")
+
+                # -----------------------------------------------------------------
+                # --- 发送请求和获取响应 (原有逻辑保持不变) ---
+                # -----------------------------------------------------------------
 
                 payload = json.dumps({
                     'max_tokens': self._kwargs.get('max_tokens', 4096),
@@ -88,55 +139,42 @@ class HttpsApi(LLM):
                     'Content-Type': 'application/json'
                 }
 
-                print(f"--- 诊断信息 ---")
-                print(f"HOST: {self._host}")
-                print(f"MODEL: {self._model}")
-                print(f"PROMPT (Snippet): {prompt[0]['content'][:50]}...")
-                print(f"PAYLOAD Size: {len(payload)} bytes")
-                print(f"------------------")
-
-                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 尝试发送 POST 请求...")
                 conn.request('POST', '/v1/chat/completions', payload, headers)
-
-                request_end_time = time.time()
-                print(
-                    f"[{time.strftime('%H:%M:%S', time.localtime())}] 请求发送完成。耗时: {request_end_time - connect_end_time:.2f}s")
-
-                # --- 步骤 3: 获取响应 ---
-                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 等待接收响应头...")
                 res = conn.getresponse()
 
-                response_start_time = time.time()
-                print(
-                    f"[{time.strftime('%H:%M:%S', time.localtime())}] 收到响应头。耗时: {response_start_time - request_end_time:.2f}s")
+                # 诊断：打印状态码
+                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] 收到响应头。状态: {res.status}")
 
-                # 检查状态码和处理数据... (保持上次的逻辑)
-                print(f"HTTP Status: {res.status}, Reason: {res.reason}")
-
-                # 确保状态码是成功的 (200 OK)
                 if res.status != 200:
                     data = res.read().decode('utf-8')
-                    print(f"!!! HTTP ERROR !!!")
-                    print(f"Failed Status Code: {res.status}")
-                    print(f"Raw Response Body: {data}")
-                    # 抛出异常以便被下面的except捕获，或自行处理错误
                     raise RuntimeError(f"API request failed with status {res.status}: {res.reason}. Response: {data}")
 
                 data = res.read().decode('utf-8')
-                data = json.loads(data)
-                # print(data)
-                response = data['choices'][0]['message']['content']
+
+                # 解析 JSON 和提取内容 (原有逻辑)
+                data_json = json.loads(data)
+                response = data_json['choices'][0]['message']['content']
+
                 if self.debug_mode:
                     self._cumulative_error = 0
                 return response
+
             except Exception as e:
+                # 错误处理逻辑 (原有逻辑加上诊断)
                 self._cumulative_error += 1
+
+                print(f"[{time.strftime('%H:%M:%S', time.localtime())}] !!! 捕获到异常 !!!")
+                print(f"异常类型: {type(e).__name__}. 错误信息: {e}")
+
                 if self.debug_mode:
                     if self._cumulative_error == 10:
                         raise RuntimeError(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
-                                           f'You may check your API host and API key.')
+                                           f'请检查 API host, API key, 和代理设置。')
                 else:
-                    print(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
-                          f'You may check your API host and API key.')
+                    print(f'{self.__class__.__name__} error: {traceback.format_exc()}.')
                     time.sleep(2)
                 continue
+            finally:
+                if conn:
+                    # 确保无论成功与否，连接都被关闭
+                    conn.close()
