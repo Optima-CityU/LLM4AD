@@ -319,7 +319,8 @@ class Ails2Evaluation(Evaluation):
                 if match:
                     try:
                         node_count = int(match.group(1))
-                        calculated_time = (node_count // 25) * 60
+                        # calculated_time = (node_count // 25) * 60
+                        calculated_time = 30
 
                         if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
                             java_limit_time = calculated_time
@@ -354,7 +355,7 @@ class Ails2Evaluation(Evaluation):
         # 【!!!】假设 Java 源代码在 'Method/AILS-II/src' 目录下
         # 这基于你的代码骨架。如果不对请修改。
 
-        src_path = os.path.join(target_dir, "Method", "AILS-II", "src")                             # TODO 5  如果还是AILSII就不需要改
+        src_path = os.path.join(target_dir, "src", "AILS-II_origin", "src")                             # TODO 5  如果还是AILSII就不需要改
         sources_file = os.path.join(target_dir, "sources.txt")
 
         # 注入 LLM 生成的 Java 代码

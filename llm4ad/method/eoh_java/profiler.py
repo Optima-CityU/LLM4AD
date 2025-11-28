@@ -38,6 +38,7 @@ class EoH_java_Profiler(ProfilerBase):
                          **kwargs)
         self._cur_gen = 0
         self._pop_lock = Lock()
+        self.success_num = 0
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
             os.makedirs(self._ckpt_dir, exist_ok=True)
@@ -79,12 +80,26 @@ class EoH_java_Profiler(ProfilerBase):
             return
 
         sample_order = self._num_samples
+
+        if java.score is not None and record_type == 'history':
+            self.success_num += 1
+
+        if java.score is not None:
+            success_num = self.success_num
+            if record_type != 'history':
+                 success_num += 1
+        else:
+            success_num = None
+
+
+
         content = {
             'sample_order': sample_order,
             'operator': java.operator,
             'score': java.score,
             'algorithm': java.algorithm,  # Added when recording
             'function': str(java),
+            'success_num': success_num,
         }
 
         if record_type == 'history':

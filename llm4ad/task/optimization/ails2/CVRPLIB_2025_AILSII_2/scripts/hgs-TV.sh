@@ -1,8 +1,0 @@
-bin/hgs-TV XLDemo/XLTEST-n1048-k139.vrp -sol remote_results/hgs-TV/XLTEST-n1048-k139.vrp.sol -seed 1 -t 2460 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n1048-k139.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n2168-k625.vrp -sol remote_results/hgs-TV/XLTEST-n2168-k625.vrp.sol -seed 1 -t 5160 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n2168-k625.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n3101-k685.vrp -sol remote_results/hgs-TV/XLTEST-n3101-k685.vrp.sol -seed 1 -t 7440 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n3101-k685.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n4245-k164.vrp -sol remote_results/hgs-TV/XLTEST-n4245-k164.vrp.sol -seed 1 -t 10140 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n4245-k164.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n5174-k170.vrp -sol remote_results/hgs-TV/XLTEST-n5174-k170.vrp.sol -seed 1 -t 12360 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n5174-k170.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n5649-k365.vrp -sol remote_results/hgs-TV/XLTEST-n5649-k365.vrp.sol -seed 1 -t 13500 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n5649-k365.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n6034-k1234.vrp -sol remote_results/hgs-TV/XLTEST-n6034-k1234.vrp.sol -seed 1 -t 14460 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n6034-k1234.vrp.csv -deco BarycentreClustering
-bin/hgs-TV XLDemo/XLTEST-n8575-k343.vrp -sol remote_results/hgs-TV/XLTEST-n8575-k343.vrp.sol -seed 1 -t 20580 -type Uchoa -bss remote_results/hgs-TV/XLTEST-n8575-k343.vrp.csv -deco BarycentreClustering
