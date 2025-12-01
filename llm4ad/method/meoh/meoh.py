@@ -162,6 +162,7 @@ class MEoH:
                     self._profiler.register_population(self._population)
                 self._tot_sample_nums += 1
         except Exception as e:
+            # print(f"error in registering function to profiler: {e}")
             traceback.print_exc()
 
         # register to the population

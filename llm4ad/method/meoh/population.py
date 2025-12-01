@@ -62,9 +62,29 @@ class Population:
                 pop = self._population + self._next_gen_pop
 
                 pop_elitist = pop + self._elitist
+                # objs = [ind.score for ind in pop_elitist]
+                # objs_array = -np.array(objs)
+                # nondom_idx = NonDominatedSorting().do(objs_array, only_non_dominated_front=True)
+                # self._elitist = []
+                # for idx in nondom_idx.tolist():
+                #     self._elitist.append(pop_elitist[idx])
+                # Filter based on scores/objectives
+                unique_pop = []
+                seen_scores = set()
+
+                for ind in pop_elitist:
+                    # Convert score list/array to tuple so it can be hashed
+                    score_tuple = tuple(ind.score) 
+                    if score_tuple not in seen_scores:
+                        unique_pop.append(ind)
+                        seen_scores.add(score_tuple)
+
+                pop_elitist = unique_pop
+
                 objs = [ind.score for ind in pop_elitist]
                 objs_array = -np.array(objs)
                 nondom_idx = NonDominatedSorting().do(objs_array, only_non_dominated_front=True)
+
                 self._elitist = []
                 for idx in nondom_idx.tolist():
                     self._elitist.append(pop_elitist[idx])
@@ -78,10 +98,12 @@ class Population:
                         elif (np.array(pop[j].score) >= np.array(pop[i].score)).all():
                             dominated_counts[j, i] = -calc_syntax_match([pop[j].entire_code], pop[i].entire_code, 'python')
                 dominated_counts_ = dominated_counts.sum(0)
-                self._population = [pop[i] for i in np.argsort(-dominated_counts_)[:self._pop_size // 5]]  # minus for descending, //5 for keep the original pop_size
+                self._population = [pop[i] for i in np.argsort(-dominated_counts_)[:self._pop_size]]  # minus for descending, //5 for keep the original pop_size
                 self._next_gen_pop = []
                 self._generation += 1
+
         except Exception as e:
+            # print(f"error in registering function to population: {e}")
             traceback.print_exc()
             return
         finally:

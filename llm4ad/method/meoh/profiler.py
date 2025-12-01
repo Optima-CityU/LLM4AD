@@ -66,6 +66,7 @@ class MEoHProfiler(ProfilerBase):
                 json.dump(funcs_json, json_file, indent=4)
 
             # Saving the elitist
+            funcs_json = []  # type: List[Dict]
             funcs = pop.elitist
             for f in funcs:
                 f_score = f.score
