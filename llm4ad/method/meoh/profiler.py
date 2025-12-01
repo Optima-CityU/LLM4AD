@@ -19,20 +19,26 @@ from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
 class MEoHProfiler(ProfilerBase):
+    _cur_gen = 0
 
     def __init__(self,
                  log_dir: str | None = None,
+                 evaluation_name='Problem',
+                 method_name='MEoH',
                  num_objs=2,
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        super().__init__(log_dir=log_dir,
+        super().__init__(evaluation_name=evaluation_name,
+                         method_name=method_name,
+                         log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
+                         create_random_path=create_random_path,
                          num_objs=num_objs,
                          **kwargs)
-        self._cur_gen = 0
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
@@ -43,8 +49,8 @@ class MEoHProfiler(ProfilerBase):
     def register_population(self, pop: Population):
         try:
             self._pop_lock.acquire()
-            if (self._num_samples == 0 or
-                    pop.generation == self._cur_gen):
+            if (self.__class__._num_samples == 0 or
+                    pop.generation == self.__class__._cur_gen):
                 return
             funcs = pop.population  # type: List[Function]
             funcs_json = []  # type: List[Dict]
@@ -83,12 +89,12 @@ class MEoHProfiler(ProfilerBase):
             path = os.path.join(self._elitist_dir, f'elitist_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self._cur_gen += 1
+            self.__class__._cur_gen += 1
         finally:
             if self._pop_lock.locked():
                 self._pop_lock.release()
 
-    def _write_json(self, function: Function, program='', *, record_type='history', record_sep=200):
+    def _write_json(self, function: Function, *, record_type='history', record_sep=200):
         """
             Write function data to a JSON file.
 
@@ -102,7 +108,7 @@ class MEoHProfiler(ProfilerBase):
         if not self._log_dir:
             return
 
-        sample_order = self._num_samples
+        sample_order = getattr(self.__class__, '_num_samples', 0)
         func_score = function.score
         if function.score is not None:
             if np.isinf(np.array(function.score)).any():
@@ -116,8 +122,7 @@ class MEoHProfiler(ProfilerBase):
             'sample_order': sample_order,
             'algorithm': function.algorithm,  # Added when recording
             'function': str(function),
-            'score': func_score,
-            'program': program,
+            'score': func_score
         }
 
         if record_type == 'history':
@@ -144,13 +149,30 @@ class MEoHTensorboardProfiler(TensorboardProfiler, MEoHProfiler):
 
     def __init__(self,
                  log_dir: str | None = None,
+                 evaluation_name='Problem',
+                 method_name='MEoH',
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        MEoHProfiler.__init__(self, log_dir=log_dir, **kwargs)
-        TensorboardProfiler.__init__(self, log_dir=log_dir, initial_num_samples=initial_num_samples,
-                                     log_style=log_style, **kwargs)
+        MEoHProfiler.__init__(
+            self, log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        TensorboardProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
 
     def finish(self):
         if self._log_dir:
@@ -164,20 +186,37 @@ class MEoHTensorboardProfiler(TensorboardProfiler, MEoHProfiler):
 
 
 class MEoHWandbProfiler(WandBProfiler, MEoHProfiler):
+    _cur_gen = 0
 
     def __init__(self,
                  wandb_project_name: str,
                  log_dir: str | None = None,
+                 evaluation_name="Problem",
+                 method_name="MEoH",
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        MEoHProfiler.__init__(self, log_dir=log_dir, **kwargs)
-        WandBProfiler.__init__(self,
-                               wandb_project_name=wandb_project_name,
-                               log_dir=log_dir,
-                               initial_num_samples=initial_num_samples,
-                               log_style=log_style, **kwargs)
+        MEoHProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            create_random_path=create_random_path,
+            method_name=method_name,
+            **kwargs
+        )
+        WandBProfiler.__init__(
+            self,
+            wandb_project_name=wandb_project_name,
+            log_dir=log_dir,
+            evaluation_name=evaluation_name,
+            method_name=method_name,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
