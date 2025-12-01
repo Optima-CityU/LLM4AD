@@ -11,9 +11,10 @@ pandas
 matplotlib
 ttkbootstrap
 codebleu
-tree-sitter-python==0.21
+tree-sitter-python==0.23
 gym
 datasets
 huggingface_hub
 networkx
 # langchain_ollama
+git+https://github.com/XAI-liacs/LLaMEA.git@main        #New method.

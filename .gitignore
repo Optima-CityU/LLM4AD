@@ -23,3 +23,6 @@ llm4ad.egg-info/requires.txt
 llm4ad.egg-info/PKG-INFO
 llm4ad.egg-info/dependency_links.txt
 
+.env
+#LLaMEA logs content in this directory.
+**/exp-*
