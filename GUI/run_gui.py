@@ -1,5 +1,5 @@
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
-# Last Revision: 2025/2/16
+# Last Revision: 2025/12/05
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
@@ -107,6 +107,38 @@ class PlaceholderEntry(ttk.Entry):
             self.delete(0, "end")
             self.configure(foreground=self.default_fg_color)
 
+class ScrollableFrame(ttk.Frame):
+    """Frame with scrollbar"""
+
+    def __init__(self, container, max_height=250, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+
+        # Create Canvas and Scrollbar
+        canvas = tk.Canvas(self, bg='white', highlightthickness=0, height=max_height)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview, bootstyle="round")
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Bind mouse wheel
+        self.scrollable_frame.bind('<Enter>', lambda e: self._bind_mousewheel(canvas))
+        self.scrollable_frame.bind('<Leave>', lambda e: self._unbind_mousewheel(canvas))
+
+    def _bind_mousewheel(self, canvas):
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+    def _unbind_mousewheel(self, canvas):
+        canvas.unbind_all("<MouseWheel>")
+
 
 ##########################################################
 
@@ -166,24 +198,28 @@ def show_algorithm_parameters(algo_name):
 
     algo_param_frame['text'] = f"{algo_name}"
 
-    required_parameters, value_type, default_value = get_required_parameters(path=f"../llm4ad/method/{algo_name}/paras.yaml")
+    required_parameters, value_type, default_value = get_required_parameters(
+        path=f"../llm4ad/method/{algo_name}/paras.yaml")
     method_para_value_name_list = required_parameters
     method_para_value_type_list = value_type
+
+    # Create scrollable area within algo_param_frame
+    scroll_frame = ScrollableFrame(algo_param_frame, max_height=200)
+    scroll_frame.pack(fill='both', expand=True)
+    inner_frame = scroll_frame.scrollable_frame
+
     for i in range(len(required_parameters)):
         if i != 0:
-            ttk.Label(algo_param_frame, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='nsew', padx=5, pady=10)
-        method_para_entry_list.append(ttk.Entry(algo_param_frame, width=10, bootstyle="primary"))
+            ttk.Label(inner_frame, text=required_parameters[i] + ':').grid(row=i - 1, column=0, sticky='w', padx=5,
+                                                                           pady=5)
+        method_para_entry_list.append(ttk.Entry(inner_frame, width=10, bootstyle="primary"))
         if i != 0:
-            method_para_entry_list[-1].grid(row=i - 1, column=1, sticky='nsew', padx=5, pady=10)
-            algo_param_frame.grid_rowconfigure(i - 1, weight=1)
+            method_para_entry_list[-1].grid(row=i - 1, column=1, sticky='ew', padx=5, pady=5)
         if default_value[i] is not None:
             method_para_entry_list[-1].insert(0, str(default_value[i]))
-    algo_param_frame.grid_columnconfigure(0, weight=1)
-    algo_param_frame.grid_columnconfigure(1, weight=2)
 
-    if len(required_parameters) < 5:
-        for i in range(len(required_parameters), 5):
-            algo_param_frame.grid_rowconfigure(i - 1, weight=1)
+    inner_frame.grid_columnconfigure(0, weight=1)
+    inner_frame.grid_columnconfigure(1, weight=2)
 
 
 def show_problem_parameters(problem_name):
