@@ -119,7 +119,8 @@ class Ails2Evaluation(Evaluation):
                 if match:
                     try:
                         node_count = int(match.group(1))
-                        calculated_time = (node_count // 25) * 60
+                        # calculated_time = (node_count // 25) * 60
+                        calculated_time = 10
 
                         if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
                             java_limit_time = calculated_time
@@ -320,7 +321,7 @@ class Ails2Evaluation(Evaluation):
                     try:
                         node_count = int(match.group(1))
                         # calculated_time = (node_count // 25) * 60
-                        calculated_time = 30
+                        calculated_time = 10
 
                         if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
                             java_limit_time = calculated_time
@@ -355,7 +356,8 @@ class Ails2Evaluation(Evaluation):
         # 【!!!】假设 Java 源代码在 'Method/AILS-II/src' 目录下
         # 这基于你的代码骨架。如果不对请修改。
 
-        src_path = os.path.join(target_dir, "src", "AILS-II_origin", "src")                             # TODO 5  如果还是AILSII就不需要改
+        # src_path = os.path.join(target_dir, "Method", "AILS-II", "src")
+        src_path = os.path.join(target_dir, "src", "AILS-II_origin", "src")    # TODO 5  如果还是AILSII就不需要改
         sources_file = os.path.join(target_dir, "sources.txt")
 
         # 注入 LLM 生成的 Java 代码
@@ -397,7 +399,9 @@ class Ails2Evaluation(Evaluation):
         compile_process = subprocess.run(
             compile_cmd,
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',  # 显式指定编码
+            errors='replace'  # <--- 【重点】防止编译错误信息里的中文导致崩溃
         )
 
         try:
@@ -482,246 +486,85 @@ class Ails2Evaluation(Evaluation):
 
 if __name__ == '__main__':
     java_script = """
-/**
- * 	Copyright 2022, Vinícius R. Máximo
- *	Distributed under the terms of the MIT License. 
- *	SPDX-License-Identifier: MIT
- */
-package Perturbation;
+package DiversityControl;
 
-import java.util.HashMap;
-import java.util.Random;
-
-import Data.Instance;
-import DiversityControl.OmegaAdjustment;
-import Improvement.IntraLocalSearch;
 import SearchMethod.Config;
-import Solution.Node;
-import Solution.Route;
-import Solution.Solution;
+import SearchMethod.StoppingCriterionType;
 
-public abstract class Perturbation 
+public class DistAdjustment 
 {
-	protected Route routes[];
-	protected int numRoutes;
-	protected Node solution[];
-	protected double f=0;
-	protected Random rand=new Random();
-	public double omega;
-	OmegaAdjustment chosenOmega;
-	Config config;
-	protected Node candidates[];
-	protected int countCandidates;
+	int distMMin;
+	int distMMax;
+	int iterator;
+	long ini;
+	double executionMaximumLimit;
+	double alpha=1;
+	StoppingCriterionType stoppingCriterionType;
+	IdealDist idealDist;
 
-	InsertionHeuristic[]insertionHeuristics;
-	public InsertionHeuristic selectedInsertionHeuristic;
-	
-	Node node;
-	
-	public PerturbationType perturbationType;
-	int size;
-	HashMap<String, OmegaAdjustment> omegaSetup;
-	
-	double bestCost,bestDist;
-	int numIterUpdate;
-	int indexHeuristic;
-	
-	double cost,dist;
-	double costPrev;
-	int indexA,indexB;
-	Node bestNode,aux;
-	Instance instance;
-	int limitAdj;
-	
-	IntraLocalSearch intraLocalSearch;
-	
-	public Perturbation(Instance instance,Config config,
-	HashMap<String, OmegaAdjustment> omegaSetup, IntraLocalSearch intraLocalSearch) 
+	public DistAdjustment(IdealDist idealDist,Config config,double executionMaximumLimit) 
 	{
-		this.config=config;
-		this.instance=instance;
-		this.insertionHeuristics=config.getInsertionHeuristics();
-		this.size=instance.getSize()-1;
-		this.candidates=new Node[size];
-		this.omegaSetup=omegaSetup;
-		this.numIterUpdate=config.getGamma();
-		this.limitAdj=config.getVarphi();
-		this.intraLocalSearch=intraLocalSearch;
-	}
-	
-	public void setOrder()
-	{
-		Node aux;
-		for (int i = 0; i < countCandidates; i++)
-		{
-			indexA=rand.nextInt(countCandidates);
-			indexB=rand.nextInt(countCandidates);
-			
-			aux=candidates[indexA];
-			candidates[indexA]=candidates[indexB];
-			candidates[indexB]=aux;
-		}
-	}
-	
-	public void applyPerturbation(Solution s){}
-	
-	protected void setSolution(Solution s)
-	{
-		this.numRoutes=s.getNumRoutes();
-		this.routes=s.routes;
-		this.solution=s.getSolution();
-		this.f=s.f;
-		for (int i = 0; i < numRoutes; i++) 
-		{
-			routes[i].modified=false;
-			routes[i].first.modified=false;
-		}
-		
-		for (int i = 0; i < size; i++) 
-			solution[i].modified=false;
-	
-		indexHeuristic=rand.nextInt(insertionHeuristics.length);
-		selectedInsertionHeuristic=insertionHeuristics[indexHeuristic];
-		
-		chosenOmega=omegaSetup.get(perturbationType+"");
-		omega=chosenOmega.getActualOmega();
-		omega=Math.min(omega, size);
-		
-		countCandidates=0;
-	}
-	
-	protected void assignSolution(Solution s)
-	{
-		s.f=f;
-		s.numRoutes=this.numRoutes;
-	}
-	
-	protected Node getNode(Node no)
-	{
-		switch(selectedInsertionHeuristic)
-		{
-			case Distance: return getBestKNNNo2(no,1);
-			case Cost: return getBestKNNNo2(no,limitAdj);
-		}
-		return null;
-	}
-	
-	protected Node getBestKNNNo2(Node no,int limit)
-	{
-		bestCost=Double.MAX_VALUE;
-		boolean flag=false;
-		bestNode=null;
-		
-		int count=0;
-		flag=false;
-		for (int i = 0; i < no.knn.length&&count<limit; i++) 
-		{
-			if(no.knn[i]==0)
-			{
-				for (int j = 0; j < numRoutes; j++) 
-				{
-					aux=routes[j].first;
-					flag=true;
-					cost=instance.dist(aux.name,no.name)+instance.dist(no.name,aux.next.name)-instance.dist(aux.name,aux.next.name);
-					if(cost<bestCost)
-					{
-						bestCost=cost;
-						bestNode=aux;
-					}
-				}
-				if(flag)
-					count++;
-			}
-			else
-			{
-				aux=solution[no.knn[i]-1];
-				if(aux.nodeBelong)
-				{
-					count++;
-					cost=instance.dist(aux.name,no.name)+instance.dist(no.name,aux.next.name)-instance.dist(aux.name,aux.next.name);
-					if(cost<bestCost)
-					{
-						bestCost=cost;
-						bestNode=aux;
-					}
-				}
-			}
-		}
-		
-		if(bestNode==null)
-		{
-			for (int i = 0; i < solution.length; i++) 
-			{
-				aux=solution[i];
-				if(aux.nodeBelong)
-				{
-					cost=instance.dist(aux.name,no.name)+instance.dist(no.name,aux.next.name)-instance.dist(aux.name,aux.next.name);
-					if(cost<bestCost)
-					{
-						bestCost=cost;
-						bestNode=aux;
-					}
-				}
-			}
-		}
-		
-		if(bestNode==null)
-		{
-			for (int i = 0; i < solution.length; i++) 
-			{
-				aux=solution[i];
-				if(aux.nodeBelong)
-				{
-					cost=instance.dist(aux.name,no.name)+instance.dist(no.name,aux.next.name)-instance.dist(aux.name,aux.next.name);
-					if(cost<bestCost)
-					{
-						bestCost=cost;
-						bestNode=aux;
-					}
-				}
-			}
-		}
-		
-		cost=instance.dist(bestNode.name,no.name)+instance.dist(no.name,bestNode.next.name)-instance.dist(bestNode.name,bestNode.next.name);
-		costPrev=instance.dist(bestNode.prev.name,no.name)+instance.dist(no.name,bestNode.name)-instance.dist(bestNode.prev.name,bestNode.name);
-		if(cost<costPrev)
-		{
-			return bestNode;
-		}
-		else
-		{
-			return bestNode.prev;
-		}
-	}
-	
-	public void addCandidates() 
-	{
-		for (int i = 0; i < countCandidates; i++) 
-		{
-			node=candidates[i];
-			bestNode=getNode(node);
-			
-			f+=bestNode.route.addAfter(node, bestNode);
-		}
-	}
-	
-	public int getIndexHeuristic() {
-		return indexHeuristic;
+		this.idealDist=idealDist;
+		this.executionMaximumLimit=executionMaximumLimit;
+		this.distMMin=config.getDMin();
+		this.distMMax=config.getDMax();
+		this.idealDist.idealDist=distMMax;
+		this.stoppingCriterionType=config.getStoppingCriterionType();
 	}
 
-	public OmegaAdjustment getChosenOmega() {
-		return chosenOmega;
+	public void distAdjustment()
+	{
+		if(iterator==0)
+			ini=System.currentTimeMillis();
+		
+		iterator++;
+		
+		switch(stoppingCriterionType)
+		{
+			case Iteration: 	iterationAdjustment(); break;
+			case Time: timeAdjustment(); break;
+			default:
+				break;
+								
+		}
+		
+		idealDist.idealDist*=alpha;
+		idealDist.idealDist= Math.min(distMMax, Math.max(idealDist.idealDist, distMMin));
+		
 	}
 	
-	public PerturbationType getPerturbationType() {
-		return perturbationType;
+	private void iterationAdjustment()
+	{
+		alpha=Math.pow((double)distMMin/(double)distMMax, (double) 1/executionMaximumLimit);
 	}
 	
+	private void timeAdjustment()
+	{
+		double current=(double)(System.currentTimeMillis()-ini)/1000;
+		double timePercentage=current/executionMaximumLimit;
+		double total=(double)iterator/timePercentage;
+		alpha=Math.pow((double)distMMin/(double)distMMax, (double) 1/total);
+	}
 }
     """
 
-    eval = Ails2Evaluation(timeout_seconds=5, dump_java_output_on_finish=True)  # 设置超时
+
+
+    eval = Ails2Evaluation(dump_java_output_on_finish=True)  # 设置超时
+
+    # ================= 核心修改 START =================
+    print("正在初始化沙盒环境 (复制项目文件夹)...")
+    try:
+        # 这里的参数 1 表示复制 1 份，生成名为 "..._0" 的目录
+        # 这正好对应 evaluate_program 默认的 subprocess_index=0
+        eval.copy_dir_multiple_times(1)
+    except Exception as e:
+        print(f"环境初始化失败: {e}")
+        # 如果源文件夹都不存在，后面肯定跑不通，建议直接退出
+        sys.exit(1)
+    print("沙盒环境初始化完成。")
+    # ================= 核心修改 END ===================
 
     print("开始评估...")
-    res = eval.evaluate_program(java_script, None)
+    res = eval.evaluate_program(java_script)
     print(f"评估完成。平均适应度: {res}")

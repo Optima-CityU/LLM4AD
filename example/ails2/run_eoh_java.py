@@ -14,7 +14,7 @@ def main():
                    model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
                    timeout=60)
 
-    task = Ails2Evaluation()
+    task = Ails2Evaluation(dump_java_output_on_finish=True)
 
     method = EoH_Java(llm=llm,
                       profiler=EoH_java_Profiler(log_dir='logs', log_style='complex'),

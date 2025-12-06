@@ -77,11 +77,15 @@ Potential improvement directions include, but are not limited to:
    (e.g., exponential, cosine, or piecewise functions);
 3. Refactor the decay logic to support a more flexible and robust scheduling mechanism.
 
-## 🚀 Ultimate Goal
+## Ultimate Goal
 Enhance this diversity-control component to make it more computationally efficient, numerically stable, and readily scalable to large-scale CVRP instances, thereby improving the overall robustness and research extensibility of the optimization framework.
 """
 
 java_dir = "CVRPLIB_2025"        # 多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
 aim_java_relative_path = os.path.join('src', 'AILS-II_origin','src', 'DiversityControl', 'DistAdjustment.java')       # 被修改的java文件相对于java_dir的相对路径 比如"./././xxx.java"
+
+# java_dir = "CVRPLIB_2025_AILSII"        # 多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
+# aim_java_relative_path = os.path.join('Method', 'AILS-II','src', 'DiversityControl', 'DistAdjustment.java')       # 被修改的java文件相对于java_dir的相对路径 比如"./././xxx.java"
+
 
 
