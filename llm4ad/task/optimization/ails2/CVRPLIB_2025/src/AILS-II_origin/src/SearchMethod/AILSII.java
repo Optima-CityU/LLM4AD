@@ -159,7 +159,7 @@ public class AILSII
                 directory.mkdirs();
             }
         } catch (Exception e) {
-            System.err.println("创建输出目录失败: " + e.getMessage());
+            System.err.println("create dir fail: " + e.getMessage());
         }
     }
 
@@ -242,7 +242,7 @@ public class AILSII
             String csvFilePath = outputDirectory + csvFilename;
             csvWriter = new FileWriter(csvFilePath);
         } catch (IOException e) {
-            System.err.println("创建CSV文件失败: " + e.getMessage());
+            System.err.println("Failed to create CSV file:" + e.getMessage());
         }
     }
 
@@ -252,7 +252,7 @@ public class AILSII
                 csvWriter.write(deci.format(time).replace(",", ".") + ";" + deci.format(bestF).replace(",", ".") + "\n");
                 csvWriter.flush();
             } catch (IOException e) {
-                System.err.println("写入CSV文件失败: " + e.getMessage());
+                System.err.println("Failed to write to CSV file: " + e.getMessage());
             }
         }
     }
@@ -262,7 +262,7 @@ public class AILSII
             try {
                 csvWriter.close();
             } catch (IOException e) {
-                System.err.println("关闭CSV文件失败: " + e.getMessage());
+                System.err.println("Failed to close CSV file: " + e.getMessage());
             }
         }
     }
@@ -290,9 +290,9 @@ public class AILSII
             writer.write("Time " + deci.format(currentTime).replace(",", "."));
             writer.flush();
         } catch (IOException e) {
-            System.err.println("写入解决方案文件失败: " + e.getMessage());
+            System.err.println("Failed to write solution file: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("写入文件时发生错误: " + e.getMessage());
+            System.err.println("An error occurred while writing the file: " + e.getMessage());
         }
     }
 
@@ -426,9 +426,9 @@ public class AILSII
         // 设置实例名称
         ailsII.setInstanceName(instanceName);
 
-        System.out.println("开始搜索: " + instanceName);
+        System.out.println("Start Search: " + instanceName);
         if (customOutput != null) {
-            System.out.println("结果将保存至: " + customOutput);
+            System.out.println("save results to: " + customOutput);
         }
 
         ailsII.search();
