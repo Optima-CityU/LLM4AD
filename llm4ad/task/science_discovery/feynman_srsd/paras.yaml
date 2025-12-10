@@ -1,4 +1,0 @@
-name: FeynmanEvaluation
-test_id(1~120): 1
-sample_size: 5000
-timeout_seconds: 20
