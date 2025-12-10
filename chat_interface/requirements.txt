@@ -1,0 +1,5 @@
+# LLM4AD Chat Interface - 依赖文件
+# 安装方式: pip install -r chat_interface/requirements.txt
+
+streamlit>=1.28.0
+pytz>=2023.3
