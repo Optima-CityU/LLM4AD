@@ -1,8 +1,4 @@
-/**
- * 	Copyright 2022, Vinícius R. Máximo
- *	Distributed under the terms of the MIT License. 
- *	SPDX-License-Identifier: MIT
- */
+
 package DiversityControl;
 
 import Auxiliary.Mean;
@@ -34,12 +30,12 @@ public class AcceptanceCriterion {
         this.averageLSfunction = new Mean(config.getGamma());
         this.numIterUpdate = config.getGamma();
         this.executionMaximumLimit = executionMaximumLimit;
-        this.threadMXBean = ManagementFactory.getThreadMXBean(); // 初始化 ThreadMXBean
+        this.threadMXBean = ManagementFactory.getThreadMXBean(); //
     }
 
     public boolean acceptSolution(Solution solution) {
         if (globalIterator == 0) {
-            ini = System.nanoTime(); // 获取当前线程的CPU时间
+            ini = System.nanoTime(); //
         }
 
         averageLSfunction.setValue(solution.f);
@@ -105,7 +101,4 @@ public class AcceptanceCriterion {
         this.eta = eta;
     }
 
-    public void setIdealFlow(double idealFlow) {
-        // 空实现，具体逻辑根据需要添加
-    }
 }

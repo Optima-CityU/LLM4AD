@@ -4,8 +4,8 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from llm4ad.base import Evaluation
-from llm4ad.task.optimization.ails2.template import template_program, task_description, aim_java_relative_path, \
-    java_dir  # java_dir = CVRPLIB-2025-AILSII 是为了多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
+from llm4ad.task.optimization.ails2_acc.template import template_program, task_description, aim_java_relative_path, java_dir       # TODO 0: ails2_acc 改成新复制的目录
+      # java_dir = CVRPLIB-2025-AILSII 是为了多进程并行被复制的源目录。在项目执行前该目录会被复制”进程数量“份。
 import os  # aim_java_relative_path 是被修改的java文件相对于java_dir的相对路径 比如"./././xxx.java"
 import subprocess
 import sys
