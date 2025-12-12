@@ -120,7 +120,7 @@ class Ails2Evaluation(Evaluation):
                     try:
                         node_count = int(match.group(1))
                         # calculated_time = (node_count // 25) * 60
-                        calculated_time = 10
+                        calculated_time = 15
 
                         if calculated_time > java_limit_time:  # 只有在计算时间 > 默认时才覆盖
                             java_limit_time = calculated_time
@@ -129,7 +129,7 @@ class Ails2Evaluation(Evaluation):
                         pass  # 保持 default_timeout
 
                 # Python 的硬超时 = Java的限制 + 5秒缓冲
-                python_timeout = java_limit_time + 5
+                python_timeout = java_limit_time + 120
                 all_times.append(python_timeout)
 
             if not all_times:
@@ -329,7 +329,7 @@ class Ails2Evaluation(Evaluation):
                     except (ValueError, IndexError):
                         pass  # 使用 default
 
-                python_timeout = java_limit_time + 5
+                python_timeout = java_limit_time + 120
 
                 # 仿照原始命令创建command, 比如: java -jar AILSII.jar -file data/X-n214-k11.vrp -rounded true -best 10856 -limit 100 -stoppingCriterion Time
                 command = [
@@ -469,6 +469,16 @@ class Ails2Evaluation(Evaluation):
                 print(f"Subprocess {subprocess_index}: Evaluation failed. No valid fitness scores found.",
                       file=sys.stderr)
                 return None  # 所有实例都失败了
+
+            expected_count = len(self.java_commands)
+            actual_count = len(fitness)
+            # 3. 【核心修改】如果不一致，直接丢弃本次评估
+            if actual_count != expected_count:
+                print(f"Subprocess {subprocess_index}: Stability Check Failed!", file=sys.stderr)
+                print(f"   - Expected: {expected_count} instances", file=sys.stderr)
+                print(f"   - Success : {actual_count} instances", file=sys.stderr)
+                print(f"   - Action  : Discarding evaluation (returning None).", file=sys.stderr)
+                return None
 
             final_fitness = np.mean(fitness)
 

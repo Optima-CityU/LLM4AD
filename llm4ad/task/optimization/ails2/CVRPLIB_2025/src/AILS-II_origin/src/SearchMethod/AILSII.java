@@ -298,7 +298,7 @@ public class AILSII
 
     public void search() {
         iterator = 0;
-        first = threadMXBean.getCurrentThreadCpuTime();
+        first = System.nanoTime();
         referenceSolution.numRoutes = instance.getMinNumberRoutes();
         constructSolution.construct(referenceSolution);
 
@@ -308,7 +308,7 @@ public class AILSII
         bestSolution.clone(referenceSolution);
         bestF = bestSolution.f;
 
-        double initialTime = (double) (threadMXBean.getCurrentThreadCpuTime() - first) / 1_000_000_000;
+        double initialTime = (double) (System.nanoTime() - first) / 1_000_000_000;
         if (print) {
             System.out.println("Initial solution: " + initialTime + ";" + bestF);
         }
@@ -335,7 +335,7 @@ public class AILSII
                 referenceSolution.clone(solution);
         }
 
-        totalTime = (double) (threadMXBean.getCurrentThreadCpuTime() - first) / 1_000_000_000;
+        totalTime = (double) (System.nanoTime() - first) / 1_000_000_000;
 
         writeSolutionToFile(bestF, totalTime);
         closeCSVFile();
@@ -347,7 +347,7 @@ public class AILSII
                 bestF = solution.f;
                 bestSolution.clone(solution);
                 iteratorMF = iterator;
-                timeAF = (double) (threadMXBean.getCurrentThreadCpuTime() - first) / 1_000_000_000;
+                timeAF = (double) (System.nanoTime() - first) / 1_000_000_000;
 
                 if (print) {
                     System.out.println(timeAF + ";" + bestF);
@@ -367,7 +367,7 @@ public class AILSII
                 break;
 
             case Time:
-                if (bestF <= optimal || executionMaximumLimit < (threadMXBean.getCurrentThreadCpuTime() - first) / 1_000_000_000)
+                if (bestF <= optimal || executionMaximumLimit < (System.nanoTime() - first) / 1_000_000_000)
                     return true;
                 break;
         }
