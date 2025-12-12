@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Ropke"
+  given-names: "Stefan"
+  orcid: "https://orcid.org/0000-0002-6799-9934"
+- family-name: "Vidal"
+  given-names: "Thibaut"
+  orcid: "https://orcid.org/0000-0001-5183-8485"
+- family-names: "Santini"
+  given-names: "Alberto"
+  orcid: "https://orcid.org/0000-0002-0440-0357"
+title: "Decomposition Strategies for Vehicle Routing Heuristics"
+version: 0.1
+doi: 10.5281/zenodo.6097671
+date-released: 2022-02-16
+url: "https://github.com/alberto-santini/cvrp-decomposition"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Santini"
+    given-names: "Alberto"
+    orcid: "https://orcid.org/0000-0002-0440-0357"
+  - family-names: "Schneider"
+    given-names: "Michael"
+    orcid: "https://orcid.org/0000-0002-4203-8926"
+  - family-names: "Vidal"
+    given-names: "Thibaut"
+    orcid: "https://orcid.org/0000-0001-5183-8485"
+  - family-names: "Vigo"
+    given-names: "Daniele"
+    orcid: "https://orcid.org/0000-0002-1499-8452"
+  doi: 10.1287/ijoc.2022.0048
+  journal: "INFORMS Journal on Computation"
+  title: "Decomposition Strategies for Vehicle Routing Heuristics"
+  year: 2022
