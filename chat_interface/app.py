@@ -34,6 +34,166 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ========== 自定义 CSS 样式 ==========
+def load_custom_css():
+    st.markdown("""
+    <style>
+    /* 全局样式 */
+    .stApp {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    
+    /* 主标题样式 */
+    .main-title {
+        background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff6b6b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem;
+        font-weight: 800;
+        text-align: center;
+        padding: 1rem 0;
+        margin-bottom: 0;
+    }
+    
+    .sub-title {
+        color: #a0a0a0;
+        text-align: center;
+        font-size: 1rem;
+        margin-top: 0;
+        margin-bottom: 2rem;
+    }
+    
+    /* Streamlit 聊天消息美化 */
+    .stChatMessage {
+        background: transparent !important;
+        padding: 0.5rem 0 !important;
+    }
+    
+    /* 用户消息 */
+    [data-testid="stChatMessageContent"]:has(.stMarkdown) {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: pre-wrap !important;
+    }
+    
+    /* 消息内容自动换行 */
+    .stMarkdown {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    .stMarkdown p {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: pre-wrap !important;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* 状态卡片 */
+    .status-card {
+        background: linear-gradient(135deg, rgba(45, 55, 72, 0.8) 0%, rgba(26, 32, 44, 0.9) 100%);
+        border-radius: 1rem;
+        padding: 1rem;
+        border: 1px solid #4a5568;
+        margin-bottom: 1rem;
+    }
+    
+    .status-card.success { border-left: 4px solid #48bb78; }
+    .status-card.warning { border-left: 4px solid #ed8936; }
+    .status-card.info { border-left: 4px solid #4299e1; }
+    
+    /* 按钮样式增强 */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 0.75rem !important;
+        padding: 0.75rem 1.5rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+    }
+    
+    /* 分隔线 */
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #4a5568, transparent);
+        margin: 1.5rem 0;
+    }
+    
+    /* 指标卡片 */
+    .metric-card {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        border: 1px solid #4a5568;
+        transition: transform 0.2s;
+    }
+    
+    .metric-card:hover { transform: translateY(-3px); }
+    .metric-card .value { font-size: 2rem; font-weight: 700; background: linear-gradient(90deg, #48bb78, #38a169); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .metric-card .label { font-size: 0.85rem; color: #a0aec0; margin-top: 0.25rem; }
+    
+    /* 进度条 */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #667eea, #764ba2) !important;
+    }
+    
+    /* 欢迎卡片 */
+    .welcome-card {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 1rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    /* 工具调用标签 */
+    .tool-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* 隐藏 Streamlit 默认元素 */
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    
+    /* 动画效果 */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .running-indicator { animation: pulse 1.5s infinite; }
+    
+    /* 输入框美化 */
+    .stTextInput > div > div > input {
+        border-radius: 0.75rem !important;
+    }
+    
+    /* 下拉框美化 */
+    .stSelectbox > div > div {
+        border-radius: 0.75rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 def init_session_state():
     """初始化 session state"""
@@ -57,20 +217,31 @@ def init_session_state():
 
 
 def render_sidebar():
-    """渲染侧边栏"""
+    """渲染侧边栏 - 美化版"""
     with st.sidebar:
-        st.markdown("## ⚙️ 配置")
+        # Logo 和标题
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem 0;">
+            <div style="font-size: 3rem;">🧬</div>
+            <div style="font-size: 1.5rem; font-weight: 700; 
+                        background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+                        -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                LLM4AD
+            </div>
+            <div style="color: #718096; font-size: 0.85rem;">自动算法设计平台</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown("---")
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
         # LLM 配置
-        st.markdown("### 🤖 LLM 设置")
-        st.markdown("*外部对话 + 内部算法设计都使用此 API*")
+        st.markdown("#### 🤖 API 配置")
         
         api_host = st.text_input(
             "API Host", 
             value=st.session_state.current_config["llm"].get("outer", {}).get("host", "api.bltcy.top"),
-            key="api_host"
+            key="api_host",
+            help="OpenAI 兼容的 API 地址"
         )
         
         api_key = st.text_input(
@@ -78,12 +249,12 @@ def render_sidebar():
             type="password",
             value=st.session_state.current_config["llm"].get("outer", {}).get("key", ""),
             key="api_key",
-            help="OpenAI 兼容的 API Key"
+            help="您的 API 密钥"
         )
         
         api_model = st.selectbox(
             "模型",
-            ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "deepseek-chat"],
+            ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "deepseek-chat", "claude-3-sonnet"],
             key="api_model"
         )
         
@@ -98,65 +269,124 @@ def render_sidebar():
             if st.session_state.chat_agent.api_key != api_key:
                 st.session_state.chat_agent = None
         
-        st.markdown("---")
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
-        # 当前状态
-        st.markdown("### 📊 当前状态")
+        # 当前状态 - 美化卡片
+        st.markdown("#### 📊 运行状态")
         config = st.session_state.current_config
         
         method = config.get("method")
         task = config.get("task")
         
+        # 方法状态
         if method:
-            st.success(f"✅ 方法: {method}")
+            st.markdown(f"""
+            <div class="status-card success">
+                <div style="color: #48bb78; font-weight: 600;">✓ 方法</div>
+                <div style="color: #f0f0f0; font-size: 1.1rem;">{method}</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.warning("❌ 方法: 未选择")
-            
+            st.markdown("""
+            <div class="status-card warning">
+                <div style="color: #ed8936; font-weight: 600;">○ 方法</div>
+                <div style="color: #a0aec0;">未选择</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # 任务状态
         if task:
-            st.success(f"✅ 任务: {task}")
+            st.markdown(f"""
+            <div class="status-card success">
+                <div style="color: #48bb78; font-weight: 600;">✓ 任务</div>
+                <div style="color: #f0f0f0; font-size: 1.1rem;">{task}</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.warning("❌ 任务: 未选择")
+            st.markdown("""
+            <div class="status-card warning">
+                <div style="color: #ed8936; font-weight: 600;">○ 任务</div>
+                <div style="color: #a0aec0;">未选择</div>
+            </div>
+            """, unsafe_allow_html=True)
         
+        # 运行状态
         if st.session_state.is_running:
-            st.info("🔄 运行中...")
+            st.markdown("""
+            <div class="status-card info running-indicator">
+                <div style="color: #4299e1; font-weight: 600;">⚡ 运行中</div>
+                <div style="color: #a0aec0;">算法设计进行中...</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        st.markdown("---")
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
         # 快捷操作
-        st.markdown("### 🚀 快捷操作")
+        st.markdown("#### 🎮 快捷操作")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🗑️ 清空", use_container_width=True):
+            if st.button("🗑️ 清空", use_container_width=True, help="清空对话和配置"):
                 st.session_state.messages = []
                 st.session_state.current_config["method"] = None
                 st.session_state.current_config["task"] = None
                 st.session_state.current_config["parameters"] = {}
+                if st.session_state.chat_agent:
+                    st.session_state.chat_agent.reset()
                 st.rerun()
         
         with col2:
-            if st.button("⚙️ 配置", use_container_width=True):
+            if st.button("⚙️ 配置", use_container_width=True, help="打开配置面板"):
                 st.session_state.show_config_panel = not st.session_state.show_config_panel
                 st.rerun()
+        
+        # 底部信息
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align: center; color: #718096; font-size: 0.75rem; padding: 1rem 0;">
+            <div>Powered by LLM4AD Framework</div>
+            <div style="margin-top: 0.5rem;">🔬 科研级自动算法设计</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def get_welcome_message():
     """获取欢迎消息"""
-    return """
-👋 **欢迎使用 LLM4AD 自动算法设计助手！**
+    return """**欢迎使用 LLM4AD 自动算法设计助手！** 🎉
 
-我是一个基于大语言模型的智能助手，可以帮助您：
-- 🎯 选择算法设计方法（如 EoH、FunSearch 等）
-- 📋 配置优化任务（如装箱问题、TSP 等）
-- ⚙️ 设置参数并运行算法设计
-- 📊 实时展示设计过程和最终结果
+我是您的智能算法设计助手，可以帮助您：
 
-**开始方式（所有对话都由 LLM 处理）：**
-- 直接描述您的需求，例如："我想用EoH方法解决在线装箱问题"
-- 或询问："有哪些可用的方法？"、"什么任务适合我的场景？"
+| 功能 | 说明 |
+|:---:|:---|
+| 🎯 **方法选择** | EoH、FunSearch、HillClimb 等多种搜索方法 |
+| 📋 **任务配置** | 装箱问题、TSP、CVRP 等优化任务 |
+| ⚙️ **参数调优** | 灵活配置采样数、种群大小等参数 |
+| 📊 **实时监控** | 可视化展示设计过程和收敛曲线 |
 
-⚠️ **请先在左侧边栏配置 API Key**，然后开始对话。
+**快速开始：**
+- 💬 直接告诉我您的需求，例如："用 EoH 解决在线装箱问题"
+- ❓ 或者询问："有哪些可用的方法？"
+
+⚠️ **提示**：请先在左侧配置 API Key
 """
+
+
+def render_chat_message(role: str, content: str, tool_calls: str = None):
+    """渲染聊天消息 - 使用 Streamlit 原生组件"""
+    avatar = "👤" if role == "user" else "🤖"
+    
+    with st.chat_message(role, avatar=avatar):
+        # 显示工具调用徽章
+        if tool_calls and role == "assistant":
+            badges = [tc.strip().replace("🔧 调用了 ", "").replace("`", "") 
+                     for tc in tool_calls.split('\n') if tc.strip()]
+            if badges:
+                badge_html = " ".join([f'<span style="background: linear-gradient(135deg, #4299e1, #3182ce); color: white; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; margin-right: 0.5rem;">{b}</span>' for b in badges])
+                st.markdown(badge_html, unsafe_allow_html=True)
+        
+        # 显示内容
+        if content:
+            st.markdown(content)
 
 
 def process_user_input(user_input: str):
@@ -517,20 +747,27 @@ def main():
             model=llm_config.get("model", "gpt-4o-mini")
         )
     
+    # 加载自定义 CSS
+    load_custom_css()
+    
     # 渲染侧边栏
     render_sidebar()
     
-    # 主布局
+    # 主布局 - 只有打开配置面板时才分栏
     if st.session_state.show_config_panel:
         col1, col2 = st.columns([2, 1])
+        main_container = col1
     else:
-        col1, col2 = st.columns([3, 1])
+        main_container = st.container()
     
-    with col1:
-        # 标题
-        st.markdown("# 🧬 LLM4AD 自动算法设计助手")
-        st.markdown("*通过对话的方式，让AI帮您设计高效的算法*")
-        st.markdown("---")
+    with main_container:
+        # 标题 - 美化版
+        st.markdown("""
+        <h1 class="main-title">🧬 LLM4AD</h1>
+        <p class="sub-title">基于大语言模型的自动算法设计平台</p>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
         # 如果正在运行，显示算法设计过程
         if st.session_state.is_running:
@@ -538,25 +775,25 @@ def main():
         else:
             # 显示欢迎消息或历史
             if not st.session_state.messages:
-                with st.chat_message("assistant", avatar="🤖"):
-                    st.markdown(get_welcome_message())
+                # 只显示一个欢迎卡片
+                st.markdown(get_welcome_message())
             
             # 显示历史消息
             for msg in st.session_state.messages:
-                with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
-                    st.markdown(msg["content"])
+                tool_calls = msg.get("tool_calls", "")
+                render_chat_message(msg["role"], msg["content"], tool_calls)
             
             # 聊天输入
-            if prompt := st.chat_input("输入您的需求..."):
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            if prompt := st.chat_input("💬 输入您的需求，例如：用 EoH 解决在线装箱问题"):
                 # 添加用户消息
                 st.session_state.messages.append({"role": "user", "content": prompt})
                 
                 # 显示用户消息
-                with st.chat_message("user", avatar="👤"):
-                    st.markdown(prompt)
+                render_chat_message("user", prompt)
                 
                 # 处理输入
-                with st.spinner("思考中..."):
+                with st.spinner("🤔 思考中..."):
                     response = process_user_input(prompt)
                 
                 # 处理响应
@@ -564,23 +801,26 @@ def main():
                 message = response.get("message", "")
                 tool_calls = response.get("tool_calls", "")
                 
-                # 如果有工具调用，显示
-                if tool_calls:
-                    with st.chat_message("assistant", avatar="🤖"):
-                        st.caption(tool_calls)
-                
                 if action == "run_algorithm":
-                    st.session_state.messages.append({"role": "assistant", "content": message})
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": message,
+                        "tool_calls": tool_calls
+                    })
                     st.session_state.is_running = True
                     st.rerun()
                 else:
-                    st.session_state.messages.append({"role": "assistant", "content": message})
-                    with st.chat_message("assistant", avatar="🤖"):
-                        st.markdown(message)
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": message,
+                        "tool_calls": tool_calls
+                    })
+                    render_chat_message("assistant", message, tool_calls)
                     st.rerun()
     
-    with col2:
-        if st.session_state.show_config_panel:
+    # 配置面板（只在打开时显示在右侧）
+    if st.session_state.show_config_panel:
+        with col2:
             render_config_panel_ui()
 
 
