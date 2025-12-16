@@ -50,7 +50,7 @@ class MEoH:
                  max_generations: int | None = 10,
                  max_sample_nums: int | None = 100,
                  pop_size: int = 20,
-                 selection_num=5,
+                 selection_num=2,
                  use_e2_operator: bool = True,
                  use_m1_operator: bool = True,
                  use_m2_operator: bool = True,
