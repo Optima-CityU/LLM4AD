@@ -39,7 +39,7 @@ public class Config implements Cloneable
 		
 		this.epsilon=0.01;
 		this.etaMin=0.01;
-		this.etaMax=1;
+		this.etaMax=0.01;
 		
 		this.perturbation=new PerturbationType[2];
 		this.perturbation[0]=PerturbationType.Sequential;

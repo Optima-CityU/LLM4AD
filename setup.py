@@ -29,7 +29,6 @@ setup(
     python_requires='>=3.9,<3.13',
     install_requires=[
         'numpy<2',
-        'torch',
         'tensorboardX',
         'wandb',
         'scipy',
