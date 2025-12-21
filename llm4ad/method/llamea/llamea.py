@@ -1,5 +1,5 @@
 from llamea import LLaMEA as LLaMEA_Algorithm
-from llamea import LLM
+from ...base import LLM
 
 from .evaluation import generate_evaluator
 from .sampler import LLaMEASampler

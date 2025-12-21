@@ -1,10 +1,11 @@
 import os
 
 # LLM backend – Gemini is used here, but the library supports OpenAI, Ollama and DeepSeek.
-from llamea import Gemini_LLM
+from llm4ad.tools.llm.llm_api_https import HttpsApi
 
 # LLaMEA for LLM4AD evolutionary method.
 from llm4ad.method.llamea import LLaMEA
+from llm4ad.method.llamea.llamea_llm import LlameaLLM
 
 # Example optimization task – Capacitated Vehicle Routing Problem (CVRP)
 from llm4ad.task.optimization.cvrp_construct import CVRPEvaluation
@@ -23,16 +24,16 @@ def main():
     """
 
     # --- 1. Setup LLM backend ---
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "Missing GOOGLE_API_KEY environment variable. Please export it first."
-        )
+    # api_key = os.getenv("GOOGLE_API_KEY")
+    # if not api_key:
+    #     raise RuntimeError(
+    #         "Missing GOOGLE_API_KEY environment variable. Please export it first."
+    #     )
+    llm = LlameaLLM(host='api.bltcy.top',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='sk-xDTKC5OtOgzmi36ytMOIBLc5T04pFCRv2R6lcOalip8v2Pf9',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='gpt-4o-mini',  # your llm, e.g., 'gpt-3.5-turbo'
+                   timeout=60)
 
-    llm = Gemini_LLM(
-        api_key=api_key,
-        model="gemini-2.5-flash"
-    )
 
     # --- 2. Define problem evaluator ---
     # CVRPEvaluation evaluates candidate solutions for the CVRP task.
