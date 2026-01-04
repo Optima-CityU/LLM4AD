@@ -39,6 +39,7 @@ For more information, see the [contact list](https://github.com/Optima-CityU/LLM
 <img src="./assets/figs/overview.png" alt="llm4ad" style="zoom:50%;" />
 
 ## 🔥 News
++ 2026.01 🎉🎉 Our Survey Paper ["A Systematic Survey on Large Language Models for Algorithm Design"](https://arxiv.org/pdf/2410.14716) has been accepted by [**ACM Computing Surveys**](https://dl.acm.org/journal/csur) ! A Rep for the Survey can be found [here](https://github.com/FeiLiu36/LLM4AlgorithmDesign)
 
 + 2025.6 🎉🎉 We're excited to share that **EoH** recently set a **New World Record in Circle Packing Problem**, achieving a score of 2.63594 for 26 circles !  [Results here](https://github.com/Optima-CityU/llm4ad/tree/main/example/circle_packing)
 
