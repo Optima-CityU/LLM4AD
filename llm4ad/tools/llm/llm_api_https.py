@@ -45,18 +45,51 @@ class HttpsApi(LLM):
         self._cumulative_error = 0
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
-        if isinstance(prompt, str):
-            prompt = [{'role': 'user', 'content': prompt.strip()}]
+        """
+        Handle message construction:
+        - If 'messages' is explicitly provided, use it as the payload.
+        - If 'messages' is None, build it from 'prompt' and 'images':
+            a) Text only: Wrap prompt in a standard user message format.
+            b) Multimodal: Combine prompt text and image URLs into a single user message content list.
+        """
+        image64s = kwargs.get('image64s', None)  # List[str]
+        messages_input = kwargs.get('messages', None)   # messages
+
+        if messages_input is not None:
+            if isinstance(messages_input, dict):
+                messages = [messages_input]  # 单消息包装为列表
+            else:
+                messages = messages_input
+        else:
+            content = []
+            content.append({
+                    "type": "text",
+                    "text": prompt.strip()
+                })
+
+            if image64s is not None:
+                for image in image64s:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image}",
+                        }
+                    })
+
+            messages = [{
+                'role': 'user',
+                'content': content
+            }]
 
         while True:
             try:
                 conn = http.client.HTTPSConnection(self._host, timeout=self._timeout)
                 payload = json.dumps({
-                    'max_tokens': self._kwargs.get('max_tokens', 4096),
+                    'max_tokens': self._kwargs.get('max_tokens', 8192),
                     'top_p': self._kwargs.get('top_p', None),
                     'temperature': self._kwargs.get('temperature', 1.0),
                     'model': self._model,
-                    'messages': prompt
+                    'messages': messages
                 })
                 headers = {
                     'Authorization': f'Bearer {self._key}',
