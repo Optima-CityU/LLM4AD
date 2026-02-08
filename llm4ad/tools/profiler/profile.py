@@ -133,6 +133,7 @@ class ProfilerBase:
             'sample_order': sample_order,
             'function': str(function),
             'score': function.score,
+            'operator': function.operator,
             'program': program,
         }
 
@@ -161,6 +162,7 @@ class ProfilerBase:
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
         score = function.score
+        operator = function.operator
 
         # update best function
         if self._num_objs < 2:
@@ -186,6 +188,7 @@ class ProfilerBase:
                 print(f'================= Evaluated Function =================')
                 print(f'{function_str}')
                 print(f'------------------------------------------------------')
+                print(f'Operator     : {operator}')
                 print(f'Score        : {str(score)}')
                 print(f'Sample time  : {str(sample_time)}')
                 print(f'Evaluate time: {str(evaluate_time)}')

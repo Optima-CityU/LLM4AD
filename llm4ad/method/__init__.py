@@ -4,13 +4,14 @@ from llm4ad.method import (
     randsample,
     eoh,
     meoh,
+    mles,
     moead,
     nsga2,
     llamea,
     reevo
 )
 
-__all__ = ['funsearch', 'hillclimb', 'randsample', 'eoh', 'meoh', 'moead', 'nsga2', 'llamea', 'reevo']
+__all__ = ['funsearch', 'hillclimb', 'randsample', 'eoh', 'meoh', 'mles', 'moead', 'nsga2', 'llamea', 'reevo']
 # try to import reevo
 # try:
 #     from . import reevo
