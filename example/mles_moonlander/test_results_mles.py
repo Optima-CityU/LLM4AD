@@ -8,7 +8,7 @@ from llm4ad.method.mles import MLES
 from llm4ad.method.mles import MLESProfiler
 
 
-def main():
+def main(using_algo_designed_path):
     llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
                    key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
                    model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
@@ -27,15 +27,13 @@ def main():
         instance_set[id] = seed
 
     # Using
-    using_algo_designed_path = ""
-    # Using_seeds = [i for i in range(20, 60)]
     Using_seeds = [i for i in range(100, 150)]
     # Using_seeds = seeds
     ins_to_be_solve_set = {}
     for id, seed in enumerate(Using_seeds):
         ins_to_be_solve_set[id] = seed
 
-    run_mode = 'Training'  # Training, Using, Combined
+    run_mode = 'Using'  # Training, Using, Combined
     task = MoonLanderEvaluation(whocall='mles', instance_set=instance_set, run_mode=run_mode,
                                 ins_to_be_solve_set=ins_to_be_solve_set, feature_pipeline=moon_lander_feature,
                                 objective_value=230)
@@ -44,7 +42,7 @@ def main():
     seedpath = r'pop_init.json'
 
     method = MLES(llm=llm,
-                  profiler=MLESProfiler(log_dir=log_dir, log_style='complex', run_mode=run_mode,
+                  profiler=MLESProfiler(log_dir='', log_style='complex', run_mode=run_mode,
                                                using_algo_designed_path=using_algo_designed_path),
                   evaluation=task,
                   max_sample_nums=100,
@@ -57,8 +55,13 @@ def main():
                   seed_path=seedpath
                   )
 
-    method.run()
+    method.using_flow(worst_case_percent=10, top_k=1)
 
 
 if __name__ == '__main__':
-    main()
+    testing_paths = [
+        r"C:\0_QL_work\014_mmeoh\LLM4AD_MLES\LLM4AD\example\mles_moonlander\logs\MLES\20260208_201339",
+    ]
+
+    for path in testing_paths:
+        main(path)

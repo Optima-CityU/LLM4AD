@@ -270,11 +270,17 @@ class MoonLanderEvaluation(Evaluation):
                 'Success Rate': success_rate,
                 'NWS': nws
             }
-            return {'score': nws, 'image': encoded_base64, 'observation': observation_chosen_str,
-                    'Test result': test_result}
+            return {'score': nws,
+                    'image': encoded_base64,
+                    'observation': observation_chosen_str,
 
-        elif self.whocall in ['eoh', 'reevo', 'funsearch']:
-            return (mean_reward, instance_performance)
+                    'Test result': test_result,
+                    'all_ins_performance': instance_performance,
+                    'list_performance': list_performance
+                    }
+
+        # elif self.whocall in ['eoh', 'reevo', 'funsearch']:
+        #     return (mean_reward, instance_performance)
         elif self.whocall == 'dyca':
             return {'all_ins_performance': instance_performance,
                     'list_performance': list_performance}  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
