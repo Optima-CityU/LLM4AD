@@ -258,7 +258,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_e1_advanced(self._task_description_str, indivs,
                                                                  self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E1 Prompt: {self.messagess_to_string(messages)}')
+                        print(f'E1 Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", messages=messages, operator_name='e1_advanced',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -296,7 +296,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_e2_advanced(self._task_description_str, indivs,
                                                                  self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E2_advanced Prompt: {self.messagess_to_string(messages)}')
+                        print(f'E2_advanced Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", messages=messages, operator_name='e2',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -309,7 +309,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_e2_M(self._task_description_str, indivs,
                                                           self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E2 Multimodal Prompt: {self.messagess_to_string(messages)}')
+                        print(f'E2 Multimodal Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='e2_M',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -322,7 +322,7 @@ class MLES:
                     parents_pop_register_number = [indiv.pop_register_number]
                     messages = MLESPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M1 Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M1 Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", operator_name='m1', messages=messages,
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -335,7 +335,7 @@ class MLES:
                     parents_pop_register_number = [indiv.pop_register_number]
                     messages = MLESPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M2 Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M2 Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", operator_name='m2', messages=messages,
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -348,7 +348,7 @@ class MLES:
                     parents_pop_register_number = [indiv.pop_register_number]
                     messages = MLESPrompt.get_prompt_m1_M(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M1_Multimodel Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M1_Multimodel Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m1_M',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -362,7 +362,7 @@ class MLES:
                                                                     self._function_to_evolve,
                                                                     self._information_discription)
                     if self._debug_mode:
-                        print(f'm1_text Prompt: {self.messagess_to_string(messages)}')
+                        print(f'm1_text Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
                                                    operator_name='m1_text_info',
                                                    parent_number=parents_pop_register_number)
@@ -375,7 +375,7 @@ class MLES:
                     parents_pop_register_number = [indiv.pop_register_number]
                     messages = MLESPrompt.get_prompt_m2_M(self._task_description_str, indiv, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M2_Multimodel Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M2_Multimodel Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m2_M',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -395,7 +395,7 @@ class MLES:
                     if self._debug_mode:
                         print('Description:', description)
                         print('Description response:', response)
-                        print(f'm1_image_describtion Prompt: {self.messagess_to_string(messages)}')
+                        print(f'm1_image_describtion Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
                                                    operator_name='m1_image_describtion',
                                                    parent_number=parents_pop_register_number)
@@ -415,7 +415,7 @@ class MLES:
                     if self._debug_mode:
                         print('Description:', description)
                         print('Description response:', response)
-                        print(f'm2_image_describtion Prompt: {self.messagess_to_string(messages)}')
+                        print(f'm2_image_describtion Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
                                                    operator_name='m2_image_describtion',
                                                    parent_number=parents_pop_register_number)
@@ -429,7 +429,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_m1_M_only_image(self._task_description_str, indiv,
                                                                      self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M1_only_image_Multimodel Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M1_only_image_Multimodel Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
                                                    operator_name='m1_only_image',
                                                    parent_number=parents_pop_register_number)
@@ -469,7 +469,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_m1_M_nothought(self._task_description_str, indiv,
                                                                     self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M1_Multimodel_nothought Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M1_Multimodel_nothought Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m1_M_nothought',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
@@ -482,7 +482,7 @@ class MLES:
                     messages = MLESPrompt.get_prompt_m2_M_nothought(self._task_description_str, indiv,
                                                                     self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'M2_Multimodel_nothought Prompt: {self.messagess_to_string(messages)}')
+                        print(f'M2_Multimodel_nothought Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m2_M_nothought',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
