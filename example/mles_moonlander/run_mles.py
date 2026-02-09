@@ -47,7 +47,7 @@ def main():
                   profiler=MLESProfiler(log_dir=log_dir, log_style='complex', run_mode=run_mode,
                                                using_algo_designed_path=using_algo_designed_path),
                   evaluation=task,
-                  max_sample_nums=100,
+                  max_sample_nums=2000,
                   max_generations=None,
                   pop_size=16,
                   num_samplers=8,
