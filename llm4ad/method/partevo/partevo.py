@@ -32,7 +32,7 @@ import os
 import re
 
 
-class MLES:
+class PartEvo:
     def __init__(self,
                  llm: LLM,
                  evaluation: Evaluation,
