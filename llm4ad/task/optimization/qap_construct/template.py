@@ -1,34 +1,36 @@
 template_program = '''
 import numpy as np
+from typing import List
 
-def select_next_assignment(current_assignment: List[int], flow_matrix: np.ndarray, distance_matrix: np.ndarray) -> List[int]:
+def select_next_assignment(flow_matrix: np.ndarray, distance_matrix: np.ndarray) -> List[int]:
     """
-    A heuristic for the Quadratic Assignment Problem.
+    Constructive heuristic for the Quadratic Assignment Problem (QAP).
+
+    IMPORTANT: This version matches the evaluator's contract in `QAPEvaluation.qap_evaluate`,
+    which calls the heuristic as:
+        assignment = eva(flow_matrix, distance_matrix)
+
+    So the heuristic must return a COMPLETE assignment (a permutation) in ONE call.
 
     Args:
-        current_assignment: Current assignment of facilities to locations (-1 means unassigned).
-        flow_matrix: Flow matrix between facilities.
-        distance_matrix: Distance matrix between locations.
+        flow_matrix (np.ndarray): shape (n, n)
+        distance_matrix (np.ndarray): shape (n, n)
 
     Returns:
-        Updated assignment of facilities to locations.
+        assignment (List[int]): length-n permutation of {0, ..., n-1}
+            where assignment[i] is the location assigned to facility i.
+            Must contain no -1 and no duplicates.
     """
-    n_facilities = len(current_assignment)
-    
-    # Find the first unassigned facility and the first available location
-    for facility in range(n_facilities):
-        if current_assignment[facility] == -1:
-            # Find the first available location
-            for location in range(n_facilities):
-                if location not in current_assignment:
-                    current_assignment[facility] = location
-                    break
-            break
-    
-    return current_assignment
+    n = flow_matrix.shape[0]
+
+    # Simple baseline: identity permutation (facility i -> location i).
+    # This is always feasible and satisfies evaluator checks.
+    assignment = list(range(n))
+    return assignment
+
+
 '''
 
 task_description = '''
 The task is to assign a set of facilities to a set of locations in such a way that the total cost of interactions between facilities is minimized.
-Help me design a novel algorithm to select the next operation in each step.
 '''
