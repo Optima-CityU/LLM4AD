@@ -6,7 +6,7 @@ from typing import List, Dict
 from ...base import *
 
 
-class MLESPrompt:
+class PartEvoPrompt:
     """
     Template factory for Multimodal LLM prompts.
     Converts evolutionary search operations (Initialization, Crossover, Mutation, Modification)
@@ -45,6 +45,66 @@ Please design a novel algorithm to address this task by following the steps belo
 ```
 '''
         return prompt_content
+
+    @classmethod
+    def get_prompt_batch_init(cls, task_prompt: str, template_function: Function, current_population: List[Function],
+                              branch_novelty=30):
+        for indi in current_population:
+            assert hasattr(indi, 'algorithm')
+
+        # template
+        temp_func = copy.deepcopy(template_function)
+        temp_func.body = ''
+        # Construct prompt content
+        content = []
+        # Task assignment
+        assigment_prompt = f"{task_prompt}\n"
+        content.append({"type": "text", "text": assigment_prompt})
+
+        current_size = len(current_population)
+        if current_size > 0:
+            init_cue = f"So far, experts have proposed {current_size} algorithms. Their high-level ideas are summarized below."
+            init_task = (f"-----------------------------------------------\n"
+                         f"Your goal is to design a new algorithm whose core idea differs from *all existing ones* by at least {branch_novelty}%.")
+        else:
+            init_cue = ""
+            init_task = f"Based on your expertise, please create a novel and efficient algorithm to solve this problem."
+
+        content.append({"type": "text", "text": init_cue})
+
+        for i, indi in enumerate(current_population):
+            content.extend([
+                {
+                    "type": "text",
+                    "text": f'Algorithm #{i + 1}:\n'
+                            f'Idea: {indi.algorithm}\n'
+                }
+            ])
+
+        content.append({"type": "text", "text": init_task})
+
+        # Expert instructions
+        operator_prompt = f"""
+    Please design a new algorithm following the instructions below:
+
+    1. Describe your concept for the new algorithm and its main steps in as few words as possible while ensuring clarity, and enclose it **exactly** within the markers '<<' and '>>', like this: <<Your idea here>>.
+    2. Implement your proposed algorithm using the following Python function template:
+    ```python
+    {str(temp_func)}
+    ```
+    """
+
+        content.append({
+            "type": "text",
+            "text": operator_prompt
+        })
+
+        messages = [{
+            'role': 'user',
+            'content': content
+        }]
+
+        return messages
 
     @classmethod
     def get_prompt_e1(cls, task_prompt: str, indivs: List[Function], template_function: Function):
@@ -97,6 +157,43 @@ Please help me create a new algorithm that has a totally different form from the
 3. Thirdly, implement the following Python function:
 {str(temp_func)}'''
         return prompt_content
+
+    @classmethod
+    def get_prompt_reflection(cls, task_prompt: str, func: Function):
+        """Use Figures to instruct the design progress"""
+        assert hasattr(func, 'algorithm')
+
+        # Construct prompt content
+        content = []
+        # Task assignment
+        assigment_prompt = f"An intelligent agent is currently executing the following design task:\n{task_prompt}\n"
+        content.append({"type": "text", "text": assigment_prompt})
+        description_situation = f"The agent has designed an algorithm with the following ideas and code:"
+        content.append({"type": "text", "text": description_situation})
+        content.extend([
+            {
+                "type": "text",
+                "text": f'Concept: {func.algorithm}\n'
+                        f'Implementation:\n{str(func)}\n'
+            }
+        ])
+        content.append({"type": "text",
+                        "text": "Based on your understanding and knowledge of this design task, please provide targeted suggestions for the current algorithm to guide the agent in improving it."})
+
+        # Expert instructions
+        reflection_task_prompt = f"Enclose your suggestions **exactly** within the markers ‘<<’ and ‘>>’ like this: <<Your suggestions here>>."
+
+        content.append({
+            "type": "text",
+            "text": reflection_task_prompt
+        })
+
+        messages = [{
+            'role': 'user',
+            'content': content
+        }]
+
+        return messages
 
     @classmethod
     def get_prompt_e1_advanced(cls, task_prompt: str, indivs: List[Function], template_function: Function):

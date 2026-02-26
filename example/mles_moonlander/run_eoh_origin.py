@@ -11,7 +11,7 @@ from llm4ad.tools.profiler import ProfilerBase
 def main():
     llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
                    key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gemini-3-flash-preview-nothinking',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
+                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
                    timeout=120)
     log_dir = f'logs/EoH_origin'  # Use run_id to avoid overwriting logs
 

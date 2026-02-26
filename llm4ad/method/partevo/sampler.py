@@ -3,11 +3,11 @@ from __future__ import annotations
 import re
 from typing import Tuple, List, Dict
 
-from .prompt import MLESPrompt
+from .prompt import PartEvoPrompt
 from ...base import LLM, SampleTrimmer, Function, Program
 
 
-class MLESSampler:
+class PartEvoSampler:
     """
     The MLESSampler serves as the interface for interacting with the LLM.
     It handles the execution of sampling requests and uses regular expressions
@@ -54,6 +54,12 @@ class MLESSampler:
         description = self.__class__.trim_description_from_response(response)
         return description, response
 
+    def get_reflection(self, prompt: str, messages: List = None):
+        response = self._sampler.draw_sample(prompt, image64s=None, messages=messages)
+        # Parse descriptions specifically wrapped in double curly braces
+        reflection = self.__class__.trim_reflection_from_response(response)
+        return reflection
+
     @classmethod
     def trim_thought_from_response(cls, response: str) -> str | None:
         """
@@ -65,6 +71,33 @@ class MLESSampler:
             bracketed_texts = re.findall(pattern, response)
             return bracketed_texts[0]
         except:
+            return None
+
+    @classmethod
+    def trim_reflection_from_response(cls, response: str) -> str | None:
+        """
+        Extracts the content inside the first occurrence of < > brackets.
+        """
+        try:
+            # 1. Regex pattern explanations:
+            # <<      : Match literal '<<'
+            # (       : Start capturing group
+            # [\s\S]*?: Match any character (including newlines), non-greedy (*?)
+            # )       : End capturing group
+            # >>      : Match literal '>>'
+            pattern = r'<<([\s\S]*?)>>'
+
+            # Note: [\s\S] includes newlines, so re.DOTALL is technically redundant but harmless.
+            bracketed_texts = re.findall(pattern, response)
+
+            if bracketed_texts:
+                # 2. Return the first match and strip whitespace
+                return bracketed_texts[0].strip()
+            return None
+
+        except Exception as e:
+            # It's better to log the full error for debugging
+            print(f"Error in trim_tips_from_response: {e}")
             return None
 
     @classmethod

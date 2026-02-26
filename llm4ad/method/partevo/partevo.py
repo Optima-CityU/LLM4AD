@@ -1,26 +1,15 @@
-# Module Name: MLES
-# Last Revision: 2026/2/9
-# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
-#
-# Reference:
-#   - Qinglong Hu, Xialiang Tong, Mingxuan Yuan, Fei Liu, Zhichao Lu, and Qingfu Zhang.
-#       "Multimodal LLM-assisted Evolutionary Search for Programmatic Control Policies."
-#       The Fourteenth International Conference on Learning Representations (ICLR). 2026.
-
-# --------------------------------------------------------------------------
-
 from __future__ import annotations
 
 import concurrent.futures
 import time
 import traceback
 from threading import Thread
-from typing import Optional, Literal
+from typing import Optional, Literal, Union, Dict
 
-from .population import Population
-from .profiler import MLESProfiler
-from .prompt import MLESPrompt
-from .sampler import MLESSampler
+from .profiler import PartEvoProfiler  # TODO
+from .prompt import PartEvoPrompt
+from .sampler import PartEvoSampler
+from .clustermanager import ClusterManager
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
@@ -36,63 +25,54 @@ class PartEvo:
     def __init__(self,
                  llm: LLM,
                  evaluation: Evaluation,
-                 profiler: ProfilerBase = None,
+                 profiler: Union[ProfilerBase, PartEvoProfiler] = None,
                  max_generations: Optional[int] = 10,
                  max_sample_nums: Optional[int] = 100,
-                 pop_size: Optional[int] = 5,
-                 selection_num=2,
-                 operators: tuple = ('e1', 'e2', 'm1_M', 'm2_M'),   # ('e1', 'e2', 'm1', 'm2', 'm1_M', 'm2_M', )
+                 pop_size: int = 16,
+                 operators: tuple = ('re', 'se', 'cc', 'lge'),
+                 operators_parent_num: Optional[Dict] = None,
+                 operators_frequency: Optional[Dict] = None,
                  num_samplers: int = 1,
                  num_evaluators: int = 1,
-                 *,
                  resume_mode: bool = False,
                  initial_sample_nums_max: int = 50,
                  debug_mode: bool = False,
                  multi_thread_or_process_eval: Literal['thread', 'process'] = 'thread',
-                 seed_path="",
+                 partition_method: str = 'kmeans',
+                 partition_number: int = 4,
+
+                 local_algo_base="",
+
+                 feature_used: Literal['ast', 'language'] = 'ast',
+
+                 use_resource_tilt: bool = False,
+                 bert_model_path: str = '',
                  **kwargs):
-        """Evolutionary of Heuristics.
-        Args:
-            llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
-            evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
-            profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
-            max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
-                              pass 'None' to disable this termination condition.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
-                              pass 'None' to disable this termination condition.
-            pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
-            selection_num   : number of selected individuals while crossover.
-            resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
-            debug_mode      : if set to True, we will print detailed information.
-            multi_thread_or_process_eval: use 'concurrent.futures.ThreadPoolExecutor' or 'concurrent.futures.ProcessPoolExecutor' for the usage of
-                multi-core CPU while evaluation. Please note that both settings can leverage multi-core CPU. As a result on my personal computer (Mac OS, Intel chip),
-                setting this parameter to 'process' will faster than 'thread'. However, I do not sure if this happens on all platform so I set the default to 'thread'.
-                Please note that there is one case that cannot utilize multi-core CPU: if you set 'safe_evaluate' argument in 'evaluator' to 'False',
-                and you set this argument to 'thread'.
-            initial_sample_nums_max     : maximum samples restriction during initialization.
-            **kwargs                    : some args pass to 'llm4ad.base.SecureEvaluator'. Such as 'fork_proc'.
-        """
+
         # Core components for evaluation and task context
         self.evaluation_object = evaluation
         self._template_program_str = evaluation.template_program
         self._task_description_str = evaluation.task_description
 
         # Evolution constraints and parameters
-        self.seed_path = seed_path
+        self.local_algo_base = local_algo_base
         self._max_generations = max_generations
         self._max_sample_nums = max_sample_nums
         self._pop_size = pop_size
-        self._selection_num = selection_num
-        self.operators = operators
 
-        # Validate operator requirements (e.g., text descriptions for specific operators)
-        self.check_before_running()
+        self.operators = operators
+        self.operators_parent_num = operators_parent_num
+        self.operators_frequency = operators_frequency
 
         # Concurrency and runtime settings
         self._num_samplers = num_samplers
         self._num_evaluators = num_evaluators
         self._resume_mode = resume_mode
-        self._initial_sample_nums_max = initial_sample_nums_max
+        self._initial_sample_nums_max = max(
+            initial_sample_nums_max,
+            2 * self._pop_size
+        )
+        self._num_init_samplers = 5
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
@@ -102,18 +82,28 @@ class PartEvo:
         self._function_to_evolve_name: str = self._function_to_evolve.name
         self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
 
-        # Initialize core modules: Population storage, LLM sampler, and Secure evaluator
-        self._population = Population(pop_size=self._pop_size)
-        self._sampler = MLESSampler(llm, self._template_program_str)
+        self.partition_method = partition_method
+        self.partition_number = partition_number
+        self.use_resource_tilt = use_resource_tilt
+        self.feature_used = feature_used
+
+        self._pool = ClusterManager(pop_size=self._pop_size,
+                                    n_clusters=self.partition_number,
+                                    intra_operators=self.operators,
+                                    intra_operators_parent_num=self.operators_parent_num,
+                                    intra_operators_frequency=self.operators_frequency,
+                                    use_resource_tilt=self.use_resource_tilt,
+                                    resource_tilt_alpha=2.0,
+                                    bert_model_path=bert_model_path,
+                                    debug_flag=self._debug_mode)
+
+        self.local_algo_base = local_algo_base
+        self._sampler = PartEvoSampler(llm, self._template_program_str)
         self._evaluator = SecureEvaluator(evaluation, debug_mode=debug_mode, **kwargs)
         self._profiler = profiler
 
         # Internal counters
         self._tot_sample_nums = 0
-        self._initial_sample_nums_max = max(
-            self._initial_sample_nums_max,
-            2 * self._pop_size
-        )
 
         # Setup parallel executor for performance evaluation
         assert multi_thread_or_process_eval in ['thread', 'process']
@@ -130,62 +120,73 @@ class PartEvo:
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)
 
-    def check_before_running(self):
-        """Verify that the evaluation object provides required text descriptions for specific operators."""
-        if 'm1_text' in self.operators:
-            if hasattr(self.evaluation_object, 'non_image_representation_explanation'):
-                self._information_discription = self.evaluation_object.non_image_representation_explanation
-            else:
-                raise ValueError(
-                    "When 'text' is in operators, non image information description of this task cannot be empty")
+    def _extend_init_population(self, tid=0, *args, **kwargs):
+        """Let a thread repeat {sample -> evaluate -> register to population}
+        to initialize a population.
+        """
+        try:
+            # get a new func using i1
+            current_population = self._pool.population.copy() + self._pool.next_pop.copy()
+            current_feasible_population = [func for func in current_population if func.score is not None]
+            messages = PartEvoPrompt.get_prompt_batch_init(self._task_description_str, self._function_to_evolve,
+                                                           current_population=current_feasible_population)
+            if self._debug_mode:
+                print('Batch Init Prompt: ', self.messages_to_string(messages))
+            self._sample_evaluate_register(prompt="", operator_name='init',
+                                           messages=messages, from_which_cluster=None)
+        except Exception:
+            traceback.print_exc()
 
     def init_from_local_algo_base(self):
-        """Bootstrap the population using pre-existing algorithms from a local JSON seed file."""
-        if os.path.exists(self.seed_path):
-            with open(self.seed_path, 'r', encoding='utf-8') as file:
+        if os.path.exists(self.local_algo_base):
+            # 打开并读取JSON文件
+            with open(self.local_algo_base, 'r', encoding='utf-8') as file:
                 seeds = json.load(file)
         else:
             print(
-                f"\033[91mWarning: File {self.seed_path} does not exist, directly starting LLM-based algorithm initialization\033[0m")
+                f"\033[91mWarning: File {self.local_algo_base} does not exist, directly starting LLM-based algorithm initialization\033[0m")
             return
 
         operator = 'load'
         for seed_individual in seeds:
-            # Parse function code and reconstruct the program structure
             seed_str = seed_individual['function']
-            seed_algorithm = seed_individual['algorithm']
             program = TextFunctionProgramConverter.function_to_program(seed_str, self._template_program)
             program_str = str(program)
             func = TextFunctionProgramConverter.text_to_function(program_str)
 
-            # Evaluate the seed program and record performance
-            score_images_dict, eval_time = self._evaluation_executor.submit(
+            evaluation_return, eval_time = self._evaluation_executor.submit(
                 self._evaluator.evaluate_program_record_time,
                 program
             ).result()
 
-            # Metadata assignment and population registration
-            if score_images_dict is not None:
-                func.score = score_images_dict['score']
-                func.image64 = score_images_dict['image']
-                func.observation = score_images_dict['observation']
+            if evaluation_return is not None:
+                # register to profiler
+                func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
+                func.list_performance = evaluation_return.get('list_performance', None)
+                func.score = evaluation_return.get('score', None)
             else:
+                func.all_ins_performance = None
+                func.list_performance = None
                 func.score = None
-
+            func.parents = []
             func.operator = operator
+            func.algorithm = seed_individual['algorithm']
             func.evaluate_time = eval_time
-            func.algorithm = seed_algorithm
-            func.sample_time = 0
+            func.sample_time = None
+            func.response = None
+            func.prompt = None
 
             # register to the population
-            self._population.register_function(func)
+            self._pool.register_function(offspring=func, from_which_cluster=None)
 
             if self._profiler is not None:
-                self._profiler.register_function(func, program=str(program))
-                if isinstance(self._profiler, MLESProfiler):
-                    self._profiler.register_population(self._population)
+                self._profiler.register_function(func)
+                if isinstance(self._profiler, PartEvoProfiler):
+                    self._profiler.register_population(self._pool)
+                self._tot_sample_nums += 1
 
-    def _sample_evaluate_register(self, prompt, image_prompt=None, messages=None, operator_name="", parent_number=None):
+    def _sample_evaluate_register(self, prompt, image_prompt=None, messages=None, operator_name="", parent_number=None,
+                                  from_which_cluster=None):
         """
         Execute the full evolutionary cycle for a single candidate:
         1. Sample: Query LLM for new algorithm design and code.
@@ -204,18 +205,21 @@ class PartEvo:
             return
 
         # Synchronously wait for parallel evaluation result
-        score_images_dict, eval_time = self._evaluation_executor.submit(
+        evaluation_return, eval_time = self._evaluation_executor.submit(
             self._evaluator.evaluate_program_record_time,
             program
         ).result()
 
         # Update function object with evaluation feedback and lineage
-        if score_images_dict is not None:
-            func.score = score_images_dict['score']
-            func.image64 = score_images_dict['image']
-            func.observation = score_images_dict['observation']
+        if evaluation_return is not None:
+            func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
+            func.list_performance = evaluation_return.get('list_performance', None)
+            func.score = evaluation_return.get('score', None)
         else:
+            func.all_ins_performance = None
+            func.list_performance = None
             func.score = None
+
         if parent_number is not None:
             func.parents = parent_number
         func.operator = operator_name
@@ -226,56 +230,68 @@ class PartEvo:
         func.prompt = prompt
 
         # register to the population
-        self._population.register_function(func)
+        self._pool.register_function(offspring=func, from_which_cluster=from_which_cluster)
 
         # register to the log
         if self._profiler is not None:
             self._profiler.register_function(func, program=str(program))
-            if isinstance(self._profiler, MLESProfiler):
-                self._profiler.register_population(self._population)
+            if isinstance(self._profiler, PartEvoProfiler):
+                self._profiler.register_population(self._pool)  # TODO
             self._tot_sample_nums += 1
 
     def _continue_loop(self) -> bool:
         """Check if termination conditions (max generations or max samples) have been met."""
-        if self._max_generations is None and self._max_sample_nums is None:
+        if self._max_sample_nums is None:
             return True
         elif self._max_generations is not None and self._max_sample_nums is None:
-            return self._population.generation < self._max_generations
+            return self._pool.generation < self._max_generations
         elif self._max_generations is None and self._max_sample_nums is not None:
             return self._tot_sample_nums < self._max_sample_nums
         else:
-            return (self._population.generation < self._max_generations
+            return (self._pool.generation < self._max_generations
                     and self._tot_sample_nums < self._max_sample_nums)
 
-    def _iteratively_use_mles_operator(self, tid=0):
+    def _partevo_multi_threaded_sampling(self, tid=0, *args, **kwargs):
         """
         Main evolutionary loop: iteratively applies search operators to the population.
         Supports multi-threaded sampling by offsetting the operator cycle based on thread ID.
         """
-        # Cycle through available operators to ensure diverse search start for each thread
-        operator_cycle = itertools.cycle(self.operators)
-        for _ in range(tid):
-            _ = next(operator_cycle)
 
-        while self._continue_loop():
+        target_samples = kwargs.get('target_samples', float('inf'))
+
+        while self._continue_loop() and self._tot_sample_nums < target_samples:
             try:
-                # get current operator
-                operator = next(operator_cycle)
 
-                if operator == 'e1_advanced':
-                    # get a new func using e1
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    messages = MLESPrompt.get_prompt_e1_advanced(self._task_description_str, indivs,
-                                                                 self._function_to_evolve)
+                func_parents, operator, chosen_c_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
+                print(operator, chosen_c_id)
+                if operator == 'error':
+                    # 假设有 cluster_unit_now 和 parents 变量可用
+                    print(f"\033[93mWarning: parent selection failed. Please investigate.\033[0m")
+                    continue
+
+                if operator == 're':            # TODO P0
+                    the_parent = func_parents[0]
+                    messages_for_reflection = PartEvoPrompt.get_prompt_reflection(self._task_description_str,
+                                                                                  the_parent)
+                    reflection_got = self._sampler.get_image_description(prompt="", image64s=None,
+                                                                         messages=messages_for_reflection)
+                    messages = PartEvoPrompt.get_prompt_re(self._task_description_str,          # TODO 完成 get_prompt_re
+                                                         self._function_to_evolve,
+                                                         reflection_got)
                     if self._debug_mode:
-                        print(f'E1 Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", messages=messages, operator_name='e1_advanced',
-                                                   parent_number=parents_pop_register_number)
+                        print(f'RE Prompt: {self.messages_to_string(messages)}')
+                    self._sample_evaluate_register(prompt="",
+                                                   messages=messages,
+                                                   operator_name='re',
+                                                   reflction = reflection_got               # TODO
+                                                   )
+
+                    # TODO 测试RE，然后再看SE之类的
+
                     if not self._continue_loop():
                         break
 
-                elif operator == 'e1':
+                elif operator == 'se':
                     # get a new func using e1
                     indivs = self._population.selection(number=self._selection_num)
                     parents_pop_register_number = [ind.pop_register_number for ind in indivs]
@@ -287,214 +303,26 @@ class PartEvo:
                     if not self._continue_loop():
                         break
 
-                # get a new func using e2
-                elif operator == 'e2':
+                elif operator == 'cn':
+                    # get a new func using e1
                     indivs = self._population.selection(number=self._selection_num)
                     parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e2(self._task_description_str, indivs,
-                                                       self._function_to_evolve)
+                    prompt = MLESPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E2 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e2',
+                        print(f'E1 Prompt: {prompt}')
+                    self._sample_evaluate_register(prompt=prompt, operator_name='e1',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
                         break
 
-                # get a new func using e2
-                elif operator == 'e2_advanced':
+                elif operator == 'lge':
+                    # get a new func using e1
                     indivs = self._population.selection(number=self._selection_num)
                     parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    messages = MLESPrompt.get_prompt_e2_advanced(self._task_description_str, indivs,
-                                                                 self._function_to_evolve)
+                    prompt = MLESPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E2_advanced Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", messages=messages, operator_name='e2',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using e2 Multimodal
-                elif operator == 'e2_M':
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    messages = MLESPrompt.get_prompt_e2_M(self._task_description_str, indivs,
-                                                          self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'E2 Multimodal Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='e2_M',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m1
-                elif operator == 'm1':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m1(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1 Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", operator_name='m1', messages=messages,
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m2
-                elif operator == 'm2':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m2(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M2 Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", operator_name='m2', messages=messages,
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # get a new func using m1_Multimodal
-                elif operator == 'm1_M':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m1_M(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1_Multimodel Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m1_M',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm1_text':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m1_M_text_info(self._task_description_str, indiv,
-                                                                    self._function_to_evolve,
-                                                                    self._information_discription)
-                    if self._debug_mode:
-                        print(f'm1_text Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
-                                                   operator_name='m1_text_info',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm2_M':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m2_M(self._task_description_str, indiv, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M2_Multimodel Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m2_M',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # no figure itself
-                elif operator == 'm1_only_imagedescribtion':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_image_description(self._task_description_str, indiv,
-                                                                       self._function_to_evolve)
-                    description, response = self._sampler.get_image_description(prompt="", image64s=None,
-                                                                                messages=messages)
-                    messages = MLESPrompt.get_prompt_m1_M_image_description(self._task_description_str, indiv,
-                                                                            self._function_to_evolve, description)
-                    if self._debug_mode:
-                        print('Description:', description)
-                        print('Description response:', response)
-                        print(f'm1_image_describtion Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
-                                                   operator_name='m1_image_describtion',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm2_only_imagedescribtion':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_image_description(self._task_description_str, indiv,
-                                                                       self._function_to_evolve)
-                    description, response = self._sampler.get_image_description(prompt="", image64s=None,
-                                                                                messages=messages)
-                    messages = MLESPrompt.get_prompt_m2_M_image_description(self._task_description_str, indiv,
-                                                                            self._function_to_evolve, description)
-                    if self._debug_mode:
-                        print('Description:', description)
-                        print('Description response:', response)
-                        print(f'm2_image_describtion Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
-                                                   operator_name='m2_image_describtion',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm1_only_image':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m1_M_only_image(self._task_description_str, indiv,
-                                                                     self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1_only_image_Multimodel Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages,
-                                                   operator_name='m1_only_image',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                # --- ABLATION OPERATORS (nothought) ---
-                # Variants that without the "thought" of the algorithm during the algorithm generation.
-                elif operator == 'e1_nothought':
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e1_nothought(self._task_description_str, indivs,
-                                                                 self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'E1_nothought Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e1_nothought',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'e2_nothought':
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e2_nothought(self._task_description_str, indivs,
-                                                                 self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'E2_nothought Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e2_nothought',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm1_M_nothought':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m1_M_nothought(self._task_description_str, indiv,
-                                                                    self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M1_Multimodel_nothought Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m1_M_nothought',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'm2_M_nothought':
-                    indivs = self._population.selection()
-                    indiv = indivs[0]
-                    parents_pop_register_number = [indiv.pop_register_number]
-                    messages = MLESPrompt.get_prompt_m2_M_nothought(self._task_description_str, indiv,
-                                                                    self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'M2_Multimodel_nothought Prompt: {self.messages_to_string(messages)}')
-                    self._sample_evaluate_register(prompt="", image_prompt=None, messages=messages, operator_name='m2_M_nothought',
+                        print(f'E1 Prompt: {prompt}')
+                    self._sample_evaluate_register(prompt=prompt, operator_name='e1',
                                                    parent_number=parents_pop_register_number)
                     if not self._continue_loop():
                         break
@@ -510,52 +338,36 @@ class PartEvo:
                     # exit()
                 continue
 
-        # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
-            pass
-
-    def _iteratively_init_population(self, tid=0):
-        """
-        Populate the initial generation by repeatedly sampling from the LLM.
-        This loop continues until the population reaches the required size or
-        the maximum initialization sample limit is exceeded.
-        """
-        while self._population.generation == 0:
-            try:
-                # Generate a 'zero-shot' initialization prompt for the task
-                prompt = MLESPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
-                if self._debug_mode:
-                    print('Init Prompt: ', prompt)
-
-                # Sample, evaluate, and add to population if valid
-                self._sample_evaluate_register(prompt, operator_name="Initialization")
-
-                # Safety break to prevent infinite loops if the LLM fails to generate valid code
-                if self._tot_sample_nums > self._initial_sample_nums_max:
-                    print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
-                    break
-            except Exception:
-                if self._debug_mode:
-                    traceback.print_exc()
-                    exit()
-                continue
-
     def _multi_threaded_sampling(self, fn: callable, *args, **kwargs):
         """
         Execute sampling functions (initialization or evolution) in parallel.
         Uses standard threading to handle multiple concurrent LLM requests.
         """
-        # threads for sampling
-        sampler_threads = [
-            Thread(target=fn, args=(tid, *args), kwargs=kwargs)
-            for tid in range(self._num_samplers)
-        ]
+        init_mode = kwargs.get('init_mode', False)
+        if init_mode:
+            sampler_threads = [
+                Thread(target=fn, args=(tid, *args), kwargs=kwargs)
+                for tid in range(self._num_init_samplers)
+            ]
+        else:
+            sampler_threads = [
+                Thread(target=fn, args=(tid, *args), kwargs=kwargs)
+                for tid in range(self._num_samplers)
+            ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+
+    def init_using_llms(self):
+        batch_num = 0
+        while len(
+                self._pool.population) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
+            batch_num += 1
+            self._multi_threaded_sampling(self._extend_init_population, init_mode=True)
+            print(f"Initialization of batch {batch_num} completed")
+        print(
+            f'pool generation is {self._pool.generation} now, got {len(self._pool.population)} different individual, use {self._tot_sample_nums}/{self._initial_sample_nums_max}')
 
     def run(self):
         """
@@ -569,20 +381,14 @@ class PartEvo:
             print("🌱 Initializing population from database...")
             self.init_from_local_algo_base()
 
-            print("🌱 Initializing population by LLM...")
-            self._multi_threaded_sampling(self._iteratively_init_population)
-
-            # Validation: Ensure we have enough individuals to perform evolutionary operators
-            if len(self._population) < self._selection_num:
-                print(
-                    f'The search is terminated since EoH unable to obtain {self._selection_num} feasible algorithms during initialization. '
-                    f'Please increase the `initial_sample_nums_max` argument (currently {self._initial_sample_nums_max}). '
-                    f'Please also check your evaluation implementation and LLM implementation.')
-                return
+            if len(self._pool.population) < self._pop_size:
+                print("🌱 Initializing population by LLM...")
+                self.init_using_llms()
+                # self._multi_threaded_sampling(self._iteratively_init_population)
 
         # Phase 2: Evolutionary Search Loop
         print("🧬 Starting evolutionary training pipeline...")
-        self._multi_threaded_sampling(self._iteratively_use_mles_operator)
+        self._multi_threaded_sampling(self._iteratively_use_partevo_operator)
 
         # Phase 3: Cleanup and Reporting
         if self._profiler is not None:
@@ -676,10 +482,11 @@ class PartEvo:
                     func = TextFunctionProgramConverter.text_to_function(str(program))
 
                     score_images_dict = self._evaluator._evaluate(str(program), func.name,
-                                                                              ins_to_be_evaluated_id=(instance_id,),
-                                                                              training_mode=False)
+                                                                  ins_to_be_evaluated_id=(instance_id,),
+                                                                  training_mode=False)
 
-                    score = score_images_dict.get('all_ins_performance', {}).get(instance_id, {}).get('score', float('-inf'))
+                    score = score_images_dict.get('all_ins_performance', {}).get(instance_id, {}).get('score',
+                                                                                                      float('-inf'))
 
                     # Update the best algorithm found for this specific instance
                     if score is not None and score > best_score_for_instance:

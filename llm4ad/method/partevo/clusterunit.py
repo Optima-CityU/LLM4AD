@@ -244,9 +244,9 @@ class ClusterUnit:
 
     def has_duplicate_function(self, func: str | Evoind) -> bool:
         """检查是否有代码完全相同的个体"""
-        target_code = func.code if isinstance(func, Evoind) else str(func)
+        target_code = func.function.body if isinstance(func, Evoind) else str(func)
         for ind in self._population:
-            if ind.code == target_code:
+            if ind.function.body == target_code:
                 return True
         return False
 
@@ -256,10 +256,10 @@ class ClusterUnit:
         """
         with self._lock:
             if new_individual.function.score is None or math.isinf(new_individual.function.score):
-                return False
+                return
 
             if self.has_duplicate_function(new_individual):
-                return False
+                return
 
             current_score = new_individual.function.score
 

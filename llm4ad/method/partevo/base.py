@@ -14,7 +14,7 @@ class Evoind:
     I1 = Evoind(function=Function, cluster_id=)
     """
     function: Function
-    cluster_id: Any
+    cluster_id: Optional[int] = None
 
     # --- 演化元数据 (选填，带默认值) ---
     reflection: str = ""
