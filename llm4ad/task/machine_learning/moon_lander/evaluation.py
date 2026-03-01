@@ -244,6 +244,11 @@ class MoonLanderEvaluation(Evaluation):
         elif self.whocall == 'dyca':
             return {'all_ins_performance': instance_performance,
                     'list_performance': list_performance}  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
+        elif self.whocall == 'partevo':
+            return {'all_ins_performance': instance_performance,
+                    'list_performance': list_performance,
+                    'score': mean_reward
+                    }  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
         else:
             return nws
 

@@ -4,7 +4,7 @@ import concurrent.futures
 import time
 import traceback
 from threading import Thread
-from typing import Optional, Literal, Union, Dict
+from typing import Optional, Literal, Union, Dict, Tuple
 
 from .profiler import PartEvoProfiler  # TODO
 from .prompt import PartEvoPrompt
@@ -43,7 +43,7 @@ class PartEvo:
 
                  local_algo_base="",
 
-                 feature_used: Literal['ast', 'language'] = 'ast',
+                 feature_used: Tuple[Literal['ast', 'language'], ...] = ('ast',),
 
                  use_resource_tilt: bool = False,
                  bert_model_path: str = '',
@@ -72,7 +72,7 @@ class PartEvo:
             initial_sample_nums_max,
             2 * self._pop_size
         )
-        self._num_init_samplers = 5
+        self._num_init_samplers = 2  # TODO 改成 3
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval
@@ -95,6 +95,7 @@ class PartEvo:
                                     use_resource_tilt=self.use_resource_tilt,
                                     resource_tilt_alpha=2.0,
                                     bert_model_path=bert_model_path,
+                                    feature_type=self.feature_used,
                                     debug_flag=self._debug_mode)
 
         self.local_algo_base = local_algo_base
@@ -186,7 +187,7 @@ class PartEvo:
                 self._tot_sample_nums += 1
 
     def _sample_evaluate_register(self, prompt, image_prompt=None, messages=None, operator_name="", parent_number=None,
-                                  from_which_cluster=None):
+                                  from_which_cluster=None, reflction=None):
         """
         Execute the full evolutionary cycle for a single candidate:
         1. Sample: Query LLM for new algorithm design and code.
@@ -196,6 +197,14 @@ class PartEvo:
         sample_start = time.time()
         thought, func, response = self._sampler.get_thought_and_function(prompt, image_prompt, messages)
         sample_time = time.time() - sample_start
+
+        if thought is None:
+            print(
+                '[Warning - Code 01] Failed to extract the "thought" concept. If this occurs frequently, please check the LLM output or the regex pattern.')
+
+        if func is None:
+            print(
+                '[Warning - Code 02] Failed to extract the "func" implementation. If this occurs frequently, please check the LLM output or the code parsing logic.')
 
         if thought is None or func is None:
             return
@@ -228,6 +237,8 @@ class PartEvo:
         func.sample_time = sample_time
         func.response = response
         func.prompt = prompt
+        if reflction:
+            func.reflction = reflction
 
         # register to the population
         self._pool.register_function(offspring=func, from_which_cluster=from_which_cluster)
@@ -263,27 +274,29 @@ class PartEvo:
             try:
 
                 func_parents, operator, chosen_c_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
-                print(operator, chosen_c_id)
+                print(f"Running Operator: {operator} | Working Cluster: {chosen_c_id}")
                 if operator == 'error':
                     # 假设有 cluster_unit_now 和 parents 变量可用
                     print(f"\033[93mWarning: parent selection failed. Please investigate.\033[0m")
                     continue
 
-                if operator == 're':            # TODO P0
+                if operator == 're':
                     the_parent = func_parents[0]
                     messages_for_reflection = PartEvoPrompt.get_prompt_reflection(self._task_description_str,
-                                                                                  the_parent)
-                    reflection_got = self._sampler.get_image_description(prompt="", image64s=None,
-                                                                         messages=messages_for_reflection)
-                    messages = PartEvoPrompt.get_prompt_re(self._task_description_str,          # TODO 完成 get_prompt_re
-                                                         self._function_to_evolve,
-                                                         reflection_got)
+                                                                                  the_parent,
+                                                                                  self._function_to_evolve
+                                                                                  )
+                    reflection_got = self._sampler.get_reflection(prompt="", messages=messages_for_reflection)
+                    messages = PartEvoPrompt.get_prompt_re(self._task_description_str,
+                                                           the_parent,
+                                                           self._function_to_evolve,
+                                                           reflection_got)
                     if self._debug_mode:
                         print(f'RE Prompt: {self.messages_to_string(messages)}')
                     self._sample_evaluate_register(prompt="",
                                                    messages=messages,
                                                    operator_name='re',
-                                                   reflction = reflection_got               # TODO
+                                                   reflction=reflection_got
                                                    )
 
                     # TODO 测试RE，然后再看SE之类的
@@ -362,7 +375,7 @@ class PartEvo:
     def init_using_llms(self):
         batch_num = 0
         while len(
-                self._pool.population) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
+                self._pool.population) + len(self._pool.next_pop) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
             batch_num += 1
             self._multi_threaded_sampling(self._extend_init_population, init_mode=True)
             print(f"Initialization of batch {batch_num} completed")
@@ -386,9 +399,10 @@ class PartEvo:
                 self.init_using_llms()
                 # self._multi_threaded_sampling(self._iteratively_init_population)
 
+        self._pool.initial_population_clustering()
         # Phase 2: Evolutionary Search Loop
         print("🧬 Starting evolutionary training pipeline...")
-        self._multi_threaded_sampling(self._iteratively_use_partevo_operator)
+        self._multi_threaded_sampling(self._partevo_multi_threaded_sampling)
 
         # Phase 3: Cleanup and Reporting
         if self._profiler is not None:
@@ -569,7 +583,7 @@ class PartEvo:
     def messages_to_string(self, messages, image_placeholder="<<<IMAGE>>>"):
         """
         Convert a structured messages list (OpenAI-style) into a single formatted string.
-        Supports both 'text' and 'image_url' content types.
+        Supports both string contents and list of dicts ('text' and 'image_url' content types).
 
         :param messages: list of dicts with 'role' and 'content'
         :param image_placeholder: str or callable, placeholder inserted for images
@@ -581,20 +595,32 @@ class PartEvo:
             contents = message.get("content", [])
 
             output_lines.append(f"[{role.upper()}]")
-            for item in contents:
-                if item.get("type") == "text":
-                    text = item.get("text", "").strip()
-                    if text:
-                        output_lines.append(text)
-                elif item.get("type") == "image_url":
-                    # Optional: handle custom placeholders with description
-                    url = item.get("image_url", {}).get("url", "")
-                    desc = item.get("image_url", {}).get("detail", "an image")
-                    if callable(image_placeholder):
-                        placeholder = image_placeholder(url, desc)
-                    else:
-                        placeholder = f"{image_placeholder}  # {desc}"
-                    output_lines.append(placeholder)
+
+            # 情况1：如果 content 是普通字符串（例如 system prompt）
+            if isinstance(contents, str):
+                output_lines.append(contents)
+
+            # 情况2：如果 content 是字典列表（例如复杂的 user prompt）
+            elif isinstance(contents, list):
+                for item in contents:
+                    # 确保 item 是字典以防万一
+                    if not isinstance(item, dict):
+                        continue
+
+                    if item.get("type") == "text":
+                        text = item.get("text", "").strip()
+                        if text:
+                            output_lines.append(text)
+                    elif item.get("type") == "image_url":
+                        # Optional: handle custom placeholders with description
+                        url = item.get("image_url", {}).get("url", "")
+                        desc = item.get("image_url", {}).get("detail", "an image")
+                        if callable(image_placeholder):
+                            placeholder = image_placeholder(url, desc)
+                        else:
+                            placeholder = f"{image_placeholder}  # {desc}"
+                        output_lines.append(placeholder)
+
             output_lines.append("")  # blank line between messages
 
         return "\n".join(output_lines)

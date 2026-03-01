@@ -15,19 +15,19 @@ from codebleu import calc_codebleu
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-
-try:
-    from transformers import BertTokenizer, BertModel
-    import torch
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-except ImportError as e:
-    print(f"[Warning] Optional dependencies missing: {e}. Feature extraction might fail.")
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 # 使用BERT模型生成文本嵌入
 def get_bert_embeddings(texts: List[str], model_path: str = None) -> np.ndarray:
     """使用BERT模型生成文本嵌入"""
+    try:
+        from transformers import BertTokenizer, BertModel
+        import torch
+    except ImportError as e:
+        print(f"⚠️ [Warning in clustermanager.py] Optional dependencies missing: {e}. Feature extraction might fail.")
+
     # 默认路径处理，增强代码移植性
     target_path = model_path if model_path and os.path.exists(model_path) else 'bert-base-uncased'
 
@@ -35,7 +35,7 @@ def get_bert_embeddings(texts: List[str], model_path: str = None) -> np.ndarray:
         tokenizer = BertTokenizer.from_pretrained(target_path)
         model = BertModel.from_pretrained(target_path)
     except Exception as e:
-        print(f"[Error] Failed to load BERT from {target_path}: {e}")
+        print(f"❌ [Error] Failed to load BERT from {target_path}: {e}")
         # 返回随机向量防止程序崩溃 (仅用于调试流程)
         return np.random.rand(len(texts), 768)
 
@@ -56,7 +56,7 @@ def get_bert_embeddings(texts: List[str], model_path: str = None) -> np.ndarray:
 
 
 def individual_feature(population: List[Evoind],
-                       feature_type: Tuple[str, ...] = ('AST',),
+                       feature_type: Tuple[str, ...] = ('ast',),
                        save_path: str = '',
                        bert_model_path: str = None):
     """
@@ -70,7 +70,7 @@ def individual_feature(population: List[Evoind],
     features = [[] for _ in range(population_size)]
 
     # 1. AST 特征 (CodeBLEU)
-    if 'AST' in feature_type:
+    if 'ast' in feature_type:
         AST = np.zeros((population_size, population_size))
         # 提取所有代码文本
         codes = [ind.function.to_code_without_docstring() for ind in population]
@@ -170,8 +170,9 @@ class ClusterManager:
                  intra_operators: Tuple[str, ...] = ('re', 'se', 'cc', 'lge'),
                  intra_operators_parent_num: Dict[str, int] = None,
                  intra_operators_frequency: Optional[Dict] = None,
-                 use_resource_tilt: bool = True,  # 是否开启资源倾斜
+                 use_resource_tilt: bool = False,  # 是否开启资源倾斜
                  resource_tilt_alpha: float = 2.0,  # 倾斜强度 (仅在 True 时生效)
+                 feature_type: Tuple[str, ...] = ('ast',),
 
                  bert_model_path: str = None,  # [新增] 指定 BERT 路径
                  debug_flag: bool = False,
@@ -182,6 +183,8 @@ class ClusterManager:
         self.generation = 0
         self.n_clusters = n_clusters
         self.bert_model_path = bert_model_path
+
+        self.feature_type = feature_type
 
         # [Fix] 初始化状态标志
         self.is_initialized = False
@@ -226,7 +229,7 @@ class ClusterManager:
 
         self._lock = RLock()
 
-    def initial_population_clustering(self, feature_type=('AST',)):
+    def initial_population_clustering(self):
         """
         基于 self.population (Function) 进行聚类初始化。
         步骤：Function -> Evoind -> Feature -> KMeans -> ClusterUnit
@@ -236,17 +239,17 @@ class ClusterManager:
         valid_funcs = [f for f in self.population if f.score is not None]
 
         if len(valid_funcs) < self.n_clusters:
-            print(f"[Manager] Not enough individuals to cluster ({len(valid_funcs)}). Waiting...")
+            print(f"❌ [Manager] Not enough individuals to cluster ({len(valid_funcs)}). Waiting...")
             return
 
-        print(f"[Manager] Initializing Clustering with {len(valid_funcs)} individuals...")
+        print(f"⏳ [Manager] Initializing Clustering with {len(valid_funcs)} individuals...")
 
         # 创建临时 Evoind 列表用于聚类计算
         temp_evo_pop = [Evoind(function=f) for f in valid_funcs]
 
         # 2. 计算特征 (In-place 修改 temp_evo_pop 中 Evoind 的 feature)
         save_path = "init_debug" if self.debug_flag else ""
-        individual_feature(temp_evo_pop, feature_type=feature_type,
+        individual_feature(temp_evo_pop, feature_type=self.feature_type,
                            save_path=save_path, bert_model_path=self.bert_model_path)
 
         # 3. 准备聚类数据
@@ -266,7 +269,7 @@ class ClusterManager:
             else:
                 labels = np.random.randint(0, self.n_clusters, size=len(temp_evo_pop))
         except Exception as e:
-            print(f"----[Manager] KMeans failed: {e}. Using random assignment.----")
+            print(f"⚠️ [Manager] KMeans failed: {e}. Using random assignment.----")
             labels = np.random.randint(0, self.n_clusters, size=len(temp_evo_pop))
 
         # 5. 分发并创建 ClusterUnit
@@ -292,7 +295,7 @@ class ClusterManager:
         self._update_global_best(temp_evo_pop)
 
         self.is_initialized = True
-        print("[Manager] Clustering Finished. System Online.")
+        print("🎉 [Manager] Clustering Finished. System Online. 👍")
 
     def _calculate_selection_probs(self) -> Tuple[List[int], List[float]]:
         """计算 Cluster 被选概率"""
@@ -402,7 +405,7 @@ class ClusterManager:
                 if offspring.score > existing_func.score:
                     # 新的分数更高！这是一个"有价值的重复"
                     print(
-                        f"[Manager] Found better score for existing code: {existing_func.score:.4f} -> {offspring.score:.4f}")
+                        f"✨ [Manager] Found better score for existing code: {existing_func.score:.4f} -> {offspring.score:.4f}")
                     return False  # 允许进入
                 else:
                     # 分数没变或更低，拒绝
@@ -424,6 +427,7 @@ class ClusterManager:
 
             try:
                 if self._should_reject_duplicate(offspring):
+                    print('♻️ [Info] The generated offspring is a duplicate of an existing individual. Skipping registration.')
                     return
 
                 # === 1. Update Global Best (Fast Path) ===
@@ -436,19 +440,16 @@ class ClusterManager:
                 target_id = from_which_cluster
                 if self.is_initialized and target_id is not None and target_id in self.cluster_units:
                     evo_offspring = Evoind(function=offspring, cluster_id=target_id)
+                    if hasattr(offspring, 'reflection'):
+                        evo_offspring.set_reflection(offspring.reflection)
                     self.cluster_units[target_id].register_individual(evo_offspring)
 
                 # 6. Trigger Global Management
-                # 当缓冲区积攒到一定数量 (例如 pop_size 的一半或者满)，或者冷启动期间积攒到足够数量
-                threshold = self.pop_size
-                if not self.is_initialized:
-                    threshold = self.n_clusters  # 冷启动只需攒够聚类所需最小数量
-
-                if len(self.next_pop) >= threshold:
+                if len(self.next_pop) >= self.pop_size:
                     self._manager_pop_management()
 
             except Exception as e:
-                print(f"[Manager] Error in register_offspring: {e}")
+                print(f"🚨 [Manager] Error in register_offspring: {e}")
                 traceback.print_exc()
                 return
 
@@ -505,7 +506,7 @@ class ClusterManager:
 
             # Log
             best_score = self.population[0].score if self.population else None
-            print(f"[Manager] Global Population Updated. Current Size: {len(self.population)} "
+            print(f"[Manager] Global Population Updated. Current Size: {len(self.population)}\n"
                   f"(Best: {self.population[0].score:.4f} if {len(self.population)}>0 else None)")
 
             # 6. [关键] 尝试触发初始化 (Cold Start -> Clustering)

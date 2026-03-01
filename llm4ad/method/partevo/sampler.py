@@ -63,54 +63,50 @@ class PartEvoSampler:
     @classmethod
     def trim_thought_from_response(cls, response: str) -> str | None:
         """
-        Extracts content within single curly braces {like this}.
-        This corresponds to the 'algorithmic concept' requested in MLESPrompt.
+        Extracts content within <concept>...</concept> tags.
+        This corresponds to the 'algorithmic concept' requested in the Prompt.
         """
         try:
-            pattern = r'\{.*?\}'  # Compared with r'\{(.*)\}'
-            bracketed_texts = re.findall(pattern, response)
-            return bracketed_texts[0]
-        except:
+            # 使用 <concept>(.*?)</concept> 匹配标签，并用 () 捕获标签内的内容
+            # 使用 re.DOTALL 确保 .*? 能够跨行匹配（因为概念描述通常是多行的）
+            pattern = r'<concept>(.*?)</concept>'
+            match = re.search(pattern, response, re.DOTALL)
+
+            if match:
+                # match.group(1) 只返回捕获组内的纯文本，去除首尾空白
+                return match.group(1).strip()
+            return None
+        except Exception as e:
+            print(f"Error in trim_thought_from_response: {e}")
             return None
 
     @classmethod
     def trim_reflection_from_response(cls, response: str) -> str | None:
         """
-        Extracts the content inside the first occurrence of < > brackets.
+        Extracts the content inside <reflection>...</reflection> tags.
         """
         try:
-            # 1. Regex pattern explanations:
-            # <<      : Match literal '<<'
-            # (       : Start capturing group
-            # [\s\S]*?: Match any character (including newlines), non-greedy (*?)
-            # )       : End capturing group
-            # >>      : Match literal '>>'
-            pattern = r'<<([\s\S]*?)>>'
-
-            # Note: [\s\S] includes newlines, so re.DOTALL is technically redundant but harmless.
-            bracketed_texts = re.findall(pattern, response)
-
-            if bracketed_texts:
-                # 2. Return the first match and strip whitespace
-                return bracketed_texts[0].strip()
+            pattern = r'<reflection>(.*?)</reflection>'
+            match = re.search(pattern, response, re.DOTALL)
+            if match:
+                return match.group(1).strip()
             return None
-
         except Exception as e:
-            # It's better to log the full error for debugging
-            print(f"Error in trim_tips_from_response: {e}")
+            print(f"Error in trim_reflection_from_response: {e}")
             return None
 
     @classmethod
     def trim_description_from_response(cls, response: str) -> str | None:
         """
-        Extracts content within double curly braces {{like this}}.
+        Extracts content within <description>...</description> tags.
         Used for multi-line textual descriptions of visual results.
         """
         try:
-            # Adjust the pattern to match multi-line text within braces
-            pattern = r'\{\{.*?\}\}'  # Non-greedy match for double braces
-            bracketed_texts = re.findall(pattern, response, re.DOTALL)  # Use re.DOTALL to match newlines
-            return bracketed_texts[0] if bracketed_texts else None
+            pattern = r'<description>(.*?)</description>'
+            match = re.search(pattern, response, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            return None
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in trim_description_from_response: {e}")
             return None

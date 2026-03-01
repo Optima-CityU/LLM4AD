@@ -47,62 +47,83 @@ Please design a novel algorithm to address this task by following the steps belo
         return prompt_content
 
     @classmethod
-    def get_prompt_batch_init(cls, task_prompt: str, template_function: Function, current_population: List[Function],
+    def get_prompt_batch_init(cls, task_prompt: str, template_function: 'Function',
+                              current_population: List['Function'],
                               branch_novelty=30):
+        """Generate a structured prompt to initialize a batch of novel algorithms."""
         for indi in current_population:
-            assert hasattr(indi, 'algorithm')
+            assert hasattr(indi, 'algorithm'), "Each individual must have an 'algorithm' attribute."
 
-        # template
+        # 1. 安全处理模板
         temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
-        # Construct prompt content
-        content = []
-        # Task assignment
-        assigment_prompt = f"{task_prompt}\n"
-        content.append({"type": "text", "text": assigment_prompt})
+        temp_func.body = '    # TODO: Implement your algorithm logic here\n    pass'
 
+        messages = []
+
+        # 2. 独立 System Prompt
+        system_prompt = (
+            "You are an elite algorithm design expert. Your task is to design a novel and efficient algorithm "
+            "to solve a given problem, ensuring it is highly distinct from any previously proposed solutions.\n"
+            "You must strictly follow formatting instructions and output valid Python code."
+        )
+        messages.append({"role": "system", "content": system_prompt})
+
+        # 3. 构建 User Content
+        content = []
+
+        # 任务背景
+        content.append({
+            "type": "text",
+            "text": f"### Task Assignment\n{task_prompt}\n"
+        })
+
+        # 现有算法与目标 (动态生成)
         current_size = len(current_population)
         if current_size > 0:
-            init_cue = f"So far, experts have proposed {current_size} algorithms. Their high-level ideas are summarized below."
-            init_task = (f"-----------------------------------------------\n"
-                         f"Your goal is to design a new algorithm whose core idea differs from *all existing ones* by at least {branch_novelty}%.")
-        else:
-            init_cue = ""
-            init_task = f"Based on your expertise, please create a novel and efficient algorithm to solve this problem."
+            init_cue = f"### Existing Algorithms\nSo far, experts have proposed {current_size} algorithms. Their high-level concepts are summarized below:\n"
+            content.append({"type": "text", "text": init_cue})
 
-        content.append({"type": "text", "text": init_cue})
-
-        for i, indi in enumerate(current_population):
-            content.extend([
-                {
+            for i, indi in enumerate(current_population):
+                content.append({
                     "type": "text",
-                    "text": f'Algorithm #{i + 1}:\n'
-                            f'Idea: {indi.algorithm}\n'
-                }
-            ])
+                    "text": f"- **Algorithm #{i + 1} Concept**: {indi.algorithm}\n"
+                })
+
+            init_task = f"\n### Goal\nYour goal is to design a new algorithm whose core concept differs from *all existing ones* by at least {branch_novelty}%."
+        else:
+            init_task = f"### Goal\nBased on your expertise, please create a novel and efficient algorithm to solve this problem."
 
         content.append({"type": "text", "text": init_task})
 
-        # Expert instructions
+        # 4. 操作指令 (统一使用 <concept> 标签与严格的代码输出约束)
         operator_prompt = f"""
-    Please design a new algorithm following the instructions below:
+### Instructions
+Please design your new algorithm by following these exact steps:
 
-    1. Describe your concept for the new algorithm and its main steps in as few words as possible while ensuring clarity, and enclose it **exactly** within the markers '<<' and '>>', like this: <<Your idea here>>.
-    2. Implement your proposed algorithm using the following Python function template:
-    ```python
-    {str(temp_func)}
-    ```
-    """
+1. **Propose a Novel Concept**
+   Describe your concept for the new algorithm and its main steps in as few words as possible while ensuring clarity.
+   Wrap your core conceptual description EXACTLY inside `<concept>` and `</concept>` tags.
+
+2. **Implement the New Algorithm**
+   Implement your proposed algorithm using the exact Python function template provided below:
+```python
+{str(temp_func)}
+```
+
+   **STRICT RULES FOR CODE:**
+   - Do NOT change the function signature (name, arguments, type hints).
+   - Include all necessary `import` statements at the beginning of the function body.
+"""
 
         content.append({
             "type": "text",
             "text": operator_prompt
         })
 
-        messages = [{
+        messages.append({
             'role': 'user',
             'content': content
-        }]
+        })
 
         return messages
 
@@ -159,39 +180,142 @@ Please help me create a new algorithm that has a totally different form from the
         return prompt_content
 
     @classmethod
-    def get_prompt_reflection(cls, task_prompt: str, func: Function):
-        """Use Figures to instruct the design progress"""
-        assert hasattr(func, 'algorithm')
+    def get_prompt_reflection(cls, task_prompt: str, func: 'Function', template_function: 'Function'):
+        """Generate a structured prompt to ask the LLM for targeted suggestions (reflection) on a given algorithm."""
+        assert hasattr(func, 'algorithm'), "func must have an 'algorithm' attribute."
+
+        messages = []
+
+        # 1. System Prompt
+        system_prompt = (
+            "You are an elite algorithm design expert. Your task is to critically analyze "
+            "an algorithmic attempt and provide targeted, highly actionable suggestions for improving its task performance. "
+            "You must strictly follow formatting instructions."
+        )
+        messages.append({"role": "system", "content": system_prompt})
+
+        # 2. 构建 User Content
+        content = []
+
+        # 任务背景
+        content.append({
+            "type": "text",
+            "text": f"### Task Assignment\nAn intelligent agent is currently executing the following design task:\n{task_prompt}\n"
+        })
+
+        # 当前进度与历史代码
+        content.append({
+            "type": "text",
+            "text": f"### Current Attempt\nThe agent has designed an algorithm with the following concept and code:\n"
+                    f"- **Concept**: {func.algorithm}\n"
+                    f"- **Implementation**:\n```python\n{str(func)}\n```\n"
+        })
+
+        temp_func = copy.deepcopy(template_function)
+        temp_func.body = '    # Your algorithm logic must be implemented here\n    pass'
+
+        # 3. 操作指令与格式约束 (使用 XML 标签并提供示例)
+        instruction_prompt = f"""### Instructions
+Based on your understanding and knowledge of this design task, please provide targeted suggestions for the current algorithm to guide the agent in improving it. Identify any mathematical weaknesses, logical flaws, or opportunities for algorithmic optimization.
+
+**STRICT RULES FOR OUTPUT:**
+- **Limit your response:** Provide a maximum of the 3 MOST CRITICAL suggestions. Do not list exhaustive minor details; focus only on what will yield the highest performance gain.
+- **Interface Constraint:** All your suggestions MUST be implementable within the exact Python function template provided below:
+```python
+{str(temp_func)}
+```
+- Enclose your suggestions EXACTLY within `<reflection>` and `</reflection>` tags.
+
+Example format:
+<reflection>
+1. Your point 1.
+2. Your point 2.
+...
+</reflection>
+"""
+        content.append({
+            "type": "text",
+            "text": instruction_prompt
+        })
+
+        messages.append({
+            "role": "user",
+            "content": content
+        })
+
+        return messages
+
+    @classmethod
+    def get_prompt_re(cls, task_prompt: str, parent_func: Function, template_function: Function, reflection: str):
+        assert hasattr(parent_func, 'algorithm')
+        # template
+        temp_func = copy.deepcopy(template_function)
+        temp_func.body = '    # TODO: Implement your algorithm logic here\n    pass'
 
         # Construct prompt content
-        content = []
-        # Task assignment
-        assigment_prompt = f"An intelligent agent is currently executing the following design task:\n{task_prompt}\n"
-        content.append({"type": "text", "text": assigment_prompt})
-        description_situation = f"The agent has designed an algorithm with the following ideas and code:"
-        content.append({"type": "text", "text": description_situation})
-        content.extend([
-            {
-                "type": "text",
-                "text": f'Concept: {func.algorithm}\n'
-                        f'Implementation:\n{str(func)}\n'
-            }
-        ])
-        content.append({"type": "text",
-                        "text": "Based on your understanding and knowledge of this design task, please provide targeted suggestions for the current algorithm to guide the agent in improving it."})
+        messages = []
 
-        # Expert instructions
-        reflection_task_prompt = f"Enclose your suggestions **exactly** within the markers ‘<<’ and ‘>>’ like this: <<Your suggestions here>>."
+        system_prompt = (
+            "You are an elite algorithm design expert. Your task is to analyze previous algorithmic attempts, "
+            "incorporate expert feedback if provided, and design a novel, superior algorithm.\n"
+            "You must strictly follow formatting instructions and output valid Python code."
+        )
+
+        messages.append({"role": "system", "content": system_prompt})
+
+        content = []
 
         content.append({
             "type": "text",
-            "text": reflection_task_prompt
+            "text": f"### Task Assignment\nAn intelligent agent is executing the following design task:\n{task_prompt}\n"
         })
 
-        messages = [{
-            'role': 'user',
-            'content': content
-        }]
+        content.append({
+            "type": "text",
+            "text": f"### Previous Attempt\nThe agent designed the following algorithm:\n"
+                    f"- **Concept**: {parent_func.algorithm}\n"
+                    f"- **Implementation**:\n```python\n{str(parent_func)}\n```\n"
+        })
+
+        if reflection:
+            content.append({
+                "type": "text",
+                "text": f"### Expert Reflection\nAn expert reviewed the previous attempt and provided the following feedback:\n"
+                        f"<feedback>{reflection}</feedback>\n"
+                        f"Please consider this feedback to create a new, improved algorithm."
+            })
+        else:
+            content.append({
+                "type": "text",
+                "text": "### Expert Reflection\nNo specific expert feedback was provided. Please independently identify weaknesses in the previous attempt and create a new, improved algorithm."
+            })
+
+        operator_prompt = f"""### Instructions
+Please design your new algorithm by following these exact steps:
+
+1. **Propose a New Concept**
+   First, describe your concept for the new algorithm and its main steps in as few words as possible while ensuring clarity.First, describe your concept for the new algorithm and its main steps in as few words as possible while ensuring clarity.
+   Wrap your core conceptual description inside `<concept>` and `</concept>` tags.
+
+2. **Implement the New Algorithm**
+   Next, implement your concept using the exact Python function template provided below:
+```python
+{str(temp_func)}
+```
+
+   **STRICT RULES FOR CODE:**
+   - Do NOT change the function signature (name, arguments, type hints).
+   - Include all necessary `import` statements at the beginning of the function body.
+"""
+        content.append({
+            "type": "text",
+            "text": operator_prompt
+        })
+
+        messages.append({
+            "role": "user",
+            "content": content
+        })
 
         return messages
 

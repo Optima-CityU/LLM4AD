@@ -11,12 +11,12 @@ try:
 except:
     pass
 
-from .population import Population
+# from .population import Population
 from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
-class MLESProfiler(ProfilerBase):
+class PartEvoProfiler(ProfilerBase):
 
     def __init__(self,
                  log_dir: Optional[str] = None,
@@ -181,7 +181,7 @@ class MLESProfiler(ProfilerBase):
             json.dump(final_results, json_file, indent=4)
 
 
-class EoHTensorboardProfiler(TensorboardProfiler, MLESProfiler):
+class EoHTensorboardProfiler(TensorboardProfiler, PartEvoProfiler):
 
     def __init__(self,
                  log_dir: str | None = None,
@@ -197,7 +197,7 @@ class EoHTensorboardProfiler(TensorboardProfiler, MLESProfiler):
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
         """
-        MLESProfiler.__init__(
+        PartEvoProfiler.__init__(
             self, log_dir=log_dir,
             create_random_path=create_random_path,
             **kwargs
@@ -216,7 +216,7 @@ class EoHTensorboardProfiler(TensorboardProfiler, MLESProfiler):
             self._writer.close()
 
 
-class EoHWandbProfiler(WandBProfiler, MLESProfiler):
+class EoHWandbProfiler(WandBProfiler, PartEvoProfiler):
     def __init__(self,
                  wandb_project_name: str,
                  log_dir: str | None = None,
@@ -233,7 +233,7 @@ class EoHWandbProfiler(WandBProfiler, MLESProfiler):
             create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
             **kwargs           : kwargs for wandb
         """
-        MLESProfiler.__init__(
+        PartEvoProfiler.__init__(
             self,
             log_dir=log_dir,
             create_random_path=create_random_path,
