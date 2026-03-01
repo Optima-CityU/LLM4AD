@@ -127,57 +127,57 @@ Please design your new algorithm by following these exact steps:
 
         return messages
 
-    @classmethod
-    def get_prompt_e1(cls, task_prompt: str, indivs: List[Function], template_function: Function):
-        """
-        [CROSSOVER] Diversity-driven Crossover.
-        Provides multiple parent algorithms and explicitly asks the LLM
-        to create something 'totally different' to avoid local optima.
-        """
-        for indi in indivs:
-            assert hasattr(indi, 'algorithm')
-        # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
-        # create prompt content for all individuals
-        indivs_prompt = ''
-        for i, indi in enumerate(indivs):
-            indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{indi.to_code_without_docstring()}'
-        # create prmpt content
-        prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
-{indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones. 
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-'''
-        return prompt_content
-
-    @classmethod
-    def get_prompt_e2(cls, task_prompt: str, indivs: List[Function], template_function: Function):
-        for indi in indivs:
-            assert hasattr(indi, 'algorithm')
-
-        # template
-        temp_func = copy.deepcopy(template_function)
-        temp_func.body = ''
-        # create prompt content for all individuals
-        indivs_prompt = ''
-        for i, indi in enumerate(indivs):
-            indi.docstring = ''
-            indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{indi.to_code_without_docstring()}'
-        # create prmpt content
-        prompt_content = f'''{task_prompt}
-I have {len(indivs)} existing algorithms with their codes as follows:
-{indivs_prompt}
-Please help me create a new algorithm that has a totally different form from the given ones but can be motivated from them.
-1. Firstly, identify the common backbone idea in the provided algorithms. 
-2. Secondly, based on the backbone idea describe your new algorithm in one sentence. The description must be inside within boxed {{}}.
-3. Thirdly, implement the following Python function:
-{str(temp_func)}'''
-        return prompt_content
+#     @classmethod
+#     def get_prompt_e1(cls, task_prompt: str, indivs: List[Function], template_function: Function):
+#         """
+#         [CROSSOVER] Diversity-driven Crossover.
+#         Provides multiple parent algorithms and explicitly asks the LLM
+#         to create something 'totally different' to avoid local optima.
+#         """
+#         for indi in indivs:
+#             assert hasattr(indi, 'algorithm')
+#         # template
+#         temp_func = copy.deepcopy(template_function)
+#         temp_func.body = ''
+#         # create prompt content for all individuals
+#         indivs_prompt = ''
+#         for i, indi in enumerate(indivs):
+#             indi.docstring = ''
+#             indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{indi.to_code_without_docstring()}'
+#         # create prmpt content
+#         prompt_content = f'''{task_prompt}
+# I have {len(indivs)} existing algorithms with their codes as follows:
+# {indivs_prompt}
+# Please help me create a new algorithm that has a totally different form from the given ones.
+# 1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
+# 2. Next, implement the following Python function:
+# {str(temp_func)}
+# '''
+#         return prompt_content
+#
+#     @classmethod
+#     def get_prompt_e2(cls, task_prompt: str, indivs: List[Function], template_function: Function):
+#         for indi in indivs:
+#             assert hasattr(indi, 'algorithm')
+#
+#         # template
+#         temp_func = copy.deepcopy(template_function)
+#         temp_func.body = ''
+#         # create prompt content for all individuals
+#         indivs_prompt = ''
+#         for i, indi in enumerate(indivs):
+#             indi.docstring = ''
+#             indivs_prompt += f'No. {i + 1} algorithm and the corresponding code are:\n{indi.algorithm}\n{indi.to_code_without_docstring()}'
+#         # create prmpt content
+#         prompt_content = f'''{task_prompt}
+# I have {len(indivs)} existing algorithms with their codes as follows:
+# {indivs_prompt}
+# Please help me create a new algorithm that has a totally different form from the given ones but can be motivated from them.
+# 1. Firstly, identify the common backbone idea in the provided algorithms.
+# 2. Secondly, based on the backbone idea describe your new algorithm in one sentence. The description must be inside within boxed {{}}.
+# 3. Thirdly, implement the following Python function:
+# {str(temp_func)}'''
+#         return prompt_content
 
     @classmethod
     def get_prompt_reflection(cls, task_prompt: str, func: 'Function', template_function: 'Function'):
@@ -232,6 +232,88 @@ Example format:
 2. Your point 2.
 ...
 </reflection>
+"""
+        content.append({
+            "type": "text",
+            "text": instruction_prompt
+        })
+
+        messages.append({
+            "role": "user",
+            "content": content
+        })
+
+        return messages
+
+    @classmethod
+    def get_prompt_summary(cls, task_prompt: str, template_function: 'Function',
+                           summary_context_samples: Dict[str, List['Function']],
+                           current_summary: str = "") -> List[Dict]:
+        messages = []
+
+        # 1. System Prompt (设定为客观的首席研究员视角)
+        system_prompt = (
+            "You are an elite Lead Algorithm Researcher. Your task is to oversee the progress of multiple intelligent agents "
+            "solving an algorithm design problem. You must critically analyze the concepts and corresponding performance scores "
+            "of the algorithms they have designed, and synthesize an objective summary of what algorithmic techniques "
+            "are effective and which are not, to guide the agents' future design directions. You must strictly follow formatting instructions."
+        )
+        messages.append({"role": "system", "content": system_prompt})
+
+        # 2. 构建 User Content
+        content = []
+
+        # 任务背景
+        content.append({
+            "type": "text",
+            "text": f"### Task Assignment\nThe intelligent agents are currently executing the following algorithm design problem:\n{task_prompt}\n"
+        })
+
+        # 历史总结 (增量更新机制)
+        if current_summary:
+            content.append({
+                "type": "text",
+                "text": f"### Previous Summary\nBased on earlier iterations, we have the following established summary for your reference:\n"
+                        f"<previous_summary>\n{current_summary}\n</previous_summary>\n"
+            })
+
+        # 核心：客观呈现所有算法与分数 (摒弃精英/失败的主观标签)
+        context_text = "### Explored Algorithms & Performance\n"
+        context_text += "Below is a sample of algorithms explored by the agents. You can analyze them based on their scores (a higher score indicates better performance).\n\n"
+
+        # 合并列表，让 LLM 自己根据 Score 去判断优劣
+        elites = summary_context_samples.get('elites', [])
+        hard_negatives = summary_context_samples.get('hard_negatives', [])
+        all_samples = elites + hard_negatives
+
+        # 尝试按照分数从高到低排序，方便 LLM 观察趋势
+        try:
+            all_samples.sort(key=lambda x: getattr(x, 'score', 0), reverse=True)
+        except Exception:
+            pass
+
+        for i, func in enumerate(all_samples):
+            concept = getattr(func, 'algorithm', 'No concept description provided.')
+            score = getattr(func, 'score', 'N/A')
+            context_text += f"- **Algorithm #{i + 1}** (Score: {score}):\n  Concept: {concept}\n\n"
+
+        content.append({
+            "type": "text",
+            "text": context_text
+        })
+
+        # 3. 操作指令与格式约束 (强调客观推断与未来方向)
+        instruction_prompt = """### Instructions
+Please review these algorithms, their performance scores, and the previous summary (if provided) to summarize the findings and deduce how to better solve this algorithm design task.
+
+**STRICT RULES FOR OUTPUT:**
+- If a previous summary was provided, update and evolve it with these new insights rather than just repeating it.
+- Enclose your ENTIRE summary EXACTLY within `<summary>` and `</summary>` tags.
+
+Example format:
+<summary>
+[A concise yet clear summary.]
+</summary>
 """
         content.append({
             "type": "text",
@@ -320,49 +402,176 @@ Please design your new algorithm by following these exact steps:
         return messages
 
     @classmethod
-    def get_prompt_e1_advanced(cls, task_prompt: str, indivs: List[Function], template_function: Function):
+    def get_prompt_se(cls, task_prompt: str, parent_func: 'Function', template_function: 'Function', global_summary: str) -> List[Dict]:
+        """
+                Generate a structured prompt for the Semantic Exploration (SE) operator.
+                Uses a 'God View' global summary to guide the modification of the current algorithm.
+                """
+        assert hasattr(parent_func, 'algorithm'), "parent_func must have an 'algorithm' attribute."
+
+        # Prepare the function template
+        temp_func = copy.deepcopy(template_function)
+        temp_func.body = '    # TODO: Implement your algorithm logic here\n    pass'
+
+        messages = []
+
+        system_prompt = (
+            "You are a Senior Algorithm Research Scientist specializing in "
+            "iterative optimization and automated algorithm design.\n\n"
+            "Your objective is to evolve a specific algorithm instance by "
+            "considering:\n"
+            "1) The current local implementation\n"
+            "2) High-level global insights extracted from prior experiments\n\n"
+            "You may reason and organize your thoughts freely.\n"
+            "However, your FINAL OUTPUT must strictly contain:\n"
+            "1) A new algorithm concept wrapped inside <concept> and </concept>\n"
+            "2) A valid Python implementation of the upgraded algorithm\n"
+        )
+        messages.append({"role": "system", "content": system_prompt})
+
+        content = []
+
+        # 2. 任务背景
+        content.append({
+            "type": "text",
+            "text": f"### Task Assignment\nThe algorithm design task is:\n{task_prompt}\n"
+        })
+
+        # 3. 当前待进化的个体 (局部视角)
+        content.append({
+            "type": "text",
+            "text": f"### Current Algorithm\n"
+                    f"- **Concept**: {parent_func.algorithm}\n"
+                    f"- **Implementation**:\n```python\n{str(parent_func)}\n```\n"
+        })
+
+        # 4. 引入全局经验 (历史尝试的总结)
+        if global_summary:
+            content.append({
+                "type": "text",
+                "text": f"### Global Insights from Past Attempts\n"
+                        f"Based on the validation of various algorithms across multiple expert clusters, the following insights have been summarized:\n"
+                        f"<global_summary>\n{global_summary}\n</global_summary>\n\n"
+                        f"Please analyze these insights carefully and apply them to modify and improve the current algorithm to create a more promising solution."
+            })
+        else:
+            # Fallback 容错：如果系统早期还没有收集到足够的样本生成总结
+            content.append({
+                "type": "text",
+                "text": "### Global Insights from Past Attempts\n"
+                        "No global summary is currently available. Please independently analyze the current algorithm, identify its potential weaknesses, and modify it to create a superior solution."
+            })
+
+        # 5. 操作指令与格式约束
+        # 注意：这里修正了 re 原有代码里 "First, describe your concept..." 句子重复两遍的小笔误
+        operator_prompt = f"""### Instructions
+Design an improved algorithm by strictly following the steps below:
+
+1. **Propose an Upgraded Concept**
+   First, describe your concept for the new algorithm and its main steps as succinctly as possible while ensuring clarity.
+   Wrap your core conceptual description EXACTLY inside `<concept>` and `</concept>` tags.
+
+2. **Implement the New Algorithm**
+   Next, implement your upgraded concept using the exact Python function template provided below:
+```python
+{str(temp_func)}
+```
+
+**STRICT RULES FOR CODE:**
+- Do NOT change the function signature (name, arguments, type hints).
+- Include all necessary `import` statements at the beginning of the function body.
+"""
+        content.append({
+            "type": "text",
+            "text": operator_prompt
+        })
+
+        messages.append({
+            "role": "user",
+            "content": content
+        })
+
+        return messages
+
+    @classmethod
+    def get_prompt_cn(cls, task_prompt: str, parents: List[Function], template_function: Function):
         """Use Figures to instruct the design progress"""
-        for indi in indivs:
+        for indi in parents:
             assert hasattr(indi, 'algorithm')
+
+        messages = []
+
+        # 1. System Prompt (设定为精通算法融合的高级开发者)
+        system_prompt = (
+            "You are an elite Algorithm Developer specializing in algorithmic synthesis and hybridization. "
+            "Your task is to review multiple existing algorithms, use one as the primary framework, "
+            "and intelligently incorporate the advantageous characteristics of the others to synthesize a superior algorithm."
+        )
+        messages.append({"role": "system", "content": system_prompt})
 
         # template
         temp_func = copy.deepcopy(template_function)
         temp_func.body = ''
+
         # Construct prompt content
         content = []
-        # Task assignment
-        assigment_prompt = f"You are assigned as an expert to participate in the following task:\n{task_prompt}\n"
-        content.append({"type": "text", "text": assigment_prompt})
-        description_situation = (
-            f"There are {len(indivs)} existing algorithms that are functional, but we aim to develop more effective ones (A higher score indicates better performance). "
-            f"Each algorithm's concept and implementation is provided below:")
-        content.append({"type": "text", "text": description_situation})
-        for i, indi in enumerate(indivs):
-            content.extend([
-                {
-                    "type": "text",
-                    "text": f'Algorithm #{i + 1} (Score: {indi.score:.3f}):\n'
-                            f'Concept: {indi.algorithm}\n'
-                            f'Implementation:\n{indi.to_code_without_docstring()}\n'
-                }
-            ])
+
+        # 任务背景
+        content.append({
+            "type": "text",
+            "text": f"### Task Assignment\nThe core problem you need to solve is:\n{task_prompt}\n"
+        })
+
+        # 核心：展示父代个体 (区分主干和辅助)
+        context_text = "### Parent Algorithms for Crossover\n"
+
+        # 提取主干算法 (Main Framework)
+        main_parent = parents[0]
+        main_concept = getattr(main_parent, 'algorithm', 'No concept description provided.')
+        main_score = getattr(main_parent, 'score', 'N/A')
+
+        context_text += f"#### Main Framework (Algorithm #1)\n"
+        context_text += f"**Score:** {main_score}\n"
+        context_text += f"**Concept:** {main_concept}\n"
+        context_text += f"**Code:**\n```python\n{main_parent.to_code_without_docstring()}\n```\n\n"
+
+        # 提取辅助算法 (Auxiliary Algorithms)
+        if len(parents) > 1:
+            context_text += "#### Auxiliary Algorithms\n"
+            for i, aux_parent in enumerate(parents[1:]):
+                aux_concept = getattr(aux_parent, 'algorithm', 'No concept description provided.')
+                aux_score = getattr(aux_parent, 'score', 'N/A')
+
+                context_text += f"--- Auxiliary Algorithm #{i + 2} ---\n"
+                context_text += f"**Score:** {aux_score}\n"
+                context_text += f"**Concept:** {aux_concept}\n"
+                context_text += f"**Code:**\n```python\n{aux_parent.to_code_without_docstring()}\n```\n\n"
+
+        content.append({
+            "type": "text",
+            "text": context_text
+        })
 
         # Expert instructions
-        operator_prompt = f"""Please design a new algorithm that is **substantially different in form** from all those provided above. Follow these steps:
+        operator_prompt = f"""### Instructions
+Please take **Algorithm #1 as the main framework** and critically analyze the concepts and code of the Auxiliary Algorithm(s). 
+Identify their strengths and creatively incorporate those advantageous characteristics into the main framework to design a new, better algorithm.
 
-1. **Compare Existing Algorithms**
-   - Identify the strengths and weaknesses of each algorithm.
-   - Present your comparison clearly. Enclose this section within square brackets: [your comparison].
+Please follow these steps to output your newly designed algorithm:
 
-2. **Propose a New Concept**
-   - Develop a novel algorithmic concept that integrates the strengths of the above algorithms while addressing their weaknesses.
-   - Enclose your conceptual description in curly braces: {{your core idea}}.
+1. **Propose an Upgraded Concept**
+   First, describe your concept for the new algorithm and its main steps as succinctly as possible while ensuring clarity.
+   Wrap your core conceptual description EXACTLY inside `<concept>` and `</concept>` tags.
 
-3. **Implement the New Algorithm**
-   - Use the following Python function template to write your implementation:
+2. **Implement the New Algorithm**
+   Next, implement your upgraded concept using the exact Python function template provided below:
 ```python
 {str(temp_func)}
 ```
+
+**STRICT RULES FOR CODE:**
+- Do NOT change the function signature (name, arguments, type hints).
+- Include all necessary `import` statements at the beginning of the function body.
 """
 
         content.append({
@@ -370,10 +579,10 @@ Please design your new algorithm by following these exact steps:
             "text": operator_prompt
         })
 
-        messages = [{
-            'role': 'user',
-            'content': content
-        }]
+        messages.append({
+            "role": "user",
+            "content": content
+        })
 
         return messages
 

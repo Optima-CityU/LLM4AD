@@ -60,6 +60,12 @@ class PartEvoSampler:
         reflection = self.__class__.trim_reflection_from_response(response)
         return reflection
 
+    def get_summary(self, prompt: str, messages: List = None):
+        response = self._sampler.draw_sample(prompt, image64s=None, messages=messages)
+        # Parse descriptions specifically wrapped in double curly braces
+        summary = self.__class__.trim_summary_from_response(response)
+        return summary
+
     @classmethod
     def trim_thought_from_response(cls, response: str) -> str | None:
         """
@@ -93,6 +99,21 @@ class PartEvoSampler:
             return None
         except Exception as e:
             print(f"Error in trim_reflection_from_response: {e}")
+            return None
+
+    @classmethod
+    def trim_summary_from_response(cls, response: str) -> str | None:
+        """
+        Extracts the content inside <reflection>...</reflection> tags.
+        """
+        try:
+            pattern = r'<summary>(.*?)</summary>'
+            match = re.search(pattern, response, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            return None
+        except Exception as e:
+            print(f"Error in trim_summary_from_response: {e}")
             return None
 
     @classmethod

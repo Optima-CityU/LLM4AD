@@ -176,6 +176,7 @@ class PartEvo:
             func.sample_time = None
             func.response = None
             func.prompt = None
+            func.sample_num = self._tot_sample_nums + 1
 
             # register to the population
             self._pool.register_function(offspring=func, from_which_cluster=None)
@@ -237,6 +238,7 @@ class PartEvo:
         func.sample_time = sample_time
         func.response = response
         func.prompt = prompt
+        func.sample_num = self._tot_sample_nums + 1
         if reflction:
             func.reflction = reflction
 
@@ -272,59 +274,94 @@ class PartEvo:
 
         while self._continue_loop() and self._tot_sample_nums < target_samples:
             try:
+                parent_candidates, operator_name, working_cluster_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
+                parent_ids = [parent.sample_num for parent in parent_candidates]  # partevo才有的sample_num
+                print(f"[Thread-{tid}] Running Operator: {operator_name} | Working Cluster: {working_cluster_id}")
 
-                func_parents, operator, chosen_c_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
-                print(f"Running Operator: {operator} | Working Cluster: {chosen_c_id}")
-                if operator == 'error':
-                    # 假设有 cluster_unit_now 和 parents 变量可用
-                    print(f"\033[93mWarning: parent selection failed. Please investigate.\033[0m")
+                if operator_name == 'error':
+                    print(f"\033[93m[Thread-{tid}] ❌ Warning: Parent selection failed. Please investigate.\033[0m")
                     continue
 
-                if operator == 're':
-                    the_parent = func_parents[0]
-                    messages_for_reflection = PartEvoPrompt.get_prompt_reflection(self._task_description_str,
-                                                                                  the_parent,
-                                                                                  self._function_to_evolve
-                                                                                  )
-                    reflection_got = self._sampler.get_reflection(prompt="", messages=messages_for_reflection)
-                    messages = PartEvoPrompt.get_prompt_re(self._task_description_str,
-                                                           the_parent,
-                                                           self._function_to_evolve,
-                                                           reflection_got)
+                if operator_name == 're':
+                    primary_parent = parent_candidates[0]
+                    primary_parent_id = parent_ids[0]
+                    reflection_prompt_messages = PartEvoPrompt.get_prompt_reflection(self._task_description_str,
+                                                                                     primary_parent,
+                                                                                     self._function_to_evolve
+                                                                                     )
+                    generated_reflection = self._sampler.get_reflection(prompt="",
+                                                                        messages=reflection_prompt_messages)
+                    operator_messages = PartEvoPrompt.get_prompt_re(self._task_description_str,
+                                                                    primary_parent,
+                                                                    self._function_to_evolve,
+                                                                    generated_reflection)
                     if self._debug_mode:
-                        print(f'RE Prompt: {self.messages_to_string(messages)}')
+                        print(f'RE Prompt: {self.messages_to_string(operator_messages)}')
                     self._sample_evaluate_register(prompt="",
-                                                   messages=messages,
+                                                   messages=operator_messages,
                                                    operator_name='re',
-                                                   reflction=reflection_got
+                                                   reflction=generated_reflection,
+                                                   parent_number=[primary_parent_id]
                                                    )
+                    if not self._continue_loop():
+                        break
 
-                    # TODO 测试RE，然后再看SE之类的
+                elif operator_name == 'se':
+                    primary_parent = parent_candidates[0]
+                    primary_parent_id = parent_ids[0]
+
+                    current_summary, requires_summary_update, summary_context_samples = self._pool.external_archive.fetch_summary_context()
+
+
+                    if requires_summary_update and summary_context_samples:
+                        summary_prompt_messages = PartEvoPrompt.get_prompt_summary(
+                            self._task_description_str,
+                            self._function_to_evolve,
+                            summary_context_samples  # 传入包含 'elites' 和 'hard_negatives' 的字典
+                        )
+
+                        generated_summary = self._sampler.get_summary(prompt="", messages=summary_prompt_messages)
+                        # 无论生成了什么，都交由 Archive 去判定和处理状态锁
+                        self._pool.external_archive.update_global_summary(generated_summary)
+
+                        # [关键容错补丁] 如果生成有效，更新 current_summary；如果无效，沿用刚才拿到的旧 current_summary
+                        if generated_summary and generated_summary.strip():
+                            current_summary = generated_summary
+                            print(f"\033[92m[Thread-{tid}] 🎉 Successfully generated a valid global summary.\033[0m")
+                        else:
+                            print(
+                                f"\033[93m[Thread-{tid}]⚠️ Warning: Summary generation failed. Falling back to cached summary.\033[0m")
+
+                    else:
+                        print(f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
+
+                    # 使用 (最新生成或缓存的) summary 构建最终生成 Prompt
+                    operator_messages = PartEvoPrompt.get_prompt_se(self._task_description_str, primary_parent,
+                                                                     self._function_to_evolve, current_summary)
+
+                    if self._debug_mode:
+                        print(f'SE Prompt: {self.messages_to_string(operator_messages)}')
+
+                    self._sample_evaluate_register(
+                        prompt="",
+                        messages=operator_messages,
+                        operator_name='se',
+                        parent_number=[primary_parent_id]
+                    )
 
                     if not self._continue_loop():
                         break
 
-                elif operator == 'se':
-                    # get a new func using e1
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                elif operator_name == 'cn':
+                    operator_messages = PartEvoPrompt.get_prompt_cn(self._task_description_str, parent_candidates, self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e1',
-                                                   parent_number=parents_pop_register_number)
-                    if not self._continue_loop():
-                        break
-
-                elif operator == 'cn':
-                    # get a new func using e1
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
-                    if self._debug_mode:
-                        print(f'E1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e1',
-                                                   parent_number=parents_pop_register_number)
+                        print(f'CN Prompt: {self.messages_to_string(operator_messages)}')
+                    self._sample_evaluate_register(
+                        prompt="",
+                        messages=operator_messages,
+                        operator_name='cn',
+                        parent_number=parent_ids
+                    )
                     if not self._continue_loop():
                         break
 
@@ -375,7 +412,8 @@ class PartEvo:
     def init_using_llms(self):
         batch_num = 0
         while len(
-                self._pool.population) + len(self._pool.next_pop) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
+                self._pool.population) + len(
+            self._pool.next_pop) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
             batch_num += 1
             self._multi_threaded_sampling(self._extend_init_population, init_mode=True)
             print(f"Initialization of batch {batch_num} completed")
@@ -399,7 +437,6 @@ class PartEvo:
                 self.init_using_llms()
                 # self._multi_threaded_sampling(self._iteratively_init_population)
 
-        self._pool.initial_population_clustering()
         # Phase 2: Evolutionary Search Loop
         print("🧬 Starting evolutionary training pipeline...")
         self._multi_threaded_sampling(self._partevo_multi_threaded_sampling)

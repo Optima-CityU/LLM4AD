@@ -9,6 +9,7 @@ from typing import List, Dict, Tuple, Any, Optional
 from threading import RLock
 
 from .clusterunit import ClusterUnit
+from .externalArchive import ExternalArchive
 from llm4ad.base import Function
 from .base import Evoind
 from codebleu import calc_codebleu
@@ -215,6 +216,10 @@ class ClusterManager:
 
         print(f'[Manager] Operators Expanded Sequence: {self.intra_cluster_operators}')
         print(f'[Manager] Parent Requirements: {self.intra_cluster_operators_parent_num}')
+
+        self.external_archive = ExternalArchive(max_elites=5,
+                                                max_hard_negatives=30,
+                                                summary_update_interval=int(self.n_clusters * 3))
 
         # 资源调度配置
         self.use_resource_tilt = use_resource_tilt
@@ -427,7 +432,8 @@ class ClusterManager:
 
             try:
                 if self._should_reject_duplicate(offspring):
-                    print('♻️ [Info] The generated offspring is a duplicate of an existing individual. Skipping registration.')
+                    print(
+                        '♻️ [Info] The generated offspring is a duplicate of an existing individual. Skipping registration.')
                     return
 
                 # === 1. Update Global Best (Fast Path) ===
@@ -443,6 +449,8 @@ class ClusterManager:
                     if hasattr(offspring, 'reflection'):
                         evo_offspring.set_reflection(offspring.reflection)
                     self.cluster_units[target_id].register_individual(evo_offspring)
+
+                self.external_archive.register(offspring)
 
                 # 6. Trigger Global Management
                 if len(self.next_pop) >= self.pop_size:
@@ -506,8 +514,7 @@ class ClusterManager:
 
             # Log
             best_score = self.population[0].score if self.population else None
-            print(f"[Manager] Global Population Updated. Current Size: {len(self.population)}\n"
-                  f"(Best: {self.population[0].score:.4f} if {len(self.population)}>0 else None)")
+            print(f"[Manager] 📢 Global Population Updated. Current Size: {len(self.population)}")
 
             # 6. [关键] 尝试触发初始化 (Cold Start -> Clustering)
             # 如果还没初始化，且当前有效个体数已经超过了聚类所需的最小簇数

@@ -1,114 +1,177 @@
 import random
 from threading import RLock
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional
 
+# 请根据你的实际路径调整导入
 from ...base import Function
+
 
 class ExternalArchive:
     """
-    ExternalArchive (全局外部记忆库)
+    ExternalArchive (Global External Memory Pool)
 
-    作用于 ClusterManager 层级，负责记录全局进化历史。
-    采用“瀑布流 (Waterfall)”和“难负样本 (Hard Negatives)”机制：
-    1. 确保 Elite 库纯洁性，仅保留 Global Top-K。
-    2. 被 Elite 淘汰的高分个体，降级进入 Failure (次优) 库。
-    3. 为 SE (Summary/Semantic Exploration) 算子提供高对比度样本。
+    Acts at the ClusterManager level to record the global evolutionary trajectory.
+    Implements a 'Waterfall' and 'Hard Negatives' mechanism:
+    1. Elites: Maintains strict purity, keeping only the Global Top-K candidates.
+    2. Hard Negatives: High-scoring candidates ousted from the Elite pool are demoted here.
+    3. SE Context: Provides cached, high-contrast context (Elites vs. Hard Negatives)
+       for the Semantic Exploration (SE) operator, fully thread-safe with fault tolerance.
     """
 
-    def __init__(self, max_elites: int = 5, max_failures: int = 30):
+    def __init__(self, max_elites: int = 5, max_hard_negatives: int = 30, summary_update_interval: int = 12):
         self.max_elites = max_elites
-        self.max_failures = max_failures
+        self.max_hard_negatives = max_hard_negatives
 
-        # 降序排列的 Top Tier (全局最强的前 N 个)
+        # Descending order Top Tier
         self.elites: List[Function] = []
-
-        # 降序排列的 Second Tier (被挤出的前精英，或非常有潜力的高分失败者)
-        self.failures: List[Function] = []
+        # Descending order Second Tier (Strongest failures / ousted elites)
+        self.hard_negatives: List[Function] = []
 
         self._lock = RLock()
 
-    def register(self, func: Function):
-        """主入口：审查并注册新个体"""
-        if func.score is None:
+        # --- SE Operator Caching & Concurrency Control ---
+        self._cached_summary: str = ""
+        self._request_counter: int = 0
+        self._summary_update_interval: int = summary_update_interval
+
+        # Dirty flag: True if new valuable candidates have been added since the last summary
+        self._has_unsummarized_updates: bool = False
+        # Concurrency Lock: True if a thread is currently calling the LLM to generate a summary
+        self._is_summary_generation_locked: bool = False
+
+    def register(self, candidate: Function):
+        """Main entry point: evaluate and register a new candidate function."""
+        if candidate.score is None:
             return
 
         with self._lock:
-            target_code = func.body
+            target_code = candidate.body
 
-            # === 1. 全局去重 & 动态升降级逻辑 ===
+            # === 1. Global Deduplication & Dynamic Promotion/Demotion ===
 
-            # 1.1 检查是否已在 Elites 中
-            for i, e in enumerate(self.elites):
-                if e.body == target_code:
-                    if func.score > e.score:
-                        # 评估存在随机性时，同代码跑出更高分，直接更新 (不作为 failure 避免 LLM 幻觉)
-                        self.elites[i] = func
+            # Check Elites
+            for i, elite in enumerate(self.elites):
+                if elite.body == target_code:
+                    if candidate.score > elite.score:
+                        self.elites[i] = candidate
                         self.elites.sort(key=lambda x: x.score, reverse=True)
-                    return  # 同代码已处理完毕，直接退出
+                        self._has_unsummarized_updates = True
+                    return
 
-            # 1.2 检查是否已在 Failures 中
-            for i, f in enumerate(self.failures):
-                if f.body == target_code:
-                    if func.score > f.score:
-                        # 更新分数值
-                        self.failures[i] = func
+                    # Check Hard Negatives
+            for i, hard_negative in enumerate(self.hard_negatives):
+                if hard_negative.body == target_code:
+                    if candidate.score > hard_negative.score:
+                        self.hard_negatives[i] = candidate
+                        self._has_unsummarized_updates = True
 
-                        # [动态提拔] 分数提高后，尝试让它重新冲击精英库
-                        upgraded_func = self.failures.pop(i)
-                        self._try_add_to_elites(upgraded_func)
-                    return  # 同代码已处理完毕，直接退出
+                        # [Dynamic Promotion] Try to push the improved candidate into Elites
+                        upgraded_candidate = self.hard_negatives.pop(i)
+                        self._try_add_to_elites(upgraded_candidate)
+                    return
 
-            # === 2. 全新代码，执行瀑布流冲刺 ===
-            self._try_add_to_elites(func)
+                    # === 2. New Code: Execute Waterfall insertion ===
+            self._try_add_to_elites(candidate)
 
-    def _try_add_to_elites(self, func: Function):
-        """尝试加入精英库，进不去或被挤出的，扔给次优库"""
+    def _try_add_to_elites(self, candidate: Function):
+        """Attempts to add to Elites; demotes ousted candidates to Hard Negatives."""
         if len(self.elites) < self.max_elites:
-            self.elites.append(func)
+            self.elites.append(candidate)
             self.elites.sort(key=lambda x: x.score, reverse=True)
+            self._has_unsummarized_updates = True
         else:
-            if func.score > self.elites[-1].score:
-                # 实力足够，挤掉当前最弱的精英
-                self.elites.append(func)
+            if candidate.score > self.elites[-1].score:
+                # Insert and pop the weakest elite
+                self.elites.append(candidate)
                 self.elites.sort(key=lambda x: x.score, reverse=True)
-                dropped_elite = self.elites.pop()
+                ousted_elite = self.elites.pop()
+                self._has_unsummarized_updates = True
 
-                # [瀑布流] 被挤掉的前精英，降级去次优库继续发光发热
-                self._try_add_to_failures(dropped_elite)
+                # Waterfall demotion: ousted elite goes to hard negatives
+                self._try_add_to_hard_negatives(ousted_elite)
             else:
-                # 连最弱的精英都打不过，直接去次优库报到
-                self._try_add_to_failures(func)
+                # Not strong enough for elites, try hard negatives
+                self._try_add_to_hard_negatives(candidate)
 
-    def _try_add_to_failures(self, func: Function):
-        """尝试加入次优库"""
-        if len(self.failures) < self.max_failures:
-            self.failures.append(func)
-            self.failures.sort(key=lambda x: x.score, reverse=True)
+    def _try_add_to_hard_negatives(self, candidate: Function):
+        """Maintains the secondary pool of high-quality failed attempts."""
+        if len(self.hard_negatives) < self.max_hard_negatives:
+            self.hard_negatives.append(candidate)
+            self.hard_negatives.sort(key=lambda x: x.score, reverse=True)
+            self._has_unsummarized_updates = True
         else:
-            if func.score > self.failures[-1].score:
-                # 挤掉次优库里最差的 (彻底淘汰)
-                self.failures.append(func)
-                self.failures.sort(key=lambda x: x.score, reverse=True)
-                self.failures.pop()
+            if candidate.score > self.hard_negatives[-1].score:
+                self.hard_negatives.append(candidate)
+                self.hard_negatives.sort(key=lambda x: x.score, reverse=True)
+                self.hard_negatives.pop()  # Discard the absolute weakest
+                self._has_unsummarized_updates = True
 
-    def sample_for_summary(self, k_success: int = 2, k_failure: int = 2) -> Tuple[List[Function], List[Function]]:
-        """为 SE 算子提供高对比度的样本对"""
+    def _sample_for_contrastive_context(self, k_elites: int = 4, k_negatives: int = 4) -> Tuple[
+        List[Function], List[Function]]:
+        """Samples individuals for the SE operator."""
         with self._lock:
-            # Elites: 优先给头部最强解
-            k_s = min(len(self.elites), k_success)
-            sampled_elites = self.elites[:k_s]
+            k_e = min(len(self.elites), k_elites)
+            sampled_elites = self.elites[:k_e]
 
-            # Failures: 随机采样，提供多样化的高质量错题本
-            k_f = min(len(self.failures), k_failure)
-            sampled_failures = random.sample(self.failures, k_f) if k_f > 0 else []
+            k_n = min(len(self.hard_negatives), k_negatives)
+            sampled_negatives = random.sample(self.hard_negatives, k_n) if k_n > 0 else []
 
-            return sampled_elites, sampled_failures
+            return sampled_elites, sampled_negatives
 
-    def debug_status(self):
-        """打印档案库状态"""
+    # ==========================================
+    # Multi-threading Dispatch Interfaces
+    # ==========================================
+
+    def fetch_summary_context(self) -> Tuple[str, bool, Dict[str, List[Function]]]:
+        """
+        Called by the outer 'se' operator.
+        Returns: (current_cached_summary, requires_update_flag, context_samples_dict)
+        """
         with self._lock:
-            print("\n=== External Archive Status ===")
-            print(f"Elites ({len(self.elites)}/{self.max_elites}): " +
-                  ", ".join([f"{f.score:.4f}" for f in self.elites]))
-            print(f"Failures ({len(self.failures)}/{self.max_failures}): " +
-                  ", ".join([f"{f.score:.4f}" for f in self.failures]))
+            self._request_counter += 1
+
+            # Prevent hallucination if archive is entirely empty
+            if not self.elites and not self.hard_negatives:
+                return self._cached_summary, False, {}
+
+            is_cycle_reached = (self._request_counter % self._summary_update_interval == 0)
+
+            requires_new = (
+                    not self._cached_summary
+                    or (is_cycle_reached and self._has_unsummarized_updates)
+            )
+
+            # Check if update is needed AND no other thread is currently updating
+            if requires_new and not self._is_summary_generation_locked:
+                self._is_summary_generation_locked = True  # Acquire virtual lock
+                elite_samples, negative_samples = self._sample_for_contrastive_context()
+                context_dict = {'elites': elite_samples, 'hard_negatives': negative_samples}
+                return self._cached_summary, True, context_dict
+            else:
+                # Return cached data if no update needed, or if another thread is already generating
+                return self._cached_summary, False, {}
+
+    def update_global_summary(self, generated_summary: Optional[str]):
+        """
+        Called by the LLM thread to write back the generated summary and release lock.
+        Handles failed LLM generations gracefully.
+        """
+        with self._lock:
+            # 1. Unconditionally release the generation lock to prevent deadlocks
+            self._is_summary_generation_locked = False
+
+            # 2. Validate the generation
+            if generated_summary and generated_summary.strip():
+                self._cached_summary = generated_summary
+                # Reset dirty flag only upon successful generation
+                self._has_unsummarized_updates = False
+            else:
+                # On failure: Do nothing. The dirty flag remains True,
+                # so the next thread calling fetch_summary_context will retry.
+                pass
+
+    @property
+    def global_summary(self) -> str:
+        """Read-only property to get the current summary without triggering updates."""
+        with self._lock:
+            return self._cached_summary

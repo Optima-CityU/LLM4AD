@@ -42,20 +42,20 @@ def main():
                                 objective_value=230)
 
     method = PartEvo(llm=llm,
-                     profiler=PartEvoProfiler(log_dir=log_dir, log_style='complex', run_mode=run_mode,
+                     profiler=PartEvoProfiler(log_dir=log_dir, log_style='simple', run_mode=run_mode,
                                               using_algo_designed_path=using_algo_designed_path),
                      evaluation=task,
                      max_sample_nums=24,
                      max_generations=None,
                      pop_size=8,
-                     operators=('re', ),   # ('re', 'se', 'cc', 'lge'),
-                     num_samplers=4,
-                     num_evaluators=4,
+                     operators=('cn', ),   # ('re', 'se', 'cn', 'lge'),
+                     num_samplers=1,
+                     num_evaluators=1,
                      partition_method='kmeans',
                      partition_number=4,
                      local_algo_base='./pop_init_test.json',
                      feature_used=('ast',),
-                     debug_mode=True)
+                     debug_mode=False)
 
     method.run()
 
