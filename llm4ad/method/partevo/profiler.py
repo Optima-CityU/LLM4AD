@@ -14,6 +14,7 @@ except:
 # from .population import Population
 from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
+from .clustermanager import ClusterManager
 
 
 class PartEvoProfiler(ProfilerBase):
@@ -65,7 +66,7 @@ class PartEvoProfiler(ProfilerBase):
                 self._using_dir = os.path.join(self._log_dir, 'using', self._result_folder + '_U')
                 os.makedirs(self._using_dir, exist_ok=True)
 
-    def register_population(self, pop: Population):
+    def register_population(self, pop: ClusterManager):
         try:
             self._pop_lock.acquire()
             if (self._num_samples == 0 or
@@ -75,6 +76,7 @@ class PartEvoProfiler(ProfilerBase):
             funcs_json = []  # type: List[Dict]
             for f in funcs:
                 f_json = {
+                    'sample_number': f.sample_num,
                     'algorithm': f.algorithm,
                     'function': str(f),
                     'score': f.score

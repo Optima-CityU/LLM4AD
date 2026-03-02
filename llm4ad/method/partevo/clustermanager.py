@@ -396,27 +396,6 @@ class ClusterManager:
 
             return parents, operator, chosen_c_id
 
-    def _should_reject_duplicate(self, offspring: Function) -> bool:
-        """
-        检查是否是重复个体。
-        Returns:
-            True  -> 拒绝（是无意义的低分重复）
-            False -> 接受（是新代码，或者是分数更高的旧代码）
-        """
-        target_code = offspring.body
-        for existing_func in self.population:
-            if existing_func.body == target_code:
-                # 发现代码重复
-                if offspring.score > existing_func.score:
-                    # 新的分数更高！这是一个"有价值的重复"
-                    print(
-                        f"✨ [Manager] Found better score for existing code: {existing_func.score:.4f} -> {offspring.score:.4f}")
-                    return False  # 允许进入
-                else:
-                    # 分数没变或更低，拒绝
-                    return True
-        return False
-
     def register_function(self, offspring: Function, from_which_cluster: int = None):
         """
         注册新个体 (Function)。
@@ -431,9 +410,31 @@ class ClusterManager:
                 return
 
             try:
-                if self._should_reject_duplicate(offspring):
-                    print(
-                        '♻️ [Info] The generated offspring is a duplicate of an existing individual. Skipping registration.')
+                # --- 修改后的重复/替换逻辑 ---
+                is_duplicate_or_neutral = False
+
+                for i, existing_func in enumerate(self.population):
+                    # 场景 A: 代码完全一致
+                    code_match = (existing_func.body == offspring.body)
+                    # 场景 B: 分数完全一致 (新增)
+                    score_match = (abs(existing_func.score - offspring.score) < 1e-9)
+
+                    if code_match or score_match:
+                        if offspring.score >= existing_func.score:
+                            # 如果分数更高，或者分数一样但代码不同/代码一样
+                            # 我们选择用“新”的替换“旧”的，以保持种群活力
+                            print(
+                                f"♻️ [Manager] Replacing existing individual (Score: {existing_func.score:.4f}) with new candidate.")
+                            self.population[i] = offspring
+                            is_duplicate_or_neutral = True  # 标记为已处理
+                            break
+                        else:
+                            # 新的分数反而更低，直接丢弃
+                            return
+
+                if is_duplicate_or_neutral:
+                    # 如果已经替换了旧的，就不需要再往 next_pop 里塞了，防止种群膨胀
+                    self._update_global_best([Evoind(offspring)])  # 依然尝试更新全局最优
                     return
 
                 # === 1. Update Global Best (Fast Path) ===

@@ -560,8 +560,8 @@ Step 2 — Implement the Algorithm
 
         # 1. System Prompt (设定为利用群体智能的高级开发者)
         system_prompt = (
-            "You are an elite Algorithm Developer specializing in algorithmic evolution. "
-            "Your task is to evolve a baseline algorithm by identifying its weaknesses and drawing strategic "
+            "You are a Senior Algorithm Research Scientist. "
+            "Your task is to modify a baseline algorithm by identifying its weaknesses and drawing strategic "
             "inspiration from the best-performing algorithms discovered by the agent swarm. "
             "You must synthesize these inspirations to push the baseline algorithm past its current performance ceiling.\n\n"
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
@@ -622,10 +622,12 @@ Step 2 — Implement the Algorithm
 
         # 4. 操作指令与格式约束 (强调 PSO 的吸引力法则)
         operator_prompt = f"""### Instructions
-Please maintain the core framework of the Current Algorithm, but analyze the Superior References to understand why they achieved higher scores. 
-Borrow their successful techniques to upgrade the Current Algorithm.
+Carefully analyze the Superior References to understand why they achieved higher scores. 
+Extract the key principles behind their success and integrate those insights to improve the Current Algorithm. 
+Importantly, you must modify and upgrade the current algorithm by incorporating insights;  
+superficial refactoring, minor parameter tuning, or simple reweighting is NOT allowed.
 
-Please design your new algorithm by following these exact steps:
+Please design a new algorithm by following these exact steps:
 
 Step 1 -- Propose a New Algorithmic Concept
 - Clearly describe the core mechanism of your algorithm.

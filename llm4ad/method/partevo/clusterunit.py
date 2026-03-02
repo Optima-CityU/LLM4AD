@@ -23,7 +23,7 @@ class ClusterUnit:
 
     # === [新增] 算子对应的默认选择策略 ===
     OPERATOR_SELECTION_MAP = {
-        're': 'tournament',  # 改良：锦标赛，选比较好的但保留随机性
+        're': 'exp',  # 改良：锦标赛，选比较好的但保留随机性
         'se': 'tournament',  # 粒子群：同上
         'cc': 'tournament',  # 交叉：同上
         'lge': 'random'  # 上帝视角/全局探索：均匀随机，给所有个体机会
@@ -252,41 +252,71 @@ class ClusterUnit:
 
     def register_individual(self, new_individual: Evoind):
         """
-        注册一个新生成的 Individual 个体到本单元的种群中。
+        注册新个体：增加“等分替换”逻辑，确保种群多样性。
         """
         with self._lock:
-            if new_individual.function.score is None or math.isinf(new_individual.function.score):
-                return
+            new_score = new_individual.function.score
+            if new_score is None or math.isinf(new_score):
+                return False
 
-            if self.has_duplicate_function(new_individual):
-                return
+            # === 1. 等分或同代码替换逻辑 ===
+            replaced = False
+            for i, ind in enumerate(self._population):
+                # 检查代码是否相同 或 分数是否几乎一致 (使用 epsilon 容差)
+                is_same_code = (ind.function.body == new_individual.function.body)
+                is_same_score = (abs(ind.function.score - new_score) < 1e-9)
 
-            current_score = new_individual.function.score
+                if is_same_code or is_same_score:
+                    # 只有当新个体分数更高，或者分数一样但它是“新鲜血液”时才替换
+                    if new_score >= ind.function.score:
+                        # 原地替换
+                        self._population[i] = new_individual
+                        replaced = True
+                        # 如果分数有提升，重置停滞计数
+                        if new_score > self._history_best_score + 1e-6:
+                            self._history_best_score = new_score
+                            self.cumulative_Non_improvement_count = 0
+                        break
+                    else:
+                        # 如果新个体分数更低，直接拒绝
+                        return False
 
-            if current_score > self._history_best_score + 1e-6:
-                self._history_best_score = current_score
-                self.cumulative_Non_improvement_count = 0
-            else:
-                self.cumulative_Non_improvement_count += 1
+            # === 2. 如果不是替换旧个体，则作为新成员加入 ===
+            if not replaced:
+                if new_score > self._history_best_score + 1e-6:
+                    self._history_best_score = new_score
+                    self.cumulative_Non_improvement_count = 0
+                else:
+                    self.cumulative_Non_improvement_count += 1
 
-            # 将新个体添加到种群中
-            self._population.append(new_individual)
+                self._population.append(new_individual)
 
-            # 如果种群超过了最大规模，进行优胜劣汰
+            # === 3. 规模维护 ===
             if len(self._population) > self._max_pop_size:
                 self.do_pop_management()
+
             return True
 
     def do_pop_management(self):
         """
         对种群进行管理，包括去重和淘汰。
         """
-        # 1. 去重
-        unique_individuals = list(dict.fromkeys(self._population))
-        # 2. 排序
-        unique_individuals.sort(key=lambda ind: ind.function.score, reverse=True)
-        # 3. 淘汰
-        self._population = unique_individuals[:self._max_pop_size]
+        if not self._population:
+            return
+
+        # 使用 dict 以代码 body 为键进行最终去重，确保万无一失
+        unique_map: Dict[str, Evoind] = {}
+        for ind in self._population:
+            code_key = ind.function.body
+            if code_key not in unique_map or ind.function.score >= unique_map[code_key].function.score:
+                unique_map[code_key] = ind
+
+        # 转换回列表并按分数降序排列
+        sorted_pop = list(unique_map.values())
+        sorted_pop.sort(key=lambda ind: ind.function.score, reverse=True)
+
+        # 截断到最大容量
+        self._population = sorted_pop[:self._max_pop_size]
 
     def get_best_individual(self) -> Evoind | None:
         """返回种群中得分最高的个体。"""

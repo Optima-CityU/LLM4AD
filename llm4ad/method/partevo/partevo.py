@@ -276,7 +276,7 @@ class PartEvo:
             try:
                 parent_candidates, operator_name, working_cluster_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
                 parent_ids = [parent.sample_num for parent in parent_candidates]  # partevo才有的sample_num
-                print(f"[Thread-{tid}] Running Operator: {operator_name} | Working Cluster: {working_cluster_id}")
+                # print(f"[Thread-{tid}] Running Operator: {operator_name} | Working Cluster: {working_cluster_id}")
 
                 if operator_name == 'error':
                     print(f"\033[93m[Thread-{tid}] ❌ Warning: Parent selection failed. Please investigate.\033[0m")
@@ -332,8 +332,9 @@ class PartEvo:
                                 f"\033[93m[Thread-{tid}]⚠️ Warning: Summary generation failed. Falling back to cached summary.\033[0m")
 
                     else:
-                        print(
-                            f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
+                        pass
+                        # print(
+                        #     f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
 
                     # 使用 (最新生成或缓存的) summary 构建最终生成 Prompt
                     operator_messages = PartEvoPrompt.get_prompt_se(self._task_description_str, primary_parent,
