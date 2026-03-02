@@ -48,7 +48,7 @@ def main():
                      max_sample_nums=24,
                      max_generations=None,
                      pop_size=8,
-                     operators=('cn', ),   # ('re', 'se', 'cn', 'lge'),
+                     operators=('lge', ),   # ('re', 'se', 'cn', 'lge'),
                      num_samplers=1,
                      num_evaluators=1,
                      partition_method='kmeans',

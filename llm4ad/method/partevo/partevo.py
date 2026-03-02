@@ -312,7 +312,6 @@ class PartEvo:
 
                     current_summary, requires_summary_update, summary_context_samples = self._pool.external_archive.fetch_summary_context()
 
-
                     if requires_summary_update and summary_context_samples:
                         summary_prompt_messages = PartEvoPrompt.get_prompt_summary(
                             self._task_description_str,
@@ -333,11 +332,12 @@ class PartEvo:
                                 f"\033[93m[Thread-{tid}]⚠️ Warning: Summary generation failed. Falling back to cached summary.\033[0m")
 
                     else:
-                        print(f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
+                        print(
+                            f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
 
                     # 使用 (最新生成或缓存的) summary 构建最终生成 Prompt
                     operator_messages = PartEvoPrompt.get_prompt_se(self._task_description_str, primary_parent,
-                                                                     self._function_to_evolve, current_summary)
+                                                                    self._function_to_evolve, current_summary)
 
                     if self._debug_mode:
                         print(f'SE Prompt: {self.messages_to_string(operator_messages)}')
@@ -353,7 +353,8 @@ class PartEvo:
                         break
 
                 elif operator_name == 'cn':
-                    operator_messages = PartEvoPrompt.get_prompt_cn(self._task_description_str, parent_candidates, self._function_to_evolve)
+                    operator_messages = PartEvoPrompt.get_prompt_cn(self._task_description_str, parent_candidates,
+                                                                    self._function_to_evolve)
                     if self._debug_mode:
                         print(f'CN Prompt: {self.messages_to_string(operator_messages)}')
                     self._sample_evaluate_register(
@@ -365,15 +366,18 @@ class PartEvo:
                     if not self._continue_loop():
                         break
 
-                elif operator == 'lge':
-                    # get a new func using e1
-                    indivs = self._population.selection(number=self._selection_num)
-                    parents_pop_register_number = [ind.pop_register_number for ind in indivs]
-                    prompt = MLESPrompt.get_prompt_e1(self._task_description_str, indivs, self._function_to_evolve)
+                elif operator_name == 'lge':
+                    operator_messages = PartEvoPrompt.get_prompt_lge(self._task_description_str,
+                                                                     parent_candidates,
+                                                                     self._function_to_evolve)
                     if self._debug_mode:
-                        print(f'E1 Prompt: {prompt}')
-                    self._sample_evaluate_register(prompt=prompt, operator_name='e1',
-                                                   parent_number=parents_pop_register_number)
+                        print(f'LGE Prompt: {self.messages_to_string(operator_messages)}')
+                    self._sample_evaluate_register(
+                        prompt="",
+                        messages=operator_messages,
+                        operator_name='lge',
+                        parent_number=parent_ids
+                    )
                     if not self._continue_loop():
                         break
 
