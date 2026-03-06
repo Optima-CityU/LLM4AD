@@ -66,6 +66,7 @@ class Function:
     score: Any | None = None
     evaluate_time: float | None = None
     sample_time: float | None = None
+    operator: str | None = 'Unknown'
 
     def __str__(self) -> str:
         return_type = f' -> {self.return_type}' if self.return_type else ''
@@ -97,6 +98,13 @@ class Function:
                 self.args == other.args and
                 self.return_type == other.return_type and
                 self.body == other.body)
+
+    def to_code_without_docstring(self) -> str:
+        """Return the function as a string without the docstring."""
+        return_type = f' -> {self.return_type}' if self.return_type else ''
+        function = f'def {self.name}({self.args}){return_type}:\n'
+        function += self.body + '\n\n'
+        return function
 
 
 @dataclasses.dataclass(frozen=True)

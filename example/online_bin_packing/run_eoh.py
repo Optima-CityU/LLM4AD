@@ -20,11 +20,11 @@ def main():
     method = EoH(llm=llm,
                  profiler=ProfilerBase(log_dir='logs/eoh', log_style='simple'),
                  evaluation=task,
-                 max_sample_nums=20000,
-                 max_generations=10,
-                 pop_size=4,
-                 num_samplers=1,
-                 num_evaluators=1,
+                 max_sample_nums=500,
+                 max_generations=None,
+                 pop_size=16,
+                 num_samplers=8,
+                 num_evaluators=8,
                  debug_mode=False)
 
     method.run()
