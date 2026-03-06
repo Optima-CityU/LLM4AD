@@ -39,7 +39,7 @@ For more information, see the [contact list](https://github.com/Optima-CityU/LLM
 <img src="./assets/figs/overview.png" alt="llm4ad" style="zoom:50%;" />
 
 ## 🔥 News
-+ 2026.02 🎉🎉 The algorithm system designed using LLM4AD win **Champion** in [CVRPLib BKS competition](!https://galgos.inf.puc-rio.br/cvrplib/index.php/en/bks_challenge/score/) and generates **51**  BKS on large-scale CVRP instances.
++ 2026.02 🎉🎉 **New Champion!** Our LLM4AD system won the [CVRPLib BKS competition](https://galgos.inf.puc-rio.br/cvrplib/index.php/en/bks_challenge/score/) and established **51 new Best Known Solutions** on large-scale CVRP benchmarks.
 
 + 2026.01 🎉🎉 Our Survey Paper ["A Systematic Survey on Large Language Models for Algorithm Design"](https://arxiv.org/pdf/2410.14716) has been accepted by [**ACM Computing Surveys**](https://dl.acm.org/journal/csur) ! A Rep for the Survey can be found [here](https://github.com/FeiLiu36/LLM4AlgorithmDesign)
 
@@ -182,10 +182,10 @@ Check [GUI Introduction](https://llm4ad-doc.readthedocs.io/en/latest/getting_sta
 | **ReEvo**                         | [Reevo: Large language models as hyper-heuristics with reflective evolution](https://proceedings.neurips.cc/paper_files/paper/2024/hash/4ced59d480e07d290b6f29fc8798f195-Abstract-Conference.html) (NeurIPS 2024) |
 | **MCTS-AHD**                          | [Monte carlo tree search for comprehensive exploration in llm-based automatic heuristic design](https://arxiv.org/abs/2501.08603) (ICML 2025)                                                  |
 | **LHNS**                          | [LLM-Driven Neighborhood Search for Efficient Heuristic Design](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=wS0G_qQAAAAJ&sortby=pubdate&citation_for_view=wS0G_qQAAAAJ:sfnaS5RM6jYC) (CEC 2025) |
-| **PartEvo**                | [Partition to Evolve: Niching-enhanced Evolution with LLMs for Automated Algorithm Discovery](!https://openreview.net/forum?id=OEawM2coNT) (NeurIPS 2025) |
+| **PartEvo**                | [Partition to Evolve: Niching-enhanced Evolution with LLMs for Automated Algorithm Discovery](https://openreview.net/forum?id=OEawM2coNT) (NeurIPS 2025) |
 | **LLaMEA**      | [LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics](https://ieeexplore.ieee.org/abstract/document/10752628)(IEEE TEVC 2025) |
-| **EoH-S**                         | [EoH-S: Evolution of Heuristic Set using LLMs for Automated Heuristic Design](!https://arxiv.org/abs/2508.03082) (AAAI 2026) |
-| **MLES**                          | [Multimodal LLM-assisted Evolutionary Search for Programmatic Control Policies](!https://arxiv.org/abs/2508.05433) (ICLR 2026) |
+| **EoH-S**                         | [EoH-S: Evolution of Heuristic Set using LLMs for Automated Heuristic Design](https://arxiv.org/abs/2508.03082) (AAAI 2026) |
+| **MLES**                          | [Multimodal LLM-assisted Evolutionary Search for Programmatic Control Policies](https://arxiv.org/abs/2508.05433) (ICLR 2026) |
 | Others                            | Coming soon                                                  |
 
 
@@ -319,4 +319,3 @@ Thank you for contributing to LLM4AD and welcome to being part of the LLM4AD com
     </tr>
   </tbody>
 </table>
-
