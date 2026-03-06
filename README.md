@@ -10,7 +10,7 @@ LLM4AD: Large Language Model for Algorithm Design
 ![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)
 [![PR's Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Optima-CityU/LLM4AD/pulls)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
-[![License](https://img.shields.io/badge/License-MIT-important)](https://github.com/Optima-CityU/LLM4AD/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-BSD-important)](https://github.com/Optima-CityU/LLM4AD/blob/main/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/llm4ad-doc/badge/?version=latest)](https://llm4ad-doc.readthedocs.io/en/latest/?badge=latest)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Optima-CityU/llm4ad/blob/main/example/online_bin_packing/online_bin_packing_tutorial.ipynb)
 
