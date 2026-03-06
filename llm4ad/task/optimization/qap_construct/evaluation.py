@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 from llm4ad.base import Evaluation
 from llm4ad.task.optimization.qap_construct.get_instance import GetData
 from llm4ad.task.optimization.qap_construct.template import template_program, task_description
-
+from copy import deepcopy
 __all__ = ['QAPEvaluation']
 
 
@@ -46,9 +46,9 @@ class QAPEvaluation(Evaluation):
     """Evaluator for the Quadratic Assignment Problem."""
 
     def __init__(self,
-                 timeout_seconds=20,
-                 n_facilities=50,
-                 n_instance=16,
+                 timeout_seconds=60,
+                 n_facilities=20,
+                 n_instance=8,
                  **kwargs):
         """
         Initializes the QAP evaluator.
@@ -124,26 +124,22 @@ class QAPEvaluation(Evaluation):
         plt.grid(True)
         plt.show()
 
-    def qap_evaluate(self, current_assignment: List[int], flow_matrix: np.ndarray, distance_matrix: np.ndarray, eva: Callable) -> List[int]:
+    def qap_evaluate(
+        self,
+        current_assignment: List[int],
+        flow_matrix: np.ndarray,
+        distance_matrix: np.ndarray,
+        eva: Callable
+    ) -> List[int]:
         """
-        Evaluate the next assignment for the Quadratic Assignment Problem using a constructive heuristic.
+        Evaluate the assignment for the Quadratic Assignment Problem using a constructive heuristic.
 
-        Args:
-            current_assignment: Current assignment of facilities to locations.
-            flow_matrix: Flow matrix between facilities.
-            distance_matrix: Distance matrix between locations.
-            eva: The constructive heuristic function to select the next assignment.
-
-        Returns:
-            Updated assignment of facilities to locations.
+        The heuristic `eva` is expected to return a complete assignment (a permutation of locations)
+        in one call.
         """
-        # Use the heuristic to select the next assignment
-
-        n_facilities = flow_matrix.shape[0]
-        for _ in range(n_facilities):
-            next_assignment = eva(current_assignment, flow_matrix, distance_matrix)
-
+        next_assignment = eva(flow_matrix, distance_matrix)
         return next_assignment
+
 
     def evaluate_qap(self, eva: Callable) -> float:
         """
@@ -163,7 +159,7 @@ class QAPEvaluation(Evaluation):
             flow_matrix, distance_matrix = instance
             n_facilities = flow_matrix.shape[0]
             current_assignment = [-1] * n_facilities  # Initialize with no assignments
-            current_assignment = self.qap_evaluate(current_assignment, flow_matrix, distance_matrix, eva)
+            current_assignment = self.qap_evaluate(current_assignment, deepcopy(flow_matrix), deepcopy(distance_matrix), eva)
 
             # Check if current_assignment is a feasible solution
             if -1 in current_assignment:
@@ -180,7 +176,7 @@ class QAPEvaluation(Evaluation):
                     cost += flow_matrix[i, j] * distance_matrix[current_assignment[i], current_assignment[j]]
             total_cost += cost
 
-        average_cost = total_cost / self.n_instance
+        average_cost = total_cost / (1E6*self.n_instance) # scale
         return -average_cost  # We want to minimize the total cost
 
 
@@ -188,7 +184,7 @@ if __name__ == '__main__':
 
     def select_next_assignment(current_assignment: List[int], flow_matrix: np.ndarray, distance_matrix: np.ndarray) -> List[int]:
         """
-        A greedy heuristic for the Quadratic Assignment Problem.
+        A heuristic for the Quadratic Assignment Problem.
 
         Args:
             current_assignment: Current assignment of facilities to locations (-1 means unassigned).
@@ -196,22 +192,51 @@ if __name__ == '__main__':
             distance_matrix: Distance matrix between locations.
 
         Returns:
-            Updated assignment of facilities to locations.
+            Updated assignment of facilities to locations, all facilities should be allocated.
         """
-        n_facilities = len(current_assignment)
+        n = len(current_assignment)
+        assigned_facilities = [i for i, loc in enumerate(current_assignment) if loc != -1]
+        unassigned_facilities = [i for i in range(n) if i not in assigned_facilities]
+        assigned_locations = [current_assignment[i] for i in assigned_facilities]
+        unassigned_locations = [loc for loc in range(n) if loc not in assigned_locations]
 
-        # Find the first unassigned facility and the first available location
-        for facility in range(n_facilities):
-            if current_assignment[facility] == -1:
-                # Find the first available location
-                for location in range(n_facilities):
-                    if location not in current_assignment:
-                        current_assignment[facility] = location
-                        break
-                break
+        if not unassigned_facilities:
+            return current_assignment.copy()
 
-        return current_assignment
+        best_score = -float('inf')
+        best_facility = None
+        best_location = None
 
+        for f in unassigned_facilities:
+            flow_to_assigned = flow_matrix[f, assigned_facilities]
+            flow_to_unassigned = flow_matrix[f, unassigned_facilities]
+            for loc in unassigned_locations:
+                cost_reduction = 0
+                for a_fac, a_loc in zip(assigned_facilities, assigned_locations):
+                    cost_reduction += flow_matrix[f, a_fac] * distance_matrix[loc, a_loc]
+
+                penalty = 0
+                for u_fac in unassigned_facilities:
+                    if u_fac != f:
+                        max_flow_to_remaining = np.max(flow_matrix[f, unassigned_facilities]) if unassigned_facilities else 0
+                        penalty += max_flow_to_remaining
+
+                avg_unassigned_dist = np.mean([distance_matrix[loc, u_loc] for u_loc in unassigned_locations if u_loc != loc]) if len(unassigned_locations) > 1 else 1
+                score = -cost_reduction - 0.5 * penalty * avg_unassigned_dist
+                if score > best_score:
+                    best_score = score
+                    best_facility = f
+                    best_location = loc
+
+        new_assignment = current_assignment.copy()
+        new_assignment[best_facility] = best_location
+        for i in range(n):
+            if i not in assigned_facilities and i != best_facility:
+                if new_assignment[i] == -1:
+                    remaining_locs = [loc for loc in range(n) if loc not in assigned_locations and loc != best_location]
+                    if remaining_locs:
+                        new_assignment[i] = remaining_locs[0]
+        return new_assignment
 
     bp1d = QAPEvaluation()
     ave_bins = bp1d.evaluate_program('_', select_next_assignment)

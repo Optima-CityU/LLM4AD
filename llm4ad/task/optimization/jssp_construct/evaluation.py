@@ -204,9 +204,24 @@ if __name__ == '__main__':
         Returns:
             The next operation to schedule, represented as a tuple (job_id, machine_id, processing_time).
         """
-        # Simple greedy heuristic: choose the operation with the shortest processing time
-        next_operation = min(feasible_operations, key=lambda x: x[2])
-        return next_operation
+        if not feasible_operations:
+            return None
+
+        best_op = None
+        best_machine_time = float('inf')
+        best_processing_time = -1
+
+        for job_id, machine_id, processing_time in feasible_operations:
+            machine_available = current_status['machines'].get(machine_id, 0)
+            job_available = current_status['jobs'].get(job_id, 0)
+            start_time = max(machine_available, job_available)
+
+            if start_time < best_machine_time or (start_time == best_machine_time and processing_time > best_processing_time):
+                best_machine_time = start_time
+                best_processing_time = processing_time
+                best_op = (job_id, machine_id, processing_time)
+
+        return best_op
 
 
     tsp = JSSPEvaluation()
