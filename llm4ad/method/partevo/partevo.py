@@ -161,10 +161,13 @@ class PartEvo:
             ).result()
 
             if evaluation_return is not None:
-                # register to profiler
-                func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
-                func.list_performance = evaluation_return.get('list_performance', None)
-                func.score = evaluation_return.get('score', None)
+                if isinstance(evaluation_return, (float, int)):
+                    func.score = float(evaluation_return)
+                else:
+                    # register to profiler
+                    func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
+                    func.list_performance = evaluation_return.get('list_performance', None)
+                    func.score = evaluation_return.get('score', None)
             else:
                 func.all_ins_performance = None
                 func.list_performance = None
@@ -222,9 +225,13 @@ class PartEvo:
 
         # Update function object with evaluation feedback and lineage
         if evaluation_return is not None:
-            func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
-            func.list_performance = evaluation_return.get('list_performance', None)
-            func.score = evaluation_return.get('score', None)
+            if isinstance(evaluation_return, (float, int)):
+                func.score = float(evaluation_return)
+            else:
+                # register to profiler
+                func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
+                func.list_performance = evaluation_return.get('list_performance', None)
+                func.score = evaluation_return.get('score', None)
         else:
             func.all_ins_performance = None
             func.list_performance = None
