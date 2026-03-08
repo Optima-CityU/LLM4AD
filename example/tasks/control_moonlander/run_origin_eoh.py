@@ -9,10 +9,13 @@ from llm4ad.tools.profiler import ProfilerBase
 
 
 def main():
-    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
-                   timeout=120)
+    llm = HttpsApi(host='xxxx',
+                   # Replace with your API endpoint (e.g., api.openai.com/v1/completions, api.deepseek.com)
+                   key='xxx',  # Replace with your actual API key
+                   model='xxx',  # Choose your model (e.g., gpt-4o, deepseek-chat)
+                   timeout=120  # Maximum waiting time for LLM response
+                   )
+
     log_dir = f'logs/eoh_origin'  # Use run_id to avoid overwriting logs
 
     seeds = [6, 9, 17, 29, 57,  # 全分布

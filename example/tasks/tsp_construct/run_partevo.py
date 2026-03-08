@@ -3,7 +3,7 @@ import sys
 # (Not required if you installed the package via pip, but useful for local development)
 sys.path.append('../../../../')  # This is for finding all the modules
 
-from llm4ad.task.optimization.online_bin_packing import OBPEvaluation
+from llm4ad.task.optimization.tsp_construct import TSPEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
 from llm4ad.method.partevo import PartEvo
 from llm4ad.method.partevo import PartEvoProfiler
@@ -26,7 +26,7 @@ def main():
     # =========================================================================
     run_mode = 'Training'  # Options: 'Training' (evolution), 'Using' (testing), 'Combined'
     using_algo_designed_path = ""  # Path to a saved policy if run_mode is 'Using'
-    task = OBPEvaluation()
+    task = TSPEvaluation()
 
     # Directory where evolution logs and generated policies will be saved
     log_dir = f'logs/partevo'  # Use run_id to avoid overwriting logs

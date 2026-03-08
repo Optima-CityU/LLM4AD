@@ -1,37 +1,55 @@
+# Module Name: MLES
+# Last Revision: 2026/2/9
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu, Xialiang Tong, Mingxuan Yuan, Fei Liu, Zhichao Lu, and Qingfu Zhang.
+#       "Multimodal LLM-assisted Evolutionary Search for Programmatic Control Policies."
+#       The Fourteenth International Conference on Learning Representations (ICLR). 2026.
+
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 
 # moon lander website  https://gymnasium.farama.org/environments/box2d/lunar_lander/
-
 from __future__ import annotations
-
 from typing import Optional, Tuple, List, Any, Set
 import gymnasium as gym
 import numpy as np
-
-from llm4ad.base import Evaluation
-from llm4ad.task.machine_learning.moon_lander.template import template_program, task_description, \
-    non_image_representation_explanation
-
 import traceback
 import matplotlib
-
-matplotlib.use('Agg')  # 选择不显示的后端
+matplotlib.use('Agg')  # Non-interactive backend for server-side plotting
 import matplotlib.pyplot as plt
 import io
-from io import BytesIO
 import base64
 import copy
-
 import warnings
 import time
 
+from llm4ad.base import Evaluation
+# =========================================================================
+# 🛠️ USER DEFINED: Import your custom template and task description here
+# =========================================================================
+from llm4ad.task.machine_learning.moon_lander.template import template_program, task_description, \
+    non_image_representation_explanation
+
 __all__ = ['MoonLanderEvaluation']
 
-
-# def evaluate(env: gym.Env, action_select: callable) -> float | None:
-
-
 class MoonLanderEvaluation(Evaluation):
-    """Evaluator for moon lander problem."""
+    """Evaluator for the Lunar Lander control problem."""
 
     def __init__(self, whocall='Eoh', max_steps=200, timeout_seconds=300, **kwargs):
         """
@@ -49,43 +67,266 @@ class MoonLanderEvaluation(Evaluation):
             use_numba_accelerate=False,
             timeout_seconds=timeout_seconds
         )
+        self.whocall = whocall
 
+        # =========================================================================
+        # 🛠️ USER DEFINED (i): Environment Configuration
+        # Modify these variables to configure your custom environment physics/rules.
+        # =========================================================================
         self.env_name = 'LunarLander-v3'
         self.env_max_episode_steps = max_steps
-        self.whocall = whocall
         objective_value = kwargs.get('objective_value', 230)
         self.final_objective_score = objective_value
         self.non_image_representation_explanation = non_image_representation_explanation
 
-        # --- 实例集处理 ---
-        self._mode = kwargs.get('run_mode', 'Training')
-        self.instance_set = kwargs.get('instance_set')
-        self.instance_id_set = tuple(self.instance_set.keys())
-        if self._mode == 'Training' and not self.instance_set:
-            # 使用更标准的 Python 异常处理
-            raise ValueError("没有提供Training实例集 (instance_set)，无法进行评估。")
-
-        self.ins_to_be_solve_set = kwargs.get('ins_to_be_solve_set')
-        self.to_be_solve_instance_id_set = tuple(self.ins_to_be_solve_set.keys())
-        if self._mode == 'Using' and not self.ins_to_be_solve_set:
-            # 使用更标准的 Python 异常处理
-            raise ValueError("没有提供Testing实例集 (ins_to_be_solve_set)，无法进行评估。")
-
-        if self._mode == 'Combined' and (not self.instance_set or not self.ins_to_be_solve_set):
-            # 使用更标准的 Python 异常处理
-            raise ValueError("缺少Training或Testing实例集 ，无法进行评估。")
-
+        # Custom Lunar Lander specific configurations
         self.gravity = kwargs.get('gravity', -10.0)
         self.enable_wind = kwargs.get('enable_wind', False)
         self.wind_power = kwargs.get('wind_power', 15.0)
         self.turbulence_power = kwargs.get('turbulence_power', 1.5)
 
+        # =========================================================================
+        # 🔒 BOILERPLATE - DO NOT MODIFY
+        # Instance set and mode handling for the evaluation pipeline.
+        # =========================================================================
+        self._mode = kwargs.get('run_mode', 'Training')
+        self.instance_set = kwargs.get('instance_set')
+        self.instance_id_set = tuple(self.instance_set.keys())
+
+        if self._mode == 'Training' and not self.instance_set:
+            raise ValueError("Training instance set (instance_set) not provided.")
+
+        self.ins_to_be_solve_set = kwargs.get('ins_to_be_solve_set')
+        self.to_be_solve_instance_id_set = tuple(self.ins_to_be_solve_set.keys())
+        if self._mode == 'Using' and not self.ins_to_be_solve_set:
+            raise ValueError("Testing instance set (ins_to_be_solve_set) not provided.")
+
+        if self._mode == 'Combined' and (not self.instance_set or not self.ins_to_be_solve_set):
+            raise ValueError("Missing Training or Testing instance set.")
+
+        # Initialize features (Custom step for DyCA Method)
         self.instance_feature = {}
         self.to_be_solve_ins_feature = {}
         self._generate_instance_features()  # If you have
 
+    def evaluate(self, action_select: callable, ins_to_be_evaluated_id: Set | List | None = None, training_mode=True) -> \
+            Optional[dict]:
+        """
+        🔒 MOSTLY BOILERPLATE: Aggregates results across instances.
+        """
+        ins_to_be_evaluated_set = self.instance_set
+        if not training_mode:
+            ins_to_be_evaluated_set = self.ins_to_be_solve_set
+        if not ins_to_be_evaluated_id:
+            ins_to_be_evaluated_id = set(self.instance_set.keys())
+            if not training_mode:
+                ins_to_be_evaluated_id = set(self.ins_to_be_solve_set.keys())
+
+        instance_performance = {}
+        total_rewards = {}
+        image64s = {}
+        observations = {}
+        num_episodes = len(ins_to_be_evaluated_id)
+        episodes_recorder = {}
+
+        total_fuel = 0
+        success_count = 0
+
+        # --- Serial Evaluation Loop ---
+
+        for ins_id in ins_to_be_evaluated_id:
+            env_seed = ins_to_be_evaluated_set[ins_id]
+            each_evaluate_result = self.evaluate_single(action_select, env_seed)
+
+            if each_evaluate_result is not None:
+                infos, img_canvas = each_evaluate_result
+                total_rewards[ins_id] = infos['episode_reward']
+                total_fuel += infos['episode_fuel']
+                image64s[ins_id] = img_canvas       # Canvas data to be converted later
+                observations[ins_id] = infos['observations']
+
+                if infos['episode_reward'] >= 200:
+                    success_count += 1
+
+                episodes_recorder[ins_id] = infos
+
+                instance_performance[ins_id] = {
+                    'score': infos['episode_reward'],
+                    'evaluate_time': infos['evaluate_time']
+                }
+            else:
+                print(f"Warning: Instance {ins_id} returned None.")
+                instance_performance[ins_id] = {'score': -float('inf'), 'evaluate_time': 0}
+
+        if not total_rewards:
+            print("Evaluation failed: No valid rewards were collected.")
+            return None
+
+        # --- Calculate Custom Aggregated Metrics ---
+        mean_reward = np.mean(list(total_rewards.values()))
+        mean_fuel = total_fuel / num_episodes
+        success_rate = success_count / num_episodes
+        min_reward_id = min(total_rewards, key=total_rewards.get)
+        chosen_image = image64s[min_reward_id]
+        observation_chosen = observations[min_reward_id]
+
+        # Normalized Weighted Score (NWS)
+        nws = (mean_reward / 200) * 0.6 + (1 - min(mean_fuel / 100, 1)) * 0.2 + success_rate * 0.2
+
+        sorted_keys = sorted(instance_performance.keys())
+        list_performance = [instance_performance[k]['score'] for k in sorted_keys]
+
+        # =========================================================================
+        # 🛠️ USER DEFINED (iii): Final Return Formatting
+        # You MUST return 'score' and 'image' for MLES.
+        # =========================================================================
+        if self.whocall == 'mles':
+            # Create base64 representation of the canvas here
+            encoded_base64 = self.create_base64(chosen_image, nws, episodes_recorder, min_reward_id)
+            observation_chosen_str = str(observation_chosen)
+            test_result = {
+                'Mean Reward': mean_reward,
+                'Mean Fuel': mean_fuel,
+                'Success Rate': success_rate,
+                'NWS': nws
+            }
+            return {
+                    # REQUIRED BY MLES:
+                    'score': nws,
+                    'image': encoded_base64,
+
+                    # CUSTOM USER METRICS:
+                    'observation': observation_chosen_str,
+                    'Test result': test_result,
+                    'all_ins_performance': instance_performance,
+                    'list_performance': list_performance
+                    }
+
+        elif self.whocall == 'dyca':
+            return {'all_ins_performance': instance_performance,
+                    'list_performance': list_performance}  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
+        else:
+            return nws
+
+    def evaluate_single(self, action_select: callable, env_seed=42):
+        """
+        # =========================================================================
+        # 🛠️ USER DEFINED (ii): Single Episode Evaluation & Image Generation
+        # Run the environment, track fuel/rewards, and generate the image canvas.
+        # =========================================================================
+        """
+        start_time = time.time()
+        env = gym.make(self.env_name, render_mode='rgb_array',
+                       gravity=self.gravity,
+                       enable_wind=self.enable_wind,
+                       wind_power=self.wind_power,
+                       turbulence_power=self.turbulence_power)
+        observation, _ = env.reset(seed=env_seed)  # gym initialization
+        action = 0  # initial action
+        episode_reward = 0
+        episode_fuel = 0
+
+        # Create a blank canvas to overlay trajectory frames
+        canvas = np.zeros((400, 600, 3), dtype=np.float32)
+        observations = []
+
+        pre_observation = copy.deepcopy(observation)
+        observation, reward, done, truncated, info = env.step(action)
+
+        flash_calculator = 0
+        for i in range(self.env_max_episode_steps + 1):  # protect upper limits
+            action = action_select(observation,
+                                   action,
+                                   pre_observation)
+            pre_observation = copy.deepcopy(observation)
+            observation, reward, done, truncated, info = env.step(action)
+            episode_reward += reward
+
+            # Track fuel usage based on engine firing actions
+            if action in [1, 2, 3]:
+                episode_fuel += 1
+
+            # Render frame and create transparent overlay for trajectory history
+            if flash_calculator >= 10:
+                img = env.render()
+                mask = np.any(img != [0, 0, 0], axis=-1)
+                alpha = min(i / self.env_max_episode_steps, 1.0)
+
+                canvas[mask] = canvas[mask] * (1 - alpha) + img[mask] * alpha
+
+                observation_str = ', '.join([f"{x:.3f}" for x in observation])
+                observations.append(f"[{observation_str}]")
+                flash_calculator = 0
+
+            flash_calculator += 1
+
+            if done or truncated or i == self.env_max_episode_steps:
+                img = env.render()
+                mask = np.any(img != [0, 0, 0], axis=-1)
+                alpha = i / self.env_max_episode_steps  # 假设最大步数为200，可以根据实际情况调整
+                alpha = min(alpha, 1.0)  # 确保透明度不超过1
+                canvas[mask] = canvas[mask] * (1 - alpha) + img[mask] * alpha
+                observation_str = ', '.join([f"{x:.3f}" for x in observation])
+                observations.append(f"[{observation_str}]")
+                # fitness = abs(observation[0]) + abs(yv[-2]) - (observation[6] + observation[7])
+                env.close()
+                end_time = time.time()
+                infos = {'done': done,
+                         'truncated': truncated,
+                         'episode_fuel': episode_fuel,
+                         'episode_reward': episode_reward,
+                         'observations': observations,
+                         'evaluate_time': end_time - start_time}
+
+                # Return the custom metrics and the raw numpy canvas
+                return infos, canvas
+
+    # =========================================================================
+    # 🔒 BOILERPLATE - DO NOT MODIFY
+    # Wrapper function for the evaluation engine.
+    # =========================================================================
+    def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
+        ins_to_be_evaluated_id = kwargs.get('ins_to_be_evaluated_id', None)
+        training_mode = kwargs.get('training_mode', True)
+        return self.evaluate(callable_func, ins_to_be_evaluated_id, training_mode)
+
+    # =========================================================================
+    # 🛠️ USER DEFINED (iv): Custom Task-Specific Methods
+    # Add any extra helper functions, feature extractors, or visualizers here.
+    # =========================================================================
+    def create_base64(self, original_input, fitness, recoder, which_image):
+        """Helper to convert the numpy canvas into a base64 encoded string for MLES."""
+        img_bytes = io.BytesIO()
+        plt.imshow(original_input.astype(np.uint8))
+        image_recode = recoder[which_image]
+
+        if image_recode['done']:
+            final_state = "Landed safely"
+        elif image_recode['truncated']:
+            final_state = "Crashed"
+        else:
+            final_state = "Landing failed"
+
+        plt.title(f'Lander Trajectory over 200 steps\n Score: {fitness:.3f} | Final State: {final_state}')
+        plt.axis('off')
+
+        plt.savefig(img_bytes, format='png')
+        img_bytes.seek(0)
+        # 对图像进行base64编码
+        img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
+        return img_base64
+
+    # =========================================================================
+    # 🛑 OPTIONAL / ADVANCED: Custom Analytics & Visualization (SAFE TO IGNORE)
+    # -------------------------------------------------------------------------
+    # NOTE FOR USERS: Everything below this line is highly specific to the
+    # analysis and trajectory clustering we performed for the MLES paper.
+    #
+    # You DO NOT need to read, understand, or implement anything like this
+    # to get your own custom environment working!
+    # =========================================================================
     def feature_pipeline(self, seed, env_max_episode_steps=100):
-        """No action → feature."""
+        """(Advanced) No action → feature extraction for clustering."""
         env = gym.make('LunarLander-v3', render_mode='rgb_array',
                        gravity=-10,
                        enable_wind=False,
@@ -109,11 +350,11 @@ class MoonLanderEvaluation(Evaluation):
         return feature.tolist()
 
     def _generate_instance_features(self):
-        """为所有实例生成特征，并存储在 instance_feature 属性中。"""
+        """Generate features for all instances."""
         if self.instance_feature:
-            warnings.warn("训练实例特征已存在，将重新生成。")
+            warnings.warn("Training instance features already exist.")
         if self.to_be_solve_ins_feature:
-            warnings.warn("待求解实例特征已存在，将重新生成。")
+            warnings.warn("Testing instance features already exist.")
 
         self.instance_feature.clear()
         self.to_be_solve_ins_feature.clear()
@@ -124,231 +365,19 @@ class MoonLanderEvaluation(Evaluation):
             feature = self.feature_pipeline(config)
             self.to_be_solve_ins_feature[instance_id] = feature
 
-    def create_base64(self, original_input, fitness, recoder, which_image):
-        """
-        这个函数将图片变成base64的形式，最终输出base64
-        """
-        img_bytes = io.BytesIO()
-        plt.imshow(original_input.astype(np.uint8))
-        image_recode = recoder[which_image]
-
-        if image_recode['done']:
-            final_state = "Landed safely"
-        elif image_recode['truncated']:
-            final_state = "Crashed"
-        else:
-            final_state = "Landing failed"
-
-        plt.title(f'Lander Trajectory over 200 steps\n Score: {fitness:.3f} | Final State: {final_state}')
-        plt.axis('off')
-
-        plt.savefig(img_bytes, format='png')
-        img_bytes.seek(0)
-        # 对图像进行base64编码
-        img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
-        return img_base64
-
-    def evaluate(self, action_select: callable, ins_to_be_evaluated_id: Set | List | None = None, training_mode=True) -> \
-            Optional[dict]:
-        ins_to_be_evaluated_set = self.instance_set
-        if not training_mode:
-            ins_to_be_evaluated_set = self.ins_to_be_solve_set
-        if not ins_to_be_evaluated_id:
-            ins_to_be_evaluated_id = set(self.instance_set.keys())
-            if not training_mode:
-                ins_to_be_evaluated_id = set(self.ins_to_be_solve_set.keys())
-
-        instance_performance = {}
-        total_rewards = {}
-        image64s = {}
-        observations = {}
-        num_episodes = len(ins_to_be_evaluated_id)
-        episodes_recorder = {}
-
-        total_fuel = 0
-        success_count = 0
-
-        # --- L3 串行评估 (Serial Evaluation) ---
-        # print(f"MoonLander: Starting SERIAL evaluation of {num_episodes} instances...")
-
-        for ins_id in ins_to_be_evaluated_id:
-            env_seed = ins_to_be_evaluated_set[ins_id]
-
-            # 直接调用 evaluate_single，不再提交到线程池
-            each_evaluate_result = self.evaluate_single(action_select, env_seed)
-
-            if each_evaluate_result is not None:
-                infos = each_evaluate_result[0]
-
-                # --- 数据记录 (串行模式下不需要锁) ---
-                total_rewards[ins_id] = infos['episode_reward']
-                total_fuel += infos['episode_fuel']
-                image64s[ins_id] = each_evaluate_result[1]
-                observations[ins_id] = infos['observations']
-
-                if infos['episode_reward'] >= 200:
-                    success_count += 1
-
-                episodes_recorder[ins_id] = infos
-
-                instance_performance[ins_id] = {
-                    'score': infos['episode_reward'],
-                    'evaluate_time': infos['evaluate_time']
-                }
-            else:
-                print(f"Warning: Instance {ins_id} returned None.")
-                instance_performance[ins_id] = {'score': -float('inf'), 'evaluate_time': 0}
-
-        # --- 聚合 (保持不变) ---
-        # 检查是否有任何有效结果
-        if not total_rewards:
-            print("Evaluation failed: No valid rewards were collected.")
-            return None
-
-        mean_reward = np.mean(list(total_rewards.values()))
-        mean_fuel = total_fuel / num_episodes
-        success_rate = success_count / num_episodes
-
-        min_reward_id = min(total_rewards, key=total_rewards.get)
-        chosen_image = image64s[min_reward_id]
-        observation_chosen = observations[min_reward_id]
-
-        # 标准化加权得分（权重α=0.6, β=0.2, γ=0.2）
-        nws = (mean_reward / 200) * 0.6 + (1 - min(mean_fuel / 100, 1)) * 0.2 + success_rate * 0.2
-
-        sorted_keys = sorted(instance_performance.keys())
-        # 返回按 key 排序的 score 列表
-        list_performance = [instance_performance[k]['score'] for k in sorted_keys]
-
-        if self.whocall == 'mles':
-            encoded_base64 = self.create_base64(chosen_image, nws, episodes_recorder, min_reward_id)
-            observation_chosen_str = str(observation_chosen)
-
-            test_result = {
-                'Mean Reward': mean_reward,
-                'Mean Fuel': mean_fuel,
-                'Success Rate': success_rate,
-                'NWS': nws
-            }
-            return {'score': nws,
-                    'image': encoded_base64,
-                    'observation': observation_chosen_str,
-
-                    'Test result': test_result,
-                    'all_ins_performance': instance_performance,
-                    'list_performance': list_performance
-                    }
-
-        # elif self.whocall in ['eoh', 'reevo', 'funsearch']:
-        #     return (mean_reward, instance_performance)
-        elif self.whocall == 'dyca':
-            return {'all_ins_performance': instance_performance,
-                    'list_performance': list_performance}  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
-        elif self.whocall == 'partevo':
-            return {'all_ins_performance': instance_performance,
-                    'list_performance': list_performance,
-                    'score': nws
-                    }  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
-        else:
-            return nws
-
-    def evaluate_single(self, action_select: callable, env_seed=42):
-        """Evaluate heuristic function on moon lander problem."""
-        start_time = time.time()
-        env = gym.make(self.env_name, render_mode='rgb_array',
-                       gravity=self.gravity,
-                       enable_wind=self.enable_wind,
-                       wind_power=self.wind_power,
-                       turbulence_power=self.turbulence_power)
-        observation, _ = env.reset(seed=env_seed)  # initialization
-        action = 0  # initial action
-        episode_reward = 0
-        episode_fuel = 0
-
-        canvas = np.zeros((400, 600, 3), dtype=np.float32)
-        observations = []
-
-        pre_observation = copy.deepcopy(observation)
-        observation, reward, done, truncated, info = env.step(action)
-
-        flash_calculator = 0
-        for i in range(self.env_max_episode_steps + 1):  # protect upper limits
-            action = action_select(observation,
-                                   action,
-                                   pre_observation)
-            pre_observation = copy.deepcopy(observation)
-            observation, reward, done, truncated, info = env.step(action)
-            episode_reward += reward
-            if action in [1, 2, 3]:
-                episode_fuel += 1
-
-            if flash_calculator >= 10:
-                img = env.render()
-                # 提取非黑色部分
-                mask = np.any(img != [0, 0, 0], axis=-1)
-                # 计算动态透明度
-
-                alpha = i / self.env_max_episode_steps  # 假设最大步数为200，可以根据实际情况调整
-                alpha = min(alpha, 1.0)  # 确保透明度不超过1
-                # 将当前帧的非黑色部分叠加到画布上
-                canvas[mask] = canvas[mask] * (1 - alpha) + img[mask] * alpha
-                observation_str = ', '.join([f"{x:.3f}" for x in observation])
-                observations.append(f"[{observation_str}]")
-                flash_calculator = 0
-            flash_calculator += 1
-
-            if done or truncated or i == self.env_max_episode_steps:
-                img = env.render()
-                mask = np.any(img != [0, 0, 0], axis=-1)
-                alpha = i / self.env_max_episode_steps  # 假设最大步数为200，可以根据实际情况调整
-                alpha = min(alpha, 1.0)  # 确保透明度不超过1
-                canvas[mask] = canvas[mask] * (1 - alpha) + img[mask] * alpha
-                observation_str = ', '.join([f"{x:.3f}" for x in observation])
-                observations.append(f"[{observation_str}]")
-                # fitness = abs(observation[0]) + abs(yv[-2]) - (observation[6] + observation[7])
-                env.close()
-                end_time = time.time()
-                infos = {'done': done,
-                         'truncated': truncated,
-                         'episode_fuel': episode_fuel,
-                         'episode_reward': episode_reward,
-                         'observations': observations,
-                         'evaluate_time': end_time - start_time}
-                return infos, canvas
-
-    def evaluate_program(self, program_str: str, callable_func: callable, **kwargs) -> Any | None:
-        ins_to_be_evaluated_id = kwargs.get('ins_to_be_evaluated_id', None)
-        training_mode = kwargs.get('training_mode', True)
-        return self.evaluate(callable_func, ins_to_be_evaluated_id, training_mode)
-
     def visualize_instance_features_base64(self, mode: str = 'combined') -> str:
-        """
-        生成实例特征 (无动作轨迹) 的可视化图像，并返回 Base64 编码的 PNG 字符串。
-
-        参数:
-            mode (str):
-                - 'combined': (默认) 绘制训练实例和待解实例。
-                - 'training': 只绘制训练实例 (self.instance_feature)。
-                - 'testing':  只绘制待解实例 (self.to_be_solve_ins_feature)。
-
-        返回:
-            str: 包含 PNG 图像的 Base64 编码字符串。
-        """
-        # 需要额外导入 Line2D 来创建自定义图例
+        """(Advanced) Visualization tool for trajectory features."""
         from matplotlib.lines import Line2D
 
-        # 1. 检查 mode 参数
         valid_modes = ['combined', 'training', 'testing']
         if mode not in valid_modes:
             raise ValueError(f"Invalid mode '{mode}'. Must be one of {valid_modes}")
 
-        # 2. 初始化 Matplotlib 画布
         fig, ax = plt.subplots(figsize=(12, 9))
 
-        plot_any = False  # 标记是否绘制了任何内容
-        legend_elements = []  # 用于动态构建图例
+        plot_any = False
+        legend_elements = []
 
-        # 3. 绘制训练实例 (Training Instances)
         if mode in ['combined', 'training']:
             plot_training = False
             for instance_id, feature in self.instance_feature.items():
@@ -377,7 +406,6 @@ class MoonLanderEvaluation(Evaluation):
                     Line2D([0], [0], marker='o', color='w', label='Training Landing Point (ID)', markerfacecolor='blue',
                            markersize=8))
 
-        # 4. 绘制待解实例 (Testing Instances)
         if mode in ['combined', 'testing']:
             plot_testing = False
             for instance_id, feature in self.to_be_solve_ins_feature.items():
@@ -405,7 +433,6 @@ class MoonLanderEvaluation(Evaluation):
                 legend_elements.append(Line2D([0], [0], marker='o', color='w', label='Testing Landing Point (ID)',
                                               markerfacecolor='orange', markersize=8))
 
-        # 5. 设置图像美化和信息
         title_suffix = {
             'combined': 'Training & Testing Instances',
             'training': 'Training Instances Only',
@@ -415,7 +442,6 @@ class MoonLanderEvaluation(Evaluation):
         ax.set_xlabel('X Coordinate (scaled * 10)', fontsize=12)
         ax.set_ylabel('Y Coordinate (scaled * 10)', fontsize=12)
 
-        # 着陆坪
         ax.axhline(0, color='grey', linestyle='--', linewidth=2)
         ax.plot([-2, 2], [0, 0], color='red', linewidth=4)
         legend_elements.append(Line2D([0], [0], color='red', lw=4, label='Landing Pad (y=0, x=[-2, 2])'))
@@ -424,7 +450,6 @@ class MoonLanderEvaluation(Evaluation):
         ax.set_ylim(bottom=-1)
         ax.grid(True, linestyle=':', alpha=0.6)
 
-        # 6. 添加图例
         if legend_elements:
             ax.legend(handles=legend_elements, loc='upper right')
 
@@ -435,53 +460,36 @@ class MoonLanderEvaluation(Evaluation):
 
         plt.tight_layout()
 
-        # 7. 将图像保存到内存并编码为 Base64
         img_bytes = io.BytesIO()
         plt.savefig(img_bytes, format='png', bbox_inches='tight')
-        plt.close(fig)  # 关闭图像
+        plt.close(fig)
         img_bytes.seek(0)
         img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
 
         return img_base64
 
     def show_instance_features(self, mode: str = 'combined', duichen = False):
-        """
-        生成实例特征 (无动作轨迹) 的可视化图像，并直接在窗口中显示。
-
-        参数:
-            mode (str):
-                - 'combined': (默认) 绘制训练实例和待解实例。
-                - 'training': 只绘制训练实例 (self.instance_feature)。
-                - 'testing':  只绘制待解实例 (self.to_be_solve_ins_feature)。
-        """
-
-        # --- 新增：强制切换到交互式后端 ---
+        """(Advanced) Interactive UI for instance features."""
         try:
-            # 必须在导入 pyplot 之前设置后端
             import matplotlib
-            matplotlib.use('TkAgg')  # 尝试使用 'TkAgg' (需要 Tkinter)
+            matplotlib.use('TkAgg')
             import matplotlib.pyplot as plt
         except ImportError:
             warnings.warn("'TkAgg' backend not found, trying default interactive backend...")
-            # 恢复到 Matplotlib 的默认后端（希望能是交互式的）
             matplotlib.use(matplotlib.get_backend())
             import matplotlib.pyplot as plt
-        # --- 结束新增 ---
 
         from matplotlib.lines import Line2D
 
-        # 1. 检查 mode 参数
         valid_modes = ['combined', 'training', 'testing']
         if mode not in valid_modes:
             raise ValueError(f"Invalid mode '{mode}'. Must be one of {valid_modes}")
 
-        # 2. 初始化 Matplotlib 画布
         fig, ax = plt.subplots(figsize=(12, 9))
 
-        plot_any = False  # 标记是否绘制了任何内容
-        legend_elements = []  # 用于动态构建图例
+        plot_any = False
+        legend_elements = []
 
-        # 3. 绘制训练实例 (Training Instances)
         if mode in ['combined', 'training']:
             plot_training = False
             for instance_id, feature in self.instance_feature.items():
@@ -510,7 +518,6 @@ class MoonLanderEvaluation(Evaluation):
                     ax.text(fu_x[-1], y_coords[-1] + 0.05, f'{instance_id}', color='blue',
                             ha='center', va='bottom', fontsize=7, fontweight='bold')
 
-
             if plot_training:
                 legend_elements.append(
                     Line2D([0], [0], color='blue', lw=2, linestyle=':', label='Training Instance Trajectory'))
@@ -518,7 +525,6 @@ class MoonLanderEvaluation(Evaluation):
                     Line2D([0], [0], marker='o', color='w', label='Training Landing Point (ID)', markerfacecolor='blue',
                            markersize=8))
 
-        # 4. 绘制待解实例 (Testing Instances)
         if mode in ['combined', 'testing']:
             plot_testing = False
             for instance_id, feature in self.to_be_solve_ins_feature.items():
@@ -546,7 +552,6 @@ class MoonLanderEvaluation(Evaluation):
                 legend_elements.append(Line2D([0], [0], marker='o', color='w', label='Testing Landing Point (ID)',
                                               markerfacecolor='orange', markersize=8))
 
-        # 5. 设置图像美化和信息
         title_suffix = {
             'combined': 'Training & Testing Instances',
             'training': 'Training Instances Only',
@@ -564,7 +569,6 @@ class MoonLanderEvaluation(Evaluation):
         ax.set_ylim(bottom=-1)
         ax.grid(True, linestyle=':', alpha=0.6)
 
-        # 6. 添加图例
         if legend_elements:
             ax.legend(handles=legend_elements, loc='upper right')
 
@@ -575,17 +579,16 @@ class MoonLanderEvaluation(Evaluation):
 
         plt.tight_layout()
 
-        # 7. 显示图像
         print("Displaying plot window... (Close the window to continue the script)")
         plt.show()
 
-        # 显示后关闭图形，释放内存
         plt.close(fig)
 
     def show_clustered_features(self, json_file_path: str, data_source: str, cluster_key: str):
         """
-        根据 JSON 文件中的聚类/来源分配，可视化实例特征并为每个聚类/来源指定不同颜色。
+        (Advanced) Visualizes clustered behavioral features based on JSON data.
 
+        根据 JSON 文件中的聚类/来源分配，可视化实例特征并为每个聚类/来源指定不同颜色。
         这是一个高度灵活的函数，具有两个独立的控制开关：
         1. 画图用的数据 (data_source)
         2. 读的JSON参数 (cluster_key)
@@ -606,21 +609,18 @@ class MoonLanderEvaluation(Evaluation):
                 - 'apply_cluster_of_each_instance' (通常来自使用JSON)
                 - 'match_cluster_of_each_instance' (通常来自使用JSON)
         """
-
-        # --- 1. 导入所需库 ---
         import json
         import warnings
         from matplotlib.lines import Line2D
         try:
             import matplotlib
-            matplotlib.use('TkAgg')  # 强制使用交互式后端
+            matplotlib.use('TkAgg')
             import matplotlib.pyplot as plt
         except ImportError:
             warnings.warn("'TkAgg' backend not found, trying default interactive backend...")
             matplotlib.use(matplotlib.get_backend())
             import matplotlib.pyplot as plt
 
-        # --- 2. 验证输入并选择特征字典 (*** 由 data_source 控制 ***) ---
         if data_source == 'training':
             feature_dict = self.instance_feature
         elif data_source == 'testing':
@@ -632,26 +632,22 @@ class MoonLanderEvaluation(Evaluation):
             warnings.warn(f"No features found for data_source '{data_source}'. Nothing to plot.")
             return
 
-        # --- 3. 读取 JSON 并提取聚类信息 (*** 由 cluster_key 控制 ***) ---
         cluster_assignments_raw = None
 
         try:
             with open(json_file_path, 'r') as f:
                 data = json.load(f)
 
-            # 验证 cluster_key
             valid_keys = ['cluster_id_instances', 'apply_cluster_of_each_instance', 'match_cluster_of_each_instance']
             if cluster_key not in valid_keys:
                 raise ValueError(f"Invalid cluster_key '{cluster_key}'. Must be one of {valid_keys}")
 
-            # *** 使用 cluster_key 参数动态读取
             cluster_assignments_raw = data.get(cluster_key)
 
             if not cluster_assignments_raw:
                 print(f"Error: Key '{cluster_key}' not found or is empty in {json_file_path}.")
                 return
 
-            # --- 统一数据结构 ---
             cluster_assignments = {}
             for key, id_list in cluster_assignments_raw.items():
                 try:
@@ -671,7 +667,6 @@ class MoonLanderEvaluation(Evaluation):
             traceback.print_exc()
             return
 
-        # --- 4. 分配颜色 (*** 逻辑已重写为 V4 稳定规则 ***) ---
         preset_colors = [
             '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b',
             '#e377c2', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78',
@@ -681,7 +676,6 @@ class MoonLanderEvaluation(Evaluation):
         color_map = {}
         legend_elements = []
 
-        # 灰色用于所有“其他”键
         DEFAULT_OTHER_COLOR = '#7f7f7f'
 
         all_cluster_keys = sorted(cluster_assignments.keys())
@@ -691,41 +685,32 @@ class MoonLanderEvaluation(Evaluation):
             label = f'Cluster: {cluster_key}'
 
             if cluster_key == 'main':
-                # 规则 1: 'main' 是 黑色
                 color = 'black'
             elif cluster_key.isdigit():
-                # 规则 2: 数字键使用其数字作为索引
                 cluster_num = int(cluster_key)
                 index = cluster_num % len(preset_colors)
                 color = preset_colors[index]
             else:
-                # 规则 3: 其他所有键 (none, brute_force_best, etc.) 都是灰色
                 color = DEFAULT_OTHER_COLOR
 
-            # 只有当颜色还未被分配时才添加图例（防止 'none' 和 'brute_force' 都被设为灰色时重复）
             if color not in color_map.values() or color == 'black':
                 legend_elements.append(Line2D([0], [0], color=color, lw=2, label=label))
             elif color == DEFAULT_OTHER_COLOR and not any(
                     l.get_label() == 'Cluster: Other (grey)' for l in legend_elements):
-                # 为所有灰色键创建一个统一的图例
                 legend_elements.append(Line2D([0], [0], color=color, lw=2, label='Cluster: Other (grey)'))
 
             color_map[cluster_key] = color
 
         legend_elements.sort(key=lambda x: x.get_label())
-        # --- 5. 反转映射：{id: color} ---
-        # (此部分逻辑不变)
         instance_to_color_map = {}
         for cluster_key, instance_list in cluster_assignments.items():
             color = color_map[cluster_key]
             for instance_id in instance_list:
                 instance_to_color_map[instance_id] = color
 
-        # --- 6. 开始绘图 (*** 已更新为线图 ***) ---
         fig, ax = plt.subplots(figsize=(12, 9))
         plot_any = False
 
-        # 遍历我们选择的特征字典 (training or testing)
         for instance_id, feature in feature_dict.items():
             plot_color = instance_to_color_map.get(instance_id)
             if plot_color is None: continue
@@ -738,17 +723,11 @@ class MoonLanderEvaluation(Evaluation):
             y_coords = feature[mid_point: L]
             if not x_coords or not y_coords: continue
 
-            # *** 修改为线图 (linestyle='-') ***
             ax.plot(x_coords, y_coords, color=plot_color, alpha=0.6, linestyle='-')
 
-            # (可选) 如果你还想要落点圆圈，取消下面这行的注释
-            # ax.plot(x_coords[-1], y_coords[-1], 'o', color=plot_color, markersize=4)
-
-            # 标注ID
             ax.text(x_coords[-1], y_coords[-1] + 0.05, f'{instance_id}', color=plot_color,
                     ha='center', va='bottom', fontsize=7, fontweight='bold')
 
-        # --- 7. 设置图像美化和信息 (*** 标题已更新 ***) ---
         ax.set_title(
             f'Clustered Instance Features\n'
             f'Data Source: "{data_source}" | Cluster Key: "{cluster_key}"\n'
@@ -766,17 +745,9 @@ class MoonLanderEvaluation(Evaluation):
         ax.set_ylim(bottom=-1)
         ax.grid(True, linestyle=':', alpha=0.6)
 
-        # 8. 添加图例
         if legend_elements:
             # ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1.0))
-            # 方案 A: 让 matplotlib 自动寻找最佳空白位置 (推荐)
             ax.legend(handles=legend_elements, loc='best')
-
-            # 方案 B: 如果想强制放在右上角，可以用这个：
-            # ax.legend(handles=legend_elements, loc='upper right')
-
-            # 方案 C: 如果图例条目太多，可以分列显示，避免太长挡住图
-            # ax.legend(handles=legend_elements, loc='best', ncol=2, fontsize='small')
 
         if not plot_any:
             ax.text(0.5, 0.5,
@@ -784,10 +755,9 @@ class MoonLanderEvaluation(Evaluation):
                     horizontalalignment='center', verticalalignment='center',
                     transform=ax.transAxes, fontsize=12, color='red')
 
-        # plt.tight_layout(rect=[0, 0, 0.85, 1])  # 为外部图例留出空间
+        # plt.tight_layout(rect=[0, 0, 0.85, 1])
         plt.tight_layout()
 
-        # 9. 显示图像
         print(
             f"Displaying clustered plot window...\n  Data Source: '{data_source}'\n  Cluster Key: '{cluster_key}'\n(Close the window to continue the script)")
         plt.show()
@@ -796,6 +766,7 @@ class MoonLanderEvaluation(Evaluation):
 
     def filter_custom_instances_by_x(self, instance_input: list | dict, threshold: float = 4.5) -> tuple[list, list]:
         """
+        (Advanced) Custom filter logic.
         输入任意列表或字典，现场生成特征，并将实例分为两拨：
         1. 满足条件（X 越界）
         2. 不满足条件（X 正常）
@@ -811,7 +782,6 @@ class MoonLanderEvaluation(Evaluation):
         """
         target_dict = {}
 
-        # 1. 输入标准化
         if isinstance(instance_input, list):
             target_dict = {i: i for i in instance_input}
         elif isinstance(instance_input, dict):
@@ -821,8 +791,8 @@ class MoonLanderEvaluation(Evaluation):
 
         print(f"🚀 Start filtering {len(target_dict)} custom instances (Threshold: +/-{threshold})...")
 
-        satisfied_ids = []  # 存越界的 (极端)
-        not_satisfied_ids = []  # 存正常的
+        satisfied_ids = []
+        not_satisfied_ids = []
 
         count = 0
         for inst_id, seed in target_dict.items():
@@ -830,18 +800,15 @@ class MoonLanderEvaluation(Evaluation):
             print(f"   -> Processing {count}/{len(target_dict)}...", end='\r')
 
             try:
-                # 现场跑一遍环境获取特征
                 feature = self.feature_pipeline(seed=seed)
 
                 if not feature:
                     print(f"   -> ⚠️ Failed to generate feature for seed {seed}")
                     continue
 
-                # 解析 X 坐标
                 mid = len(feature) // 2
                 x_coords = feature[:mid]
 
-                # 判断逻辑
                 is_extreme = False
                 for x in x_coords:
                     if x < -threshold or x > threshold:
@@ -865,7 +832,6 @@ class MoonLanderEvaluation(Evaluation):
 
 if __name__ == '__main__':
 
-    # 全分布 的20 个实例
     seeds = [6, 9, 17, 29, 57,
              44, 18, 69, 26, 68,
              65, 23, 51, 93, 16,
@@ -895,7 +861,7 @@ if __name__ == '__main__':
     task = MoonLanderEvaluation(whocall='dyca', instance_set=instance_set, run_mode=run_mode,
                                 ins_to_be_solve_set=ins_to_be_solve_set)
 
-    # --- (新功能) 调用 show_clustered_features ---
+    # --- show_clustered_features ---
     import os
 
     print("\nGenerating CLUSTERED feature visualization...")

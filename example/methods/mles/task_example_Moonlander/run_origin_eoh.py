@@ -4,16 +4,19 @@ sys.path.append('../../../../')  # This is for finding all the modules
 
 from llm4ad.task.machine_learning.moon_lander import MoonLanderEvaluation, moon_lander_feature
 from llm4ad.tools.llm.llm_api_https import HttpsApi
-from llm4ad.method.mles import MLES
-from llm4ad.method.mles import MLESProfiler
+from llm4ad.method.eoh import EoH
+from llm4ad.tools.profiler import ProfilerBase
 
 
 def main():
-    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key='xxx',  # your key, e.g., sk-abcdefghijklmn
-                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
-                   timeout=120)
-    log_dir = f'logs/EoH'  # Use run_id to avoid overwriting logs
+    llm = HttpsApi(host='xxxx',
+                   # Replace with your API endpoint (e.g., api.openai.com/v1/completions, api.deepseek.com)
+                   key='xxx',  # Replace with your actual API key
+                   model='xxx',  # Choose your model (e.g., gpt-4o, deepseek-chat)
+                   timeout=120  # Maximum waiting time for LLM response
+                   )
+
+    log_dir = f'logs/eoh_origin'  # Use run_id to avoid overwriting logs
 
     seeds = [6, 9, 17, 29, 57,  # 全分布
              44, 18, 69, 26, 68,
@@ -36,25 +39,19 @@ def main():
         ins_to_be_solve_set[id] = seed
 
     run_mode = 'Training'  # Training, Using, Combined
-    task = MoonLanderEvaluation(whocall='mles', instance_set=instance_set, run_mode=run_mode,
+    task = MoonLanderEvaluation(whocall='eoh', instance_set=instance_set, run_mode=run_mode,
                                 ins_to_be_solve_set=ins_to_be_solve_set, feature_pipeline=moon_lander_feature,
                                 objective_value=230)
 
-    # 定义JSON文件路径
-    seedpath = r'pop_init.json'
-
-    method = MLES(llm=llm,
-                  profiler=MLESProfiler(log_dir=log_dir, log_style='complex'),
-                  evaluation=task,
-                  max_sample_nums=2000,
-                  max_generations=None,
-                  pop_size=16,
-                  num_samplers=8,
-                  num_evaluators=8,
-                  debug_mode=False,
-                  operators=('e1', 'e2', 'm1', 'm2'),  # ('e1', 'e2', 'm1_M', 'm2_M')
-                  seed_path=seedpath
-                  )
+    method = EoH(llm=llm,
+                 profiler=ProfilerBase(log_dir='logs/eoh_origin', log_style='simple'),
+                 evaluation=task,
+                 max_sample_nums=500,
+                 max_generations=None,
+                 pop_size=16,
+                 num_samplers=4,
+                 num_evaluators=4,
+                 debug_mode=False)
 
     method.run()
 

@@ -9,12 +9,11 @@ from llm4ad.method.mles import MLESProfiler
 
 
 def main():
-    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
-                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gpt-4o-mini',
-                   # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
+                   key='xxx',  # your key, e.g., sk-abcdefghijklmn
+                   model='xxx',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
                    timeout=120)
-    log_dir = f'logs/MLES_gemini'  # Use run_id to avoid overwriting logs
+    log_dir = f'logs/EoH'  # Use run_id to avoid overwriting logs
 
     seeds = [6, 9, 17, 29, 57,  # 全分布
              44, 18, 69, 26, 68,
@@ -42,19 +41,18 @@ def main():
                                 objective_value=230)
 
     # 定义JSON文件路径
-    seedpath = r'./pop_init_test.json'
+    seedpath = r'pop_init.json'
 
     method = MLES(llm=llm,
-                  profiler=MLESProfiler(log_dir=log_dir, log_style='complex', run_mode=run_mode,
-                                               using_algo_designed_path=using_algo_designed_path),
+                  profiler=MLESProfiler(log_dir=log_dir, log_style='complex'),
                   evaluation=task,
-                  max_sample_nums=500,
+                  max_sample_nums=2000,
                   max_generations=None,
                   pop_size=16,
-                  num_samplers=4,
-                  num_evaluators=4,
+                  num_samplers=8,
+                  num_evaluators=8,
                   debug_mode=False,
-                  operators=('e1', 'm1', 'm2_M'),  # ('e1', 'e2', 'm1_M', 'm2_M')
+                  operators=('e1', 'e2', 'm1', 'm2'),  # ('e1', 'e2', 'm1_M', 'm2_M')
                   seed_path=seedpath
                   )
 
