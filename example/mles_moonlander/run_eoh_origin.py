@@ -41,13 +41,13 @@ def main():
                                 objective_value=230)
 
     method = EoH(llm=llm,
-                 profiler=ProfilerBase(log_dir='logs/eoh_gemini', log_style='simple'),
+                 profiler=ProfilerBase(log_dir='logs/eoh_origin', log_style='simple'),
                  evaluation=task,
-                 max_sample_nums=100,
+                 max_sample_nums=500,
                  max_generations=None,
-                 pop_size=10,
-                 num_samplers=8,
-                 num_evaluators=8,
+                 pop_size=16,
+                 num_samplers=4,
+                 num_evaluators=4,
                  debug_mode=False)
 
     method.run()

@@ -247,7 +247,7 @@ class MoonLanderEvaluation(Evaluation):
         elif self.whocall == 'partevo':
             return {'all_ins_performance': instance_performance,
                     'list_performance': list_performance,
-                    'score': mean_reward
+                    'score': nws
                     }  # {int ID:{'score': 0.1, 'evaluation_time':2}, ...}
         else:
             return nws

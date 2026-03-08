@@ -45,7 +45,7 @@ def main():
                      profiler=PartEvoProfiler(log_dir=log_dir, log_style='simple', run_mode=run_mode,
                                               using_algo_designed_path=using_algo_designed_path),
                      evaluation=task,
-                     max_sample_nums=150,
+                     max_sample_nums=500,
                      max_generations=None,
                      pop_size=16,
                      operators=('re', 'se', 'cn', 'lge'),   # ('re', 'se', 'cn', 'lge'),

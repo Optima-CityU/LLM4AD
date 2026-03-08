@@ -1,3 +1,28 @@
+# Module Name: MLES
+# Last Revision: 2026/2/9
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu, Xialiang Tong, Mingxuan Yuan, Fei Liu, Zhichao Lu, and Qingfu Zhang.
+#       "Multimodal LLM-assisted Evolutionary Search for Programmatic Control Policies."
+#       The Fourteenth International Conference on Learning Representations (ICLR). 2026.
+
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from __future__ import annotations
 
 import math
@@ -134,7 +159,7 @@ class Population:
         # Handle cases where requested sample size exceeds available individuals
         use_replace = False
         if number > n:
-            use_replace = True  # 个体不够时，必须允许重复抽样
+            use_replace = True
 
         # Perform weighted random sampling
         selected = list(np.random.choice(sorted_funcs, size=number, p=p, replace=use_replace))

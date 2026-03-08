@@ -1,4 +1,27 @@
-# cluster_manager.py
+# Module Name: PartEvo
+# Last Revision: 2026/3/8
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu and Qingfu Zhang.
+#       "Partition to evolve: Niching-enhanced evolution with llms for automated algorithm discovery."
+#       In Thirty-ninth Annual Conference on Neural Information Processing Systems (NeurIPS). 2025.
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
 
 from __future__ import annotations
 import numpy as np
@@ -20,16 +43,23 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-# 使用BERT模型生成文本嵌入
 def get_bert_embeddings(texts: List[str], model_path: str = None) -> np.ndarray:
-    """使用BERT模型生成文本嵌入"""
+    """
+    An optional algorithm feature mapping for algorithm clustering.
+    Generates text embeddings using a BERT model for semantic analysis of algorithm descriptions (Thoughts).
+
+    Args:
+        texts: A list of strings to be embedded.
+        model_path: Local path to BERT model. Defaults to 'bert-base-uncased'.
+
+    Returns:
+        A numpy array of shape (len(texts), 768) containing the CLS token embeddings."""
     try:
         from transformers import BertTokenizer, BertModel
         import torch
     except ImportError as e:
         print(f"⚠️ [Warning in clustermanager.py] Optional dependencies missing: {e}. Feature extraction might fail.")
 
-    # 默认路径处理，增强代码移植性
     target_path = model_path if model_path and os.path.exists(model_path) else 'bert-base-uncased'
 
     try:
@@ -37,17 +67,16 @@ def get_bert_embeddings(texts: List[str], model_path: str = None) -> np.ndarray:
         model = BertModel.from_pretrained(target_path)
     except Exception as e:
         print(f"❌ [Error] Failed to load BERT from {target_path}: {e}")
-        # 返回随机向量防止程序崩溃 (仅用于调试流程)
         return np.random.rand(len(texts), 768)
 
     embeddings = []
-    # 批量处理建议：如果数据量大，建议分batch处理，这里简化为逐个处理
     for text in texts:
         try:
             inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512)
             with torch.no_grad():
                 outputs = model(**inputs)
                 hidden_states = outputs.last_hidden_state
+            # Use the CLS token (index 0) as the sentence-level representation
             cls_embedding = hidden_states[0, 0, :].numpy()
             embeddings.append(cls_embedding)
         except Exception:
@@ -61,7 +90,12 @@ def individual_feature(population: List[Evoind],
                        save_path: str = '',
                        bert_model_path: str = None):
     """
-    计算种群特征：AST, random, language, objective
+    Calculates multi-modal features for the population to facilitate niching/clustering.
+    Supported types:
+    - 'ast': Structural similarity via CodeBLEU.
+    - 'language': Semantic similarity via BERT.
+    - 'random': Gaussian noise baseline.
+    - 'objective': Performance-based features.
     """
     if not population:
         return
@@ -70,69 +104,64 @@ def individual_feature(population: List[Evoind],
     population_size = len(population)
     features = [[] for _ in range(population_size)]
 
-    # 1. AST 特征 (CodeBLEU)
+    # 1. AST Structural Features (CodeBLEU)
     if 'ast' in feature_type:
         AST = np.zeros((population_size, population_size))
-        # 提取所有代码文本
         codes = [ind.function.to_code_without_docstring() for ind in population]
-
-        # 优化：CodeBLEU 计算可能较慢，此处为 O(N^2)
         for i in range(population_size):
-            for j in range(i, population_size):  # 利用对称性
+            for j in range(i, population_size):
                 if i == j:
                     score = 1.0
                 else:
                     try:
                         cal_result = calc_codebleu([codes[i]], [codes[j]], lang='python',
                                                    weights=(0.25, 0.25, 0.25, 0.25), tokenizer=None)
-                        # 组合语法匹配和数据流匹配
+                        # Hybrid score of syntax match and dataflow match
                         score = 0.5 * cal_result['syntax_match_score'] + 0.5 * cal_result['dataflow_match_score']
                     except Exception:
-                        score = 0.0  # 容错
+                        score = 0.0
 
                 AST[i, j] = score
                 AST[j, i] = score
 
-        # 将AST相似度向量作为特征
+        # Add AST as one of the used features
         for i in range(population_size):
             features[i].extend(AST[i, :].tolist())
 
-    # 2. 自然语言嵌入特征 (BERT)
+    # 2. Semantic Features (BERT)
     if 'language' in feature_type:
         texts = [ind.function.to_code_without_docstring() for ind in population]
         embeddings = get_bert_embeddings(texts, model_path=bert_model_path)
         for i in range(population_size):
             features[i].extend(embeddings[i, :].tolist())
 
-    # 3. 随机特征 (Baseline)
+    # 3. Random Baseline Features
     if 'random' in feature_type:
         random_features = np.random.normal(size=(population_size, 20))
         for i in range(population_size):
             features[i].extend(random_features[i, :].tolist())
 
-    # 4. 目标值特征
+    # 4. Objective/Fitness Features
     if 'objective' in feature_type:
         for i in range(population_size):
             # 处理 None 的情况
             obj = population[i].function.score if population[i].function.score is not None else 0
             features[i].append(obj)
 
-    # === 特征降维与绑定 ===
+    # --- Dimension Reduction & Embedding ---
     try:
         all_features = np.array(features)
-        # 数据清洗：替换 NaN 和 Inf
         all_features = np.nan_to_num(all_features)
-        # 标准化
         scaler = StandardScaler()
         all_features = scaler.fit_transform(all_features)
-        # PCA 降维 (如果特征维度 > 10)
+        # PCA reduction for clustering efficiency
         n_components = min(10, population_size, all_features.shape[1])
         pca = PCA(n_components=n_components)
         all_features_reduced = pca.fit_transform(all_features)
-        # 为每个个体设置特征
+
         for i, ind in enumerate(population):
-            ind.set_feature(all_features_reduced[i])  # 确保 Evoind 有 .feature 属性或 .set_feature 方法
-        # === 绘图 (可选) ===
+            ind.set_feature(all_features_reduced[i])
+
         if save_path:
             try:
                 plt.figure(figsize=(8, 6))
@@ -147,22 +176,20 @@ def individual_feature(population: List[Evoind],
 
     except Exception as e:
         print(f"[Error] Feature processing failed: {e}")
-        # 兜底：赋予零向量防止后续聚类崩溃
         for ind in population:
             ind.set_feature(np.zeros(10))
 
 
 class ClusterManager:
     """
-    ClusterManager: HIE 算法的宏观调度器。
+    Global Orchestrator for the Partition-to-Evolve (PartEvo) framework.
 
-    数据流说明：
-    1. Manager 维护全局 self.population (List[Function])。
-    2. register_offspring 接收 Function，存入 self.next_pop (List[Function])。
-    3. 当 next_pop 满时，触发 _manager_pop_management，更新 self.population。
-    4. 如果未初始化，尝试在 self.population 上进行聚类。
-    5. 聚类时，将 Function 包装为 Evoind 进行特征计算和分发。
-    6. ClusterUnit 内部维护 List[Evoind]。
+    Workflow:
+    1. Maintains a global population and an offspring buffer.
+    2. Executes 'Cold Start' until sufficient individuals are collected.
+    3. Performs Clustering based on extracted code features.
+    4. Manages ClusterUnits, which handle sub-population evolution and operator selection.
+    5. Implements resource allocation (resource tilt) based on cluster performance.
     """
 
     def __init__(self,
@@ -171,13 +198,22 @@ class ClusterManager:
                  intra_operators: Tuple[str, ...] = ('re', 'se', 'cc', 'lge'),
                  intra_operators_parent_num: Dict[str, int] = None,
                  intra_operators_frequency: Optional[Dict] = None,
-                 use_resource_tilt: bool = False,  # 是否开启资源倾斜
-                 resource_tilt_alpha: float = 2.0,  # 倾斜强度 (仅在 True 时生效)
+                 use_resource_tilt: bool = False,
+                 resource_tilt_alpha: float = 2.0,
                  feature_type: Tuple[str, ...] = ('ast',),
 
-                 bert_model_path: str = None,  # [新增] 指定 BERT 路径
+                 bert_model_path: str = None,
                  debug_flag: bool = False,
                  ):
+        """
+        Initialize the Cluster Manager.
+
+        Args:
+            pop_size: Target size for the global population.
+            n_clusters: Number of niches/clusters to maintain.
+            intra_operators: List of available evolutionary operators.
+            use_resource_tilt: If True, high-performing clusters get more sampling opportunities.
+        """
 
         self.debug_flag = debug_flag
         self.pop_size = pop_size
@@ -187,28 +223,21 @@ class ClusterManager:
 
         self.feature_type = feature_type
 
-        # [Fix] 初始化状态标志
         self.is_initialized = False
 
-        # --- Operators Config ---
-        # 1. 设置父代数量需求 (Default)
+        # --- Operator Weighted Sequence ---
         default_parent_num = {'re': 1, 'se': 1, 'cc': 1, 'lge': 1}
         self.intra_cluster_operators_parent_num = intra_operators_parent_num or default_parent_num
 
-        # 2. 设置算子频率 (Frequency)
-        # 如果未提供，默认所有算子频率为 1
+        # Expand operators based on frequency for weighted random selection
         freq_config = intra_operators_frequency or {op: 1 for op in intra_operators}
 
-        # 3. [关键逻辑] 生成加权后的算子元组
-        # 例如: {'re': 2, 'cc': 1} -> ('re', 're', 'cc')
-        # 这样 ClusterUnit 轮询时，re 出现的概率就是 cc 的两倍
         expanded_ops = []
         for op in intra_operators:
             freq = freq_config.get(op, 1)
             expanded_ops.extend([op] * freq)
         self.intra_cluster_operators = tuple(expanded_ops)
 
-        # 校验
         if intra_operators_parent_num:
             missing_keys = set(intra_operators) - set(intra_operators_parent_num.keys())
             if missing_keys:
@@ -221,26 +250,19 @@ class ClusterManager:
                                                 max_hard_negatives=30,
                                                 summary_update_interval=int(self.n_clusters * 3))
 
-        # 资源调度配置
         self.use_resource_tilt = use_resource_tilt
         self.resource_tilt_alpha = resource_tilt_alpha
-
-        # 核心存储
         self.cluster_units: Dict[int, ClusterUnit] = {}
         self.global_best_ind: Optional[Function] = None
-
         self.population: List[Function] = []
         self.next_pop: List[Function] = []
-
         self._lock = RLock()
 
     def initial_population_clustering(self):
         """
-        基于 self.population (Function) 进行聚类初始化。
-        步骤：Function -> Evoind -> Feature -> KMeans -> ClusterUnit
+        Creating initial niching.
+        Converts Functions to Evoinds, extracts multi-modal features, and initializes ClusterUnits via Clustering (such as, K-Means)
         """
-        # 1. 临时转换 Function -> Evoind 以便计算特征
-        # 只取有分数的
         valid_funcs = [f for f in self.population if f.score is not None]
 
         if len(valid_funcs) < self.n_clusters:
@@ -249,15 +271,13 @@ class ClusterManager:
 
         print(f"⏳ [Manager] Initializing Clustering with {len(valid_funcs)} individuals...")
 
-        # 创建临时 Evoind 列表用于聚类计算
+        # Initialize the Evoind container for the subsequent algorithm allocation to various niches.
         temp_evo_pop = [Evoind(function=f) for f in valid_funcs]
 
-        # 2. 计算特征 (In-place 修改 temp_evo_pop 中 Evoind 的 feature)
         save_path = "init_debug" if self.debug_flag else ""
         individual_feature(temp_evo_pop, feature_type=self.feature_type,
                            save_path=save_path, bert_model_path=self.bert_model_path)
 
-        # 3. 准备聚类数据
         features = []
         for ind in temp_evo_pop:
             if hasattr(ind, 'feature') and ind.feature is not None and len(ind.feature) > 0:
@@ -266,7 +286,6 @@ class ClusterManager:
                 features.append(np.zeros(10))
         features = np.array(features)
 
-        # 4. K-Means
         try:
             if len(features) >= self.n_clusters:
                 kmeans = KMeans(n_clusters=self.n_clusters, random_state=42, n_init=10)
@@ -277,39 +296,40 @@ class ClusterManager:
             print(f"⚠️ [Manager] KMeans failed: {e}. Using random assignment.----")
             labels = np.random.randint(0, self.n_clusters, size=len(temp_evo_pop))
 
-        # 5. 分发并创建 ClusterUnit
         self.cluster_units.clear()
         grouped_pop = {i: [] for i in range(self.n_clusters)}
 
         for ind, label in zip(temp_evo_pop, labels):
-            ind.cluster_id = label  # 标记
-            grouped_pop[label].append(ind)  # 注意：这里存入 Cluster 的是 Evoind
+            ind.cluster_id = label
+            grouped_pop[label].append(ind)
 
         for c_id in range(self.n_clusters):
             unit_pop = grouped_pop[c_id]
             new_unit = ClusterUnit(
                 cluster_id=c_id,
-                max_pop_size=self.pop_size,  # Cluster 内部容量
+                max_pop_size=self.pop_size,
                 intra_operators=self.intra_cluster_operators,
                 intra_operators_parent_num=self.intra_cluster_operators_parent_num,
-                pop=unit_pop  # 传入 List[Evoind]
+                pop=unit_pop
             )
             self.cluster_units[c_id] = new_unit
 
-        # 6. 更新全局最优 (基于 Evoind)
         self._update_global_best(temp_evo_pop)
 
         self.is_initialized = True
         print("🎉 [Manager] Clustering Finished. System Online. 👍")
 
     def _calculate_selection_probs(self) -> Tuple[List[int], List[float]]:
-        """计算 Cluster 被选概率"""
+        """
+        Calculates selection probabilities for clusters.
+        Implements Softmax-based resource tilt towards high-performing clusters.
+        """
         cluster_ids = []
         scores = []
         for c_id, unit in self.cluster_units.items():
             cluster_ids.append(c_id)
             if self.use_resource_tilt:
-                best_ind = unit.get_best_individual()  # 返回 Evoind
+                best_ind = unit.get_best_individual()
                 if best_ind and best_ind.function.score is not None:
                     scores.append(best_ind.function.score)
                 else:
@@ -331,65 +351,56 @@ class ClusterManager:
 
     def select_parent(self) -> Tuple[List[Function], str, int]:
         """
-        选择父代 (返回 Function 列表)。
+        Selects parent individuals for the next evolutionary step.
+        Handles both 'Cold Start' (random selection) and 'Clustered' (unit-specific selection) phases.
         """
         with self._lock:
-            # === Case A: 冷启动 (未聚类) ===
+            # --- Phase A: Cold Start (Global Random) ---
             if not self.is_initialized:
-                # 从全局 population (Function) 中选
                 pool = self.population + self.next_pop
                 valid_pool = [f for f in pool if f.score is not None]
-
                 if not valid_pool:
-                    return [], 'error', -1  # 无种子，返回空让外部做初始化
-
-                # 随机选一个做 mutation
+                    return [], 'error', -1
                 parent = random.choice(valid_pool)
                 return [parent], 're', -1
 
-            # === Case B: 正常进化 (已聚类) ===
+            # --- Phase B: Evolutionary Niching ---
             cluster_ids, probs = self._calculate_selection_probs()
             if not cluster_ids:
-                return [], 'error', -1  # 异常兜底
+                return [], 'error', -1
 
             chosen_c_id = np.random.choice(cluster_ids, p=probs)
             target_unit = self.cluster_units[chosen_c_id]
 
-            # Unit 返回 List[Function]
+            # parents: List[Function], operator: str, need_external: bool
             parents, operator, need_external = target_unit.selection(help_inter=False)
 
-            # === 外部协作处理 ===
+            # --- Cross-Niches Collaboration ---
             if need_external:
-                # 1. Crossover (cn)
-                if operator == 'cn':
-                    # 找外援 Cluster
+                if operator == 'cn':    # Crossover with external help
                     other_units = [u for uid, u in self.cluster_units.items() if uid != chosen_c_id and len(u) > 0]
                     helper_func = None
 
                     if other_units:
                         helper_unit = random.choice(other_units)
-                        # Helper 模式选 Top 1 Function
-                        h_parents, _, _ = helper_unit.selection(help_inter=True, mode='top', help_number=1)
+                        h_parents, _, _ = helper_unit.selection(help_inter=True, mode='tournament', help_number=1)
                         if h_parents:
                             helper_func = h_parents[0]
 
-                    # 兜底：用 Global Best
                     if not helper_func and self.global_best_ind:
                         helper_func = self.global_best_ind
 
                     if helper_func:
                         parents.append(helper_func)
 
-                # 2. God View (lge)
                 elif operator == 'lge':
-                    # 注入 Global Best Function
+                    # Add Global Best Function
                     if self.global_best_ind:
                         if not any(f.body == self.global_best_ind.body for f in parents):
                             parents.append(self.global_best_ind)
 
-                    # 注入 Cluster Best Function
-                    # 注意：get_best_individual 返回 Evoind
-                    cluster_best_evo = target_unit.get_best_individual()  # Evoind
+                    # Add Cluster Best Function
+                    cluster_best_evo = target_unit.get_best_individual()  # return: Evoind
                     if cluster_best_evo:
                         if not any(f.body == cluster_best_evo.function.body for f in parents):
                             parents.append(cluster_best_evo.function)
@@ -398,52 +409,44 @@ class ClusterManager:
 
     def register_function(self, offspring: Function, from_which_cluster: int = None):
         """
-        注册新个体 (Function)。
-        流程：
-        1. 入 Manager Buffer (Function)。
-        2. 若已初始化，包装成 Evoind 入 Cluster。
-        3. Check Buffer Size -> Management.
+        Registers a new function into the global population, external archive and according niches.
+        Handles deduplication and elitist replacement.
         """
         with self._lock:
-            # 1. 基础检查：无效分数直接丢弃
             if offspring.score is None:
                 return
 
             try:
-                # --- 修改后的重复/替换逻辑 ---
+                # --- Deduplication & Rejuvenation Logic ---
                 is_duplicate_or_neutral = False
 
                 for i, existing_func in enumerate(self.population):
-                    # 场景 A: 代码完全一致
+                    # Code same
                     code_match = (existing_func.body == offspring.body)
-                    # 场景 B: 分数完全一致 (新增)
+                    # Score same
                     score_match = (abs(existing_func.score - offspring.score) < 1e-9)
 
                     if code_match or score_match:
                         if offspring.score >= existing_func.score:
-                            # 如果分数更高，或者分数一样但代码不同/代码一样
-                            # 我们选择用“新”的替换“旧”的，以保持种群活力
+                            # Replace old version with new candidate to maintain diversity
                             print(
                                 f"♻️ [Manager] Replacing existing individual (Score: {existing_func.score:.4f}) with new candidate.")
                             self.population[i] = offspring
-                            is_duplicate_or_neutral = True  # 标记为已处理
+                            is_duplicate_or_neutral = True
                             break
                         else:
-                            # 新的分数反而更低，直接丢弃
-                            return
+                            return  # Drop inferior duplicates
 
                 if is_duplicate_or_neutral:
-                    # 如果已经替换了旧的，就不需要再往 next_pop 里塞了，防止种群膨胀
-                    self._update_global_best([Evoind(offspring)])  # 依然尝试更新全局最优
+                    self._update_global_best([Evoind(offspring)])
                     return
 
-                # === 1. Update Global Best (Fast Path) ===
                 if self.global_best_ind is None or offspring.score > self.global_best_ind.score:
                     self.global_best_ind = offspring
 
-                # === 2. Manager Buffer (Function) ===
                 self.next_pop.append(offspring)
 
+                # Route to specific ClusterUnit (Niche) if applicable
                 target_id = from_which_cluster
                 if self.is_initialized and target_id is not None and target_id in self.cluster_units:
                     evo_offspring = Evoind(function=offspring, cluster_id=target_id)
@@ -453,7 +456,6 @@ class ClusterManager:
 
                 self.external_archive.register(offspring)
 
-                # 6. Trigger Global Management
                 if len(self.next_pop) >= self.pop_size:
                     self._manager_pop_management()
 
@@ -464,35 +466,17 @@ class ClusterManager:
 
     def _manager_pop_management(self):
         """
-        Manager 全局种群优胜劣汰逻辑。
-
-        触发时机：
-        当 register_offspring 检测到 next_pop 缓冲区积攒了一定数量的新个体后触发。
-
-        流程：
-        1. 合并：Current Population + Offspring Buffer
-        2. 清洗：去除无效分数 (None)
-        3. 去重：相同代码保留高分者
-        4. 排序：按分数降序
-        5. 截断：保留 Top-K (pop_size)
-        6. 初始化检查：如果处于冷启动阶段且凑够了人，触发聚类。
+        Maintains the global population via elitist selection and truncation.
+        Triggers niching once the cold-start threshold is met.
         """
-        # 注意：此方法通常在 register_offspring 的锁内被调用，
-        # 但为了安全起见，再次确认锁也没问题 (RLock 支持重入)
         with self._lock:
-            # 1. 合并当前种群和新产生的种群
             candidates = self.population + self.next_pop
 
-            # 2. 去重与清洗 (Deduplication & Cleaning)
             unique_map: Dict[str, Function] = {}
 
             for func in candidates:
-                # 过滤掉无效分数的个体
                 if func.score is None:
                     continue
-
-                # 使用 algorithm (代码字符串) 作为去重键
-                # 确保同一份代码只保留分数最高的那个版本 (以防随机性导致的波动)
                 code_key = func.body
 
                 if code_key not in unique_map:
@@ -501,14 +485,10 @@ class ClusterManager:
                     if func.score > unique_map[code_key].score:
                         unique_map[code_key] = func
 
-            # 转回列表
             valid_funcs = list(unique_map.values())
 
-            # 3. 排序 (Sorting) - 分数从高到低
             valid_funcs.sort(key=lambda x: x.score, reverse=True)
 
-            # 4. 截断 (Truncation) - 保持种群规模恒定
-            # 如果是冷启动初期，可能还不够 pop_size，那就全保留
             self.population = valid_funcs[:self.pop_size]
             self.next_pop = []
             self.generation += 1
@@ -517,21 +497,19 @@ class ClusterManager:
             best_score = self.population[0].score if self.population else None
             print(f"[Manager] 📢 Global Population Updated. Current Size: {len(self.population)}")
 
-            # 6. [关键] 尝试触发初始化 (Cold Start -> Clustering)
-            # 如果还没初始化，且当前有效个体数已经超过了聚类所需的最小簇数
             if not self.is_initialized and len(self.population) >= self.n_clusters:
                 print(f"[Manager] 🚀 Sufficient individuals collected ({len(self.population)} >= {self.n_clusters}). "
                       f"Triggering Initial Clustering...")
                 self.initial_population_clustering()
 
     def _update_global_best(self, population: List[Evoind]):
-        """入参是 List[Evoind]"""
+        """Helper to track the highest scoring function globally."""
         for ind in population:
             if self.global_best_ind is None or ind.function.score > self.global_best_ind.score:
                 self.global_best_ind = ind.function
 
     def debug_status(self):
-        """打印状态"""
+        """Prints diagnostic information about cluster health and scores."""
         print(f"\n=== Manager Status ===")
         print(f"Global Pop (Funcs): {len(self.population)}, Buffer: {len(self.next_pop)}")
 

@@ -46,33 +46,41 @@ class HttpsApi(LLM):
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
         """
-        Handle message construction with backward compatibility:
-        1. If 'messages' in kwargs: use it directly.
-        2. If 'prompt' is a list: use it directly (Legacy support).
-        3. If 'prompt' is a str:
-           - With images: Construct multimodal message.
-           - Without images: Construct simple text message (Legacy behavior).
+        Sends a request to the LLM and retrieves the generated response.
+
+        This method supports multiple input formats for backward compatibility:
+        1. Explicit 'messages' list via kwargs.
+        2. A message list passed directly as the 'prompt'.
+        3. Multimodal inputs (text + base64 images).
+        4. Simple string prompts.
+
+        Args:
+            prompt: The text prompt or a list of message dictionaries.
+            **kwargs: Can include 'image64s' (list of base64 strings) or 'messages'.
+
+        Returns:
+            The string content of the LLM's response.
         """
         image64s = kwargs.get('image64s', None)  # List[str]
         messages_input = kwargs.get('messages', None)
 
-        # 1. 优先处理显式传入的 messages
+        # --- 1. Priority: Explicit messages list ---
         if messages_input is not None:
             if isinstance(messages_input, dict):
                 messages = [messages_input]
             else:
                 messages = messages_input
 
-        # 2. 兼容旧逻辑：如果 prompt 本身就是列表（对话历史），直接使用
+        # --- 2. Legacy Support: prompt passed as a pre-constructed list ---
         elif not isinstance(prompt, str):
             messages = prompt
 
-        # 3. 处理 prompt 为字符串的情况 (新旧逻辑结合)
+        # --- 3. Construction from String + Optional Images ---
         else:
             text_content = prompt.strip()
 
-            # 如果有图片，必须使用 list[dict] 结构
             if image64s:
+                # Construct multimodal content structure
                 content = [{
                     "type": "text",
                     "text": text_content
@@ -86,14 +94,16 @@ class HttpsApi(LLM):
                     })
                 messages = [{'role': 'user', 'content': content}]
 
-            # 如果没有图片，保持原有的简单字符串结构 (最大化兼容性)
             else:
+                # Construct standard text-only message
                 messages = [{'role': 'user', 'content': text_content}]
 
+        # Retry loop for handling network or API transient errors
         while True:
             try:
                 conn = http.client.HTTPSConnection(self._host, timeout=self._timeout)
 
+                # Prepare standard OpenAI-compatible payload
                 payload = json.dumps({
                     'max_tokens': self._kwargs.get('max_tokens', 8192),
                     'top_p': self._kwargs.get('top_p', None),
@@ -111,14 +121,17 @@ class HttpsApi(LLM):
                 data = res.read().decode('utf-8')
                 data = json.loads(data)
 
-                # print(data)
+                # Extract content from the standard response format
                 response = data['choices'][0]['message']['content']
+                # Reset error counter on success
                 if self.debug_mode:
                     self._cumulative_error = 0
                 return response
 
             except Exception as e:
                 self._cumulative_error += 1
+
+                # In debug mode, crash after consecutive failures to allow debugging
                 if self.debug_mode:
                     if self._cumulative_error == 10:
                         raise RuntimeError(f'{self.__class__.__name__} error: {traceback.format_exc()}.'

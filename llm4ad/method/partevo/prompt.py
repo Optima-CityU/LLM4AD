@@ -1,3 +1,28 @@
+# Module Name: PartEvo
+# Last Revision: 2026/3/8
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu and Qingfu Zhang.
+#       "Partition to evolve: Niching-enhanced evolution with llms for automated algorithm discovery."
+#       In Thirty-ninth Annual Conference on Neural Information Processing Systems (NeurIPS). 2025.
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from __future__ import annotations
 
 import copy
@@ -33,13 +58,11 @@ class PartEvoPrompt:
         for indi in current_population:
             assert hasattr(indi, 'algorithm'), "Each individual must have an 'algorithm' attribute."
 
-        # 1. 安全处理模板
         temp_func = copy.deepcopy(template_function)
         temp_func.body = '    # TODO: Implement your algorithm logic here\n    pass'
 
         messages = []
 
-        # 2. 独立 System Prompt
         system_prompt = (
             "You are an elite algorithm design expert and a creative computer scientist. "
             "Your task is to design a novel and executable algorithm to solve a given problem. "
@@ -50,16 +73,13 @@ class PartEvoPrompt:
         )
         messages.append({"role": "system", "content": system_prompt})
 
-        # 3. 构建 User Content
         content = []
 
-        # 任务背景
         content.append({
             "type": "text",
             "text": f"### Task Assignment\n{task_prompt}\n"
         })
 
-        # 现有算法与目标 (动态生成)
         current_size = len(current_population)
         if current_size > 0:
             init_cue = f"### Existing Algorithms\nSo far, experts have proposed {current_size} algorithms. Their high-level concepts are summarized below:\n"
@@ -137,16 +157,14 @@ Step 2 — Implement the Algorithm
 
         messages.append({"role": "system", "content": system_prompt})
 
-        # 2. 构建 User Content
+        # 2. User Content
         content = []
 
-        # 任务背景
         content.append({
             "type": "text",
             "text": f"### Task Assignment\nAn intelligent agent is currently executing the following design task:\n{task_prompt}\n"
         })
 
-        # 当前进度与历史代码
         content.append({
             "type": "text",
             "text": (
@@ -161,7 +179,6 @@ Step 2 — Implement the Algorithm
         temp_func = copy.deepcopy(template_function)
         temp_func.body = '    # Your algorithm logic must be implemented here\n    pass'
 
-        # 3. 操作指令与格式约束 (使用 XML 标签并提供示例)
         instruction_prompt = f"""### Instructions
 Based on your expert knowledge of the design task, critically evaluate the current algorithm and provide targeted suggestions to guide the agent in improving it.
 
@@ -207,16 +224,15 @@ Example format:
         )
         messages.append({"role": "system", "content": system_prompt})
 
-        # 2. 构建 User Content
+        # 2. User Content
         content = []
 
-        # 任务背景
+
         content.append({
             "type": "text",
             "text": f"### Task Assignment\nThe intelligent agents are currently executing the following algorithm design problem:\n{task_prompt}\n"
         })
 
-        # 历史总结 (增量更新机制)
         if current_summary:
             content.append({
                 "type": "text",
@@ -224,16 +240,13 @@ Example format:
                         f"<previous_summary>\n{current_summary}\n</previous_summary>\n"
             })
 
-        # 核心：客观呈现所有算法与分数 (摒弃精英/失败的主观标签)
         context_text = "### Explored Algorithms & Performance\n"
         context_text += "Below is a set of algorithms explored by the agents. You can analyze them based on their scores (a higher score indicates better performance).\n\n"
 
-        # 合并列表，让 LLM 自己根据 Score 去判断优劣
         elites = summary_context_samples.get('elites', [])
         hard_negatives = summary_context_samples.get('hard_negatives', [])
         all_samples = elites + hard_negatives
 
-        # 尝试按照分数从高到低排序，方便 LLM 观察趋势
         try:
             all_samples.sort(key=lambda x: getattr(x, 'score', 0), reverse=True)
         except Exception:
@@ -249,7 +262,6 @@ Example format:
             "text": context_text
         })
 
-        # 3. 操作指令与格式约束 (强调客观推断与未来方向)
         instruction_prompt = """### Instructions
 Please review these algorithms, their performance scores, and the previous summary (if provided) to summarize the findings and deduce how to better solve this algorithm design task.
 
@@ -382,13 +394,11 @@ Step 2 — Implement the Algorithm
 
         content = []
 
-        # 2. 任务背景
         content.append({
             "type": "text",
             "text": f"### Task Assignment\nThe algorithm design task is:\n{task_prompt}\n"
         })
 
-        # 3. 当前待进化的个体 (局部视角)
         content.append({
             "type": "text",
             "text": f"### Current Algorithm\n"
@@ -396,7 +406,6 @@ Step 2 — Implement the Algorithm
                     f"- **Implementation**:\n```python\n{str(parent_func)}\n```\n"
         })
 
-        # 4. 引入全局经验 (历史尝试的总结)
         if global_summary:
             content.append({
                 "type": "text",
@@ -406,14 +415,12 @@ Step 2 — Implement the Algorithm
                         f"Please analyze these insights carefully and apply them to modify and improve the current algorithm to create a more promising one."
             })
         else:
-            # Fallback 容错：如果系统早期还没有收集到足够的样本生成总结
             content.append({
                 "type": "text",
                 "text": "### Global Insights from Past Attempts\n"
                         "No global summary is currently available. Please independently analyze the current algorithm, identify its potential weaknesses, and modify it to create a superior solution."
             })
 
-        # 5. 操作指令与格式约束
         operator_prompt = f"""### Instructions
 Importantly, you must modify and upgrade the Current Algorithm; superficial refactoring, or simple reweighting is NOT allowed.
 Please design your new algorithm by following these exact steps:
@@ -472,16 +479,13 @@ Step 2 — Implement the Algorithm
         # Construct prompt content
         content = []
 
-        # 任务背景
         content.append({
             "type": "text",
             "text": f"### Task Assignment\nThe core problem you need to solve is:\n{task_prompt}\n"
         })
 
-        # 核心：展示父代个体 (区分主干和辅助)
         context_text = "### Parent Algorithms\n"
 
-        # 提取主干算法 (Main Framework)
         main_parent = parents[0]
         main_concept = getattr(main_parent, 'algorithm', 'No concept description provided.')
         main_score = getattr(main_parent, 'score', 'N/A')
@@ -491,7 +495,6 @@ Step 2 — Implement the Algorithm
         context_text += f"**Concept:** {main_concept}\n"
         context_text += f"**Code:**\n```python\n{main_parent.to_code_without_docstring()}\n```\n\n"
 
-        # 提取辅助算法 (Auxiliary Algorithms)
         if len(parents) > 1:
             context_text += "#### Auxiliary Algorithms\n"
             for i, aux_parent in enumerate(parents[1:]):
@@ -560,7 +563,7 @@ Step 2 — Implement the Algorithm
 
         messages = []
 
-        # 1. System Prompt (设定为利用群体智能的高级开发者)
+        # 1. System Prompt
         system_prompt = (
             "You are a Senior Algorithm Research Scientist. "
             "Your task is to modify a baseline algorithm by identifying its weaknesses and drawing strategic "
@@ -585,11 +588,9 @@ Step 2 — Implement the Algorithm
             "text": f"### Task Assignment\nThe algorithm design task you need to solve is:\n{task_prompt}\n"
         })
 
-        # 核心：展示当前算法和优秀的参考系
         context_text = "Evolutionary Context\n"
         context_text += "You are currently focusing on the following baseline algorithm. Your goal is to evolve and improve it.\n\n"
 
-        # 提取当前基础算法 (Current Evolving Individual)
         current_parent = parents[0]
         curr_concept = getattr(current_parent, 'algorithm', 'No concept description provided.')
         curr_score = getattr(current_parent, 'score', 'N/A')
@@ -599,7 +600,6 @@ Step 2 — Implement the Algorithm
         context_text += f"**Concept:** {curr_concept}\n"
         context_text += f"**Code:**\n```python\n{current_parent.to_code_without_docstring()}\n```\n\n"
 
-        # 提取全局/局部最佳作为参考 (Global/Local Optima References)
         if len(parents) > 1:
             context_text += "#### Superior References\n"
             context_text += "Other agents in the swarm have discovered the following better-performing algorithms. "

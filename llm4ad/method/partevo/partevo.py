@@ -1,3 +1,28 @@
+# Module Name: PartEvo
+# Last Revision: 2026/3/8
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu and Qingfu Zhang.
+#       "Partition to evolve: Niching-enhanced evolution with llms for automated algorithm discovery."
+#       In Thirty-ninth Annual Conference on Neural Information Processing Systems (NeurIPS). 2025.
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -6,7 +31,7 @@ import traceback
 from threading import Thread
 from typing import Optional, Literal, Union, Dict, Tuple
 
-from .profiler import PartEvoProfiler  # TODO
+from .profiler import PartEvoProfiler
 from .prompt import PartEvoPrompt
 from .sampler import PartEvoSampler
 from .clustermanager import ClusterManager
@@ -122,11 +147,10 @@ class PartEvo:
             self._profiler.record_parameters(llm, evaluation, self)
 
     def _extend_init_population(self, tid=0, *args, **kwargs):
-        """Let a thread repeat {sample -> evaluate -> register to population}
-        to initialize a population.
+        """
+        Let a thread repeat {sample -> evaluate -> register to population} to initialize a population.
         """
         try:
-            # get a new func using i1
             current_population = self._pool.population.copy() + self._pool.next_pop.copy()
             current_feasible_population = [func for func in current_population if func.score is not None]
             messages = PartEvoPrompt.get_prompt_batch_init(self._task_description_str, self._function_to_evolve,
@@ -139,8 +163,10 @@ class PartEvo:
             traceback.print_exc()
 
     def init_from_local_algo_base(self):
+        """
+        Warm start: Loads pre-existing algorithms from a local JSON file to seed the population.
+        """
         if os.path.exists(self.local_algo_base):
-            # 打开并读取JSON文件
             with open(self.local_algo_base, 'r', encoding='utf-8') as file:
                 seeds = json.load(file)
         else:
@@ -256,7 +282,7 @@ class PartEvo:
         if self._profiler is not None:
             self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, PartEvoProfiler):
-                self._profiler.register_population(self._pool)  # TODO
+                self._profiler.register_population(self._pool)
             self._tot_sample_nums += 1
 
     def _continue_loop(self) -> bool:
@@ -274,21 +300,22 @@ class PartEvo:
     def _partevo_multi_threaded_sampling(self, tid=0, *args, **kwargs):
         """
         Main evolutionary loop: iteratively applies search operators to the population.
-        Supports multi-threaded sampling by offsetting the operator cycle based on thread ID.
+        Selects parents, generates prompts based on niche-specific operators, and triggers sampling.
         """
 
         target_samples = kwargs.get('target_samples', float('inf'))
 
         while self._continue_loop() and self._tot_sample_nums < target_samples:
             try:
-                parent_candidates, operator_name, working_cluster_id = self._pool.select_parent()  # 由_pool作为中央管理器来管理进化过程
-                parent_ids = [parent.sample_num for parent in parent_candidates]  # partevo才有的sample_num
-                # print(f"[Thread-{tid}] Running Operator: {operator_name} | Working Cluster: {working_cluster_id}")
+                # Step 1: Parent Selection from Niche
+                parent_candidates, operator_name, working_cluster_id = self._pool.select_parent()
+                parent_ids = [parent.sample_num for parent in parent_candidates]
 
                 if operator_name == 'error':
                     print(f"\033[93m[Thread-{tid}] ❌ Warning: Parent selection failed. Please investigate.\033[0m")
                     continue
 
+                # --- Operator logic: RE (Reflection-based Evolution) ---
                 if operator_name == 're':
                     primary_parent = parent_candidates[0]
                     primary_parent_id = parent_ids[0]
@@ -313,24 +340,22 @@ class PartEvo:
                     if not self._continue_loop():
                         break
 
+                # --- Operator logic: SE (Summary-based Evolution) ---
                 elif operator_name == 'se':
                     primary_parent = parent_candidates[0]
                     primary_parent_id = parent_ids[0]
-
+                    # Fetch global context summary from the ExternalArchive
                     current_summary, requires_summary_update, summary_context_samples = self._pool.external_archive.fetch_summary_context()
 
                     if requires_summary_update and summary_context_samples:
                         summary_prompt_messages = PartEvoPrompt.get_prompt_summary(
                             self._task_description_str,
                             self._function_to_evolve,
-                            summary_context_samples  # 传入包含 'elites' 和 'hard_negatives' 的字典
+                            summary_context_samples
                         )
 
                         generated_summary = self._sampler.get_summary(prompt="", messages=summary_prompt_messages)
-                        # 无论生成了什么，都交由 Archive 去判定和处理状态锁
                         self._pool.external_archive.update_global_summary(generated_summary)
-
-                        # [关键容错补丁] 如果生成有效，更新 current_summary；如果无效，沿用刚才拿到的旧 current_summary
                         if generated_summary and generated_summary.strip():
                             current_summary = generated_summary
                             print(f"\033[92m[Thread-{tid}] 🎉 Successfully generated a valid global summary.\033[0m")
@@ -343,7 +368,6 @@ class PartEvo:
                         # print(
                         #     f"[Thread-{tid}] Using cached summary. Update threshold not met ({self._pool.external_archive._request_counter % self._pool.external_archive._summary_update_interval}/{self._pool.external_archive._summary_update_interval}).")
 
-                    # 使用 (最新生成或缓存的) summary 构建最终生成 Prompt
                     operator_messages = PartEvoPrompt.get_prompt_se(self._task_description_str, primary_parent,
                                                                     self._function_to_evolve, current_summary)
 
@@ -360,6 +384,7 @@ class PartEvo:
                     if not self._continue_loop():
                         break
 
+                # --- Operator logic: CN (Crossover between Niches) ---
                 elif operator_name == 'cn':
                     operator_messages = PartEvoPrompt.get_prompt_cn(self._task_description_str, parent_candidates,
                                                                     self._function_to_evolve)
@@ -374,6 +399,7 @@ class PartEvo:
                     if not self._continue_loop():
                         break
 
+                # --- Operator logic: LGE (Local and Global guided Evolution ) ---
                 elif operator_name == 'lge':
                     operator_messages = PartEvoPrompt.get_prompt_lge(self._task_description_str,
                                                                      parent_candidates,
@@ -434,10 +460,10 @@ class PartEvo:
 
     def run(self):
         """
-        Entry point for the MLES search process:
-        1. Initialize: Load from local seeds and/or perform LLM-based cold start.
-        2. Evolve: Run the iterative mutation/crossover pipeline until termination.
-        3. Finalize: Shut down profilers and save final results.
+        Executes the full pipeline:
+        1. Initialization (Seeds + LLM Cold Start)
+        2. Evolutionary training loop
+        3. Final result cleanup.
         """
         if not self._resume_mode:
             # Phase 1: Population Initialization
@@ -447,7 +473,6 @@ class PartEvo:
             if len(self._pool.population) < self._pop_size:
                 print("🌱 Initializing population by LLM...")
                 self.init_using_llms()
-                # self._multi_threaded_sampling(self._iteratively_init_population)
 
         # Phase 2: Evolutionary Search Loop
         print("🧬 Starting evolutionary training pipeline...")
@@ -645,14 +670,11 @@ class PartEvo:
 
             output_lines.append(f"[{role.upper()}]")
 
-            # 情况1：如果 content 是普通字符串（例如 system prompt）
             if isinstance(contents, str):
                 output_lines.append(contents)
 
-            # 情况2：如果 content 是字典列表（例如复杂的 user prompt）
             elif isinstance(contents, list):
                 for item in contents:
-                    # 确保 item 是字典以防万一
                     if not isinstance(item, dict):
                         continue
 

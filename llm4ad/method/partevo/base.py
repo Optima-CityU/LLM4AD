@@ -1,3 +1,28 @@
+# Module Name: PartEvo
+# Last Revision: 2026/3/8
+# This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
+#
+# Reference:
+#   - Qinglong Hu and Qingfu Zhang.
+#       "Partition to evolve: Niching-enhanced evolution with llms for automated algorithm discovery."
+#       In Thirty-ninth Annual Conference on Neural Information Processing Systems (NeurIPS). 2025.
+#
+# ------------------------------- Copyright --------------------------------
+# Copyright (c) 2025 Optima Group.
+#
+# Permission is granted to use the LLM4AD platform for research purposes.
+# All publications, software, or other works that utilize this platform
+# or any part of its codebase must acknowledge the use of "LLM4AD" and
+# cite the following reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
+# with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
+#
+# For inquiries regarding commercial use or licensing, please contact
+# http://www.llm4ad.com/contact.html
+# --------------------------------------------------------------------------
+
 from llm4ad.base.code import Function
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
@@ -5,34 +30,28 @@ from typing import Any, List, Optional
 @dataclass
 class Evoind:
     """
-    给带算法分类的框架使用的
-    进化个体，封装了 Function 对象并存储其在特定实例簇中的元数据。
+    Evolutionary Individual used within the PartEvo framework.
+    Wraps a Function object and stores its metadata within a specific algorithm cluster.
 
-    一个 Evoind 是算法池单元中进行选择、淘汰等操作的基本单位。
-
-    使用的时候:
-    I1 = Evoind(function=Function, cluster_id=)
+    An Evoind is the basic unit for selection, elimination, and other operations
+    within the algorithm pool.
     """
     function: Function
     cluster_id: Optional[int] = None
 
-    # --- 演化元数据 (选填，带默认值) ---
+    # --- Evolutionary Metadata ---
     reflection: str = ""
-    feature: List[Any] = field(default_factory=list)  # dataclass 中 list 需这样定义
+    feature: List[Any] = field(default_factory=list)
 
     def __str__(self) -> str:
         return str(self.function)
 
     def __hash__(self):
-        """
-        基于底层 Function 对象实现哈希，以便在种群中进行去重。
-        """
+        """Implement hashing based on the underlying Function object for deduplication."""
         return hash(self.function)
 
     def __eq__(self, other):
-        """
-        比较两个 Individual 实例的底层算法是否相同。
-        """
+        """Compare if two Individuals have the same underlying Function object."""
         if not isinstance(other, Evoind):
             return NotImplemented
         return self.function == other.function
