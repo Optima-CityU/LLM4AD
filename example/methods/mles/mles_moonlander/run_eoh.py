@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('../../')  # This is for finding all the modules
+sys.path.append('../../../../')  # This is for finding all the modules
 
 from llm4ad.task.machine_learning.moon_lander import MoonLanderEvaluation, moon_lander_feature
 from llm4ad.tools.llm.llm_api_https import HttpsApi

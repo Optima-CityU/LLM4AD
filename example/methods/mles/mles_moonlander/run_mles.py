@@ -1,20 +1,20 @@
 import sys
 
-sys.path.append('../../')  # This is for finding all the modules
+sys.path.append('../../../../')  # This is for finding all the modules
 
 from llm4ad.task.machine_learning.moon_lander import MoonLanderEvaluation, moon_lander_feature
 from llm4ad.tools.llm.llm_api_https import HttpsApi
-from llm4ad.method.partevo import PartEvo
-from llm4ad.method.partevo import PartEvoProfiler
-from llm4ad.tools.profiler import ProfilerBase
+from llm4ad.method.mles import MLES
+from llm4ad.method.mles import MLESProfiler
 
 
 def main():
     llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
                    key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
+                   model='gpt-4o-mini',
+                   # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
                    timeout=120)
-    log_dir = f'logs/partevo'  # Use run_id to avoid overwriting logs
+    log_dir = f'logs/MLES_gemini'  # Use run_id to avoid overwriting logs
 
     seeds = [6, 9, 17, 29, 57,  # 全分布
              44, 18, 69, 26, 68,
@@ -37,25 +37,26 @@ def main():
         ins_to_be_solve_set[id] = seed
 
     run_mode = 'Training'  # Training, Using, Combined
-    task = MoonLanderEvaluation(whocall='partevo', instance_set=instance_set, run_mode=run_mode,
+    task = MoonLanderEvaluation(whocall='mles', instance_set=instance_set, run_mode=run_mode,
                                 ins_to_be_solve_set=ins_to_be_solve_set, feature_pipeline=moon_lander_feature,
                                 objective_value=230)
 
-    method = PartEvo(llm=llm,
-                     profiler=PartEvoProfiler(log_dir=log_dir, log_style='simple', run_mode=run_mode,
-                                              using_algo_designed_path=using_algo_designed_path),
-                     evaluation=task,
-                     max_sample_nums=500,
-                     max_generations=None,
-                     pop_size=16,
-                     operators=('re', 'se', 'cn', 'lge'),   # ('re', 'se', 'cn', 'lge'),
-                     num_samplers=4,
-                     num_evaluators=4,
-                     partition_method='kmeans',
-                     partition_number=4,
-                     local_algo_base='./pop_init_test.json',
-                     feature_used=('ast',),
-                     debug_mode=False)
+    # 定义JSON文件路径
+    seedpath = r'./pop_init_test.json'
+
+    method = MLES(llm=llm,
+                  profiler=MLESProfiler(log_dir=log_dir, log_style='complex', run_mode=run_mode,
+                                               using_algo_designed_path=using_algo_designed_path),
+                  evaluation=task,
+                  max_sample_nums=500,
+                  max_generations=None,
+                  pop_size=16,
+                  num_samplers=4,
+                  num_evaluators=4,
+                  debug_mode=False,
+                  operators=('e1', 'm1', 'm2_M'),  # ('e1', 'e2', 'm1_M', 'm2_M')
+                  seed_path=seedpath
+                  )
 
     method.run()
 

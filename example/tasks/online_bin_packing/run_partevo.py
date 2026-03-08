@@ -12,12 +12,12 @@ from llm4ad.tools.profiler import ProfilerBase
 def main():
     llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
                    key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
-                   model='gemini-2.5-flash',  # your llm, e.g., gpt-3.5-turbo, gpt-4o-mini, deepseek-v3.2, qwen3.5-plus, gemini-2.5-flash
+                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, gpt-4o-mini, deepseek-v3.2, qwen3.5-plus, gemini-2.5-flash
                    timeout=240)
 
     task = OBPEvaluation()
 
-    log_dir = f'logs/partevo_gemini'  # Use run_id to avoid overwriting logs
+    log_dir = f'logs/partevo'  # Use run_id to avoid overwriting logs
 
     run_mode = 'Training'  # Training, Using, Combined
 
