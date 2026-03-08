@@ -139,13 +139,11 @@ PartEvo is built to be highly versatile. To construct your own algorithm design 
 
 If you find PartEvo helpful in your research, please consider citing our paper:
 ```bibtex
-@inproceedings{
-qlh2025partition,
-title={Partition to Evolve: Niching-enhanced Evolution with {LLM}s for Automated Algorithm Discovery},
-author={Qinglong Hu, Qingfu Zhang},
-booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
-year={2025},
-url={https://openreview.net/forum?id=OEawM2coNT}
+@inproceedings{hu2025partition,
+  title={Partition to evolve: Niching-enhanced evolution with llms for automated algorithm discovery},
+  author={Hu, Qinglong and Zhang, Qingfu},
+  booktitle={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+  year={2025}
 }
 ```
 
