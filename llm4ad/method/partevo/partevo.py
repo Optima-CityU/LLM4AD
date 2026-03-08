@@ -72,7 +72,7 @@ class PartEvo:
             initial_sample_nums_max,
             2 * self._pop_size
         )
-        self._num_init_samplers = 2  # TODO 改成 3
+        self._num_init_samplers = 3
         self._debug_mode = debug_mode
         llm.debug_mode = debug_mode
         self._multi_thread_or_process_eval = multi_thread_or_process_eval

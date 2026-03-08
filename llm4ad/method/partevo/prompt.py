@@ -43,10 +43,10 @@ class PartEvoPrompt:
         system_prompt = (
             "You are an elite algorithm design expert and a creative computer scientist. "
             "Your task is to design a novel and executable algorithm to solve a given problem. "
-            "It is crucial that your core methodology and algorithmic logic are highly distinct from any previously proposed solutions.\n\n"
+            "It is crucial that your core methodology and algorithmic logic are highly distinct from any previously proposed solutions (if provided).\n\n"
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
             "1) A concise summary of your new algorithm concept wrapped EXACTLY inside <concept> and </concept> tags.\n"
-            "2) A valid, standalone Python implementation of the algorithm."
+            "2) A valid Python implementation of the algorithm."
         )
         messages.append({"role": "system", "content": system_prompt})
 
@@ -83,13 +83,12 @@ class PartEvoPrompt:
 
         content.append({"type": "text", "text": init_task})
 
-        # 4. 操作指令 (统一使用 <concept> 标签与严格的代码输出约束)
         operator_prompt = f"""
 ### Instructions
 Please design your new algorithm by following these exact steps:
 
 Step 1 -- Propose a Novel Algorithmic Concept
-- Clearly describe the core mechanism of your algorithm.
+- Clearly describe the core mechanism of your new algorithm.
 - Focus on the fundamental reasoning principle.
 - Keep it concise but precise.
 - Wrap the description EXACTLY inside:
@@ -129,7 +128,7 @@ Step 2 — Implement the Algorithm
         system_prompt = (
             "You are an elite algorithm design expert.\n"
             "Your task is to critically analyze an existing algorithmic attempt and propose "
-            "actionable, high-impact reflections that will significantly enhance task performance.\n\n"
+            "actionable, high-impact reflections that may enhance its task performance.\n\n"
             "Focus on identifying fundamental reasoning flaws, structural inefficiencies, "
             "mathematical weaknesses, suboptimal search dynamics, or poorly chosen parameter strategies.\n"
             "DO NOT provide generic advice.\n"
@@ -164,10 +163,10 @@ Step 2 — Implement the Algorithm
 
         # 3. 操作指令与格式约束 (使用 XML 标签并提供示例)
         instruction_prompt = f"""### Instructions
-Based on your expert knowledge of this design task, critically evaluate the current algorithm and provide targeted suggestions to guide the agent in improving it.
+Based on your expert knowledge of the design task, critically evaluate the current algorithm and provide targeted suggestions to guide the agent in improving it.
 
 **STRICT RULES FOR OUTPUT:**
-- Provide a maximum of the 3 MOST CRITICAL suggestions. Focus on what will yield the highest performance gain.
+- Provide a maximum of the 3 MOST CRITICAL suggestions. Focus on what will yield the performance gain.
 - All your suggestions MUST be implementable within the exact Python function template provided below:
 ```python
 {str(temp_func)}
@@ -201,10 +200,10 @@ Example format:
 
         # 1. System Prompt
         system_prompt = (
-            "You are an elite Lead Algorithm Researcher. Your task is to oversee the progress of multiple intelligent agents "
-            "solving an algorithm design problem. You must critically analyze the concepts and corresponding performance scores "
-            "of the algorithms they have designed, and synthesize an objective summary of what algorithmic techniques "
-            "are effective and which are not, to guide the agents' future design directions. You must strictly follow formatting instructions."
+            "You are an elite Lead Algorithm Researcher. Your task is to oversee the progress of intelligent agents "
+            "solving an algorithm design task. You must critically analyze the concepts and corresponding performance scores "
+            "of the algorithms they have designed, and synthesize an objective and comprehensive summary of what algorithmic techniques "
+            "are effective and which are not for the task, to guide the agents' future design directions. You must strictly follow formatting instructions."
         )
         messages.append({"role": "system", "content": system_prompt})
 
@@ -221,13 +220,13 @@ Example format:
         if current_summary:
             content.append({
                 "type": "text",
-                "text": f"### Previous Summary\nBased on earlier iterations, we have the following established summary for your reference:\n"
+                "text": f"### Previous Summary\nBased on earlier attempts, we have the following established summary:\n"
                         f"<previous_summary>\n{current_summary}\n</previous_summary>\n"
             })
 
         # 核心：客观呈现所有算法与分数 (摒弃精英/失败的主观标签)
         context_text = "### Explored Algorithms & Performance\n"
-        context_text += "Below is a sample of algorithms explored by the agents. You can analyze them based on their scores (a higher score indicates better performance).\n\n"
+        context_text += "Below is a set of algorithms explored by the agents. You can analyze them based on their scores (a higher score indicates better performance).\n\n"
 
         # 合并列表，让 LLM 自己根据 Score 去判断优劣
         elites = summary_context_samples.get('elites', [])
@@ -286,11 +285,11 @@ Example format:
         messages = []
 
         system_prompt = (
-            "You are an elite algorithm design expert. Your task is to analyze previous algorithmic attempts, "
-            "incorporate expert feedback if provided, and design a superior algorithm.\n"
+            "You are an elite algorithm design expert. Your task is to analyze a previous algorithmic attempt "
+            "and expert feedback (if provided), and then design a new, superior algorithm.\n"
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
             "1) A concise summary of your new algorithm concept wrapped EXACTLY inside <concept> and </concept> tags.\n"
-            "2) A valid, standalone Python implementation of the algorithm."
+            "2) A valid Python implementation of the algorithm."
         )
 
         messages.append({"role": "system", "content": system_prompt})
@@ -323,6 +322,7 @@ Example format:
             })
 
         operator_prompt = f"""### Instructions
+Importantly, you must modify and upgrade the previous algorithmic attempt; superficial refactoring, or simple reweighting is NOT allowed.
 Please design your new algorithm by following these exact steps:
 
 Step 1 -- Propose a New Algorithmic Concept
@@ -372,11 +372,11 @@ Step 2 — Implement the Algorithm
         system_prompt = (
             "You are a Senior Algorithm Research Scientist.\n"
             "Your task is to evolve and improve a specific algorithm by simultaneously considering:\n"
-            "1) The current algorithmic methodology and its implementation.\n"
+            "1) The current algorithmic attempt and its implementation.\n"
             "2) High-level global insights extracted from prior experiments.\n\n"
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
             "1) A concise summary of your new algorithm concept wrapped EXACTLY inside <concept> and </concept> tags.\n"
-            "2) A valid, standalone Python implementation of the algorithm."
+            "2) A valid Python implementation of the algorithm."
         )
         messages.append({"role": "system", "content": system_prompt})
 
@@ -401,9 +401,9 @@ Step 2 — Implement the Algorithm
             content.append({
                 "type": "text",
                 "text": f"### Global Insights from Past Attempts\n"
-                        f"Based on the validation of various algorithms across multiple expert clusters, the following insights have been summarized:\n"
+                        f"Based on the validation of various algorithms across multiple experts, the following insights have been summarized:\n"
                         f"<global_summary>\n{global_summary}\n</global_summary>\n\n"
-                        f"Please analyze these insights carefully and apply them to modify and improve the current algorithm to create a more promising solution."
+                        f"Please analyze these insights carefully and apply them to modify and improve the current algorithm to create a more promising one."
             })
         else:
             # Fallback 容错：如果系统早期还没有收集到足够的样本生成总结
@@ -415,6 +415,7 @@ Step 2 — Implement the Algorithm
 
         # 5. 操作指令与格式约束
         operator_prompt = f"""### Instructions
+Importantly, you must modify and upgrade the Current Algorithm; superficial refactoring, or simple reweighting is NOT allowed.
 Please design your new algorithm by following these exact steps:
 
 Step 1 -- Propose a New Algorithmic Concept
@@ -457,10 +458,10 @@ Step 2 — Implement the Algorithm
         system_prompt = (
             "You are an elite Algorithm Developer specializing in algorithmic synthesis and hybridization. "
             "Your task is to review multiple existing algorithms, use the primary one as your foundation, "
-            "and intelligently graft or integrate the advantageous characteristics of the others to synthesize a superior algorithm."
+            "and intelligently graft or integrate the advantageous characteristics of the others to synthesize a new, superior algorithm."
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
             "1) A concise summary of your hybridized algorithm concept wrapped EXACTLY inside <concept> and </concept> tags.\n"
-            "2) A valid, standalone Python implementation of the upgraded algorithm."
+            "2) A valid Python implementation of the upgraded algorithm."
         )
         messages.append({"role": "system", "content": system_prompt})
 
@@ -509,8 +510,9 @@ Step 2 — Implement the Algorithm
 
         # Expert instructions
         operator_prompt = f"""### Instructions
-Please take **Algorithm #1 as the main framework** and critically analyze the concepts and code of the Auxiliary Algorithm(s). 
-Identify their strengths and creatively incorporate those advantageous characteristics into the main framework to design a better algorithm.
+Please take **Algorithm #1 as the primary algorithm** and critically analyze the concepts and code of the Auxiliary Algorithm(s). 
+Identify their strengths and creatively incorporate those advantageous characteristics into the primary one to design a new, superior algorithm.
+Importantly, you must modify and upgrade the primary algorithm; superficial refactoring, or simple reweighting is NOT allowed.
 
 Please design your new algorithm by following these exact steps:
 
@@ -566,7 +568,7 @@ Step 2 — Implement the Algorithm
             "You must synthesize these inspirations to push the baseline algorithm past its current performance ceiling.\n\n"
             "You may reason and organize your thoughts freely, but your FINAL OUTPUT must strictly adhere to the following format:\n"
             "1) A concise summary of your upgraded algorithm concept wrapped EXACTLY inside <concept> and </concept> tags.\n"
-            "2) A valid, standalone Python implementation of the algorithm."
+            "2) A valid Python implementation of the algorithm."
         )
         messages.append({"role": "system", "content": system_prompt})
 
@@ -620,12 +622,11 @@ Step 2 — Implement the Algorithm
             "text": context_text
         })
 
-        # 4. 操作指令与格式约束 (强调 PSO 的吸引力法则)
         operator_prompt = f"""### Instructions
 Carefully analyze the Superior References to understand why they achieved higher scores. 
 Extract the key principles behind their success and integrate those insights to improve the Current Algorithm. 
 Importantly, you must modify and upgrade the current algorithm by incorporating insights;  
-superficial refactoring, minor parameter tuning, or simple reweighting is NOT allowed.
+superficial refactoring, or simple reweighting is NOT allowed.
 
 Please design a new algorithm by following these exact steps:
 
