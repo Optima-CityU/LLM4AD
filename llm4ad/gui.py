@@ -27,17 +27,6 @@ import pytz
 import inspect
 import llm4ad
 
-# from llm4ad.task import import_all_evaluation_classes
-# from llm4ad.method import import_all_method_classes_from_subfolders
-# from llm4ad.tools.llm import import_all_llm_classes_from_subfolders
-# from llm4ad.tools.profiler.profile import ProfilerBase
-# from llm4ad.tools.profiler import import_all_profiler_classes_from_subfolders
-
-# import_all_evaluation_classes(os.path.join(os.getcwd(), '../llm4ad/task'))
-# import_all_method_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/method'))
-# import_all_llm_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/tools/llm'))
-# import_all_profiler_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/tools/profiler'))
-
 # Dynamically import all usable classes from the 'llm4ad' package
 for module in [llm4ad.tools.llm, llm4ad.tools.profiler, llm4ad.task, llm4ad.method]:
     globals().update({name: obj for name, obj in vars(module).items() if inspect.isclass(obj)})
@@ -120,7 +109,7 @@ if __name__ == '__main__':
     llm = {
         'name': 'HttpsApi',
         'host': "api.bltcy.top",
-        'key': "sk-dKMuUHsISnfTuYGPDb78437190Db4bC19f968bC796260230",
+        'key': "",
         'model': "gpt-4o-mini"
     }
 
