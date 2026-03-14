@@ -1,13 +1,11 @@
-### Test Only ###
-# Set system path
-
 import sys
 
 sys.path.append('../../')  # This is for finding all the modules
 
-from llm4ad.task.optimization.cvrp_construct import CVRPEvaluation
+from llm4ad.task.optimization.tsp_construct import TSPEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
-from llm4ad.method.eoh import EoH, EoHProfiler
+from llm4ad.tools.profiler import ProfilerBase
+from llm4ad.method.eoh import EoH
 
 
 def main():
@@ -16,16 +14,16 @@ def main():
                    model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
                    timeout=60)
 
-    task = CVRPEvaluation()
+    task = TSPEvaluation()
 
     method = EoH(llm=llm,
-                 profiler=EoHProfiler(log_dir='logs', log_style='complex'),
+                 profiler=ProfilerBase(log_dir='logs', log_style='complex'),
                  evaluation=task,
-                 max_sample_nums=100,
-                 max_generations=10,
-                 pop_size=20,
-                 num_samplers=4,
-                 num_evaluators=4)
+                 max_sample_nums=20,
+                 max_generations=5,
+                 pop_size=2,
+                 num_samplers=1,
+                 num_evaluators=1)
 
     method.run()
 

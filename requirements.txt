@@ -3,18 +3,20 @@ scipy
 numba
 requests
 openai
-torch
 tensorboard
 wandb
 pytz
 pandas
+pymoo
 matplotlib
 ttkbootstrap
 codebleu
 tree-sitter-python==0.23
 gym
+gymnasium
 datasets
 huggingface_hub
 networkx
+llamea
 # langchain_ollama
 git+https://github.com/XAI-liacs/LLaMEA.git@main        #New method.

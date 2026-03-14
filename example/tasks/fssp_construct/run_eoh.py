@@ -2,29 +2,28 @@ import sys
 
 sys.path.append('../../')  # This is for finding all the modules
 
-from llm4ad.task.optimization.online_bin_packing import OBPEvaluation
+from llm4ad.task.optimization.jssp_construct import JSSPEvaluation
 from llm4ad.tools.llm.llm_api_https import HttpsApi
-from llm4ad.method.eoh import EoH
 from llm4ad.tools.profiler import ProfilerBase
+from llm4ad.method.eoh import EoH, EoHProfiler
 
 
 def main():
-
     llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   key='xxx',  # your key, e.g., 'sk-abcdefghijklmn'
                    model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
-                   timeout=60)
-
-    task = OBPEvaluation()
+                   timeout=120)
+    
+    task = JSSPEvaluation()
 
     method = EoH(llm=llm,
-                 profiler=ProfilerBase(log_dir='logs/eoh', log_style='simple'),
+                 profiler=EoHProfiler(log_dir='logs/eoh', log_style='complex'),
                  evaluation=task,
-                 max_sample_nums=20000,
-                 max_generations=10,
+                 max_sample_nums=20,
+                 max_generations=5,
                  pop_size=4,
-                 num_samplers=1,
-                 num_evaluators=1,
+                 num_samplers=4,
+                 num_evaluators=4,
                  debug_mode=False)
 
     method.run()

@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 from .code import TextFunctionProgramConverter, Program
 from .modify_code import ModifyCode
+import traceback
 
 
 class Evaluation(ABC):
@@ -220,7 +221,8 @@ class SecureEvaluator:
                 return self._evaluate(program_str, function_name, **kwargs)
         except Exception as e:
             if self._debug_mode:
-                print(e)
+                print("DEBUG: Exception occurred in evaluate_program:")
+                traceback.print_exc()  # 这将打印完整红色报错信息
             return None
 
     def evaluate_program_record_time(self, program: str | Program, **kwargs):
@@ -245,7 +247,8 @@ class SecureEvaluator:
             result_queue.put(res)
         except Exception as e:
             if self._debug_mode:
-                print(e)
+                print("DEBUG: Exception occurred in evaluate_program:")
+                traceback.print_exc()  # 这将打印完整红色报错信息
             result_queue.put(None)
 
     def _evaluate(self, program_str: str, function_name, **kwargs):
@@ -265,5 +268,6 @@ class SecureEvaluator:
             return res
         except Exception as e:
             if self._debug_mode:
-                print(e)
+                print("DEBUG: Exception occurred in evaluate_program:")
+                traceback.print_exc()  # 这将打印完整红色报错信息
             return None

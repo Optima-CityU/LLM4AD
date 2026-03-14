@@ -1,0 +1,33 @@
+import sys
+
+sys.path.append('../../')  # This is for finding all the modules
+
+from llm4ad.task.optimization.qap_construct import QAPEvaluation
+from llm4ad.tools.llm.llm_api_https import HttpsApi
+from llm4ad.tools.profiler import ProfilerBase
+from llm4ad.method.eoh import EoH, EoHProfiler
+
+
+def main():
+    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+                   key='xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+                   timeout=120)
+    
+    task = QAPEvaluation()
+
+    method = EoH(llm=llm,
+                 profiler=EoHProfiler(log_dir='logs', log_style='complex'),
+                 evaluation=task,
+                 max_sample_nums=20,
+                 max_generations=5,
+                 pop_size=4,
+                 num_samplers=4,
+                 num_evaluators=4,
+                 debug_mode=False)
+
+    method.run()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,39 @@
+import sys
+
+sys.path.append('../../')  # This is for finding all the modules
+
+from llm4ad.task.optimization.online_bin_packing import OBPEvaluation
+from llm4ad.tools.llm.llm_api_https import HttpsApi
+from llm4ad.method.eoh import EoH
+from llm4ad.tools.profiler import ProfilerBase
+
+
+def main():
+
+    # llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+    #                key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+    #                model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+    #                timeout=60)
+
+    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
+                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
+                   model='gemini-2.5-flash',  # your llm, e.g., gpt-4o-mini, deepseek-v3.2, qwen3.5-plus, gemini-2.5-flash
+                   timeout=120)
+
+    task = OBPEvaluation()
+
+    method = EoH(llm=llm,
+                 profiler=ProfilerBase(log_dir='logs/eoh_gemini', log_style='simple'),
+                 evaluation=task,
+                 max_sample_nums=100,
+                 max_generations=None,
+                 pop_size=16,
+                 num_samplers=8,
+                 num_evaluators=8,
+                 debug_mode=False)
+
+    method.run()
+
+
+if __name__ == '__main__':
+    main()
