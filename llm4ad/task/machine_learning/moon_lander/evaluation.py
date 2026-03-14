@@ -42,7 +42,7 @@
 from __future__ import annotations
 
 from typing import Any
-import gym
+import gymnasium as gym
 import numpy as np
 
 from llm4ad.base import Evaluation
@@ -115,7 +115,7 @@ class MoonLanderEvaluation(Evaluation):
         )
 
         self.env = None
-        self.env = gym.make('LunarLander-v2')
+        self.env = gym.make('LunarLander-v3')
         self.env._max_episode_steps = max_steps
 
     def evaluate_program(self, program_str: str, callable_func: callable) -> Any | None:
