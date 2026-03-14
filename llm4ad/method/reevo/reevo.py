@@ -29,7 +29,7 @@ import traceback
 from threading import Thread
 from typing import Optional, Literal
 
-from torch.utils.data import Sampler
+# from torch.utils.data import Sampler
 
 from .population import Population
 from .profiler import ReEvoProfiler

@@ -11,18 +11,23 @@ from llm4ad.method.eoh import EoH, EoHProfiler
 
 
 def main():
-    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
-                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
-                   timeout=60)
+    # llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
+    #                key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
+    #                model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+    #                timeout=60)
+
+    llm = HttpsApi(host='api.bltcy.ai',  # your host endpoint, e.g., api.openai.com/v1/completions, api.deepseek.com
+                   key='sk-qMAtcWpKnF64zZxWqyLcqXRQYEtwnyiriaB0nR5GBldQ7S0A',  # your key, e.g., sk-abcdefghijklmn
+                   model='gpt-4o-mini',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat, gpt-4o-mini
+                   timeout=120)
 
     task = CVRPEvaluation()
 
     method = EoH(llm=llm,
                  profiler=EoHProfiler(log_dir='logs', log_style='complex'),
                  evaluation=task,
-                 max_sample_nums=100,
-                 max_generations=10,
+                 max_sample_nums=500,
+                 max_generations=None,
                  pop_size=20,
                  num_samplers=4,
                  num_evaluators=4)
