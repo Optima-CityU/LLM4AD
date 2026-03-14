@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import time
-import gym
+import gymnasium as gym
 import csv
 import os
 import pickle

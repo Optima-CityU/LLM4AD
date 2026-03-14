@@ -21,22 +21,12 @@ import os
 import sys
 from datetime import datetime
 
-sys.path.append('../')  # This is for finding all the modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Add repo root to path to find llm4ad package
 
 import pytz
 import inspect
 import llm4ad
 
-from llm4ad.task import import_all_evaluation_classes
-from llm4ad.method import import_all_method_classes_from_subfolders
-from llm4ad.tools.llm import import_all_llm_classes_from_subfolders
-from llm4ad.tools.profiler.profile import ProfilerBase
-# from llm4ad.tools.profiler import import_all_profiler_classes_from_subfolders
-
-import_all_evaluation_classes(os.path.join(os.getcwd(), '../llm4ad/task'))
-import_all_method_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/method'))
-import_all_llm_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/tools/llm'))
-# import_all_profiler_classes_from_subfolders(os.path.join(os.getcwd(), '../llm4ad/tools/profiler'))
 
 # Dynamically import all usable classes from the 'llm4ad' package
 for module in [llm4ad.tools.llm, llm4ad.tools.profiler, llm4ad.task, llm4ad.method]:

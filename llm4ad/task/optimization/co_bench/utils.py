@@ -1,7 +1,23 @@
 from pathlib import PurePosixPath
 from huggingface_hub import list_repo_files
 from datasets import load_dataset
+import time
+import httpx
+import httpcore
 
+def robust_request(func, *args, **kwargs):
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except (httpx.TimeoutException, httpx.ConnectError, httpcore.ConnectError, httpcore.ConnectTimeout, httpcore.ReadTimeout, ConnectionError) as e:
+            print(f"Network error: {e}. Retrying in 5 seconds...")
+            time.sleep(5)
+        except Exception as e:
+            if "timeout" in str(e).lower() or "connection" in str(e).lower():
+                print(f"Network error: {e}. Retrying in 5 seconds...")
+                time.sleep(5)
+            else:
+                raise e
 
 def load_subdir_as_text(repo_id: str, subdir: str, *, skip_ext: tuple[str, ...] = (".py",), streaming: bool = False):
     """
@@ -21,8 +37,9 @@ def load_subdir_as_text(repo_id: str, subdir: str, *, skip_ext: tuple[str, ...] 
         # Returns: {"airland1.txt": Dataset(...), "airland2.txt": Dataset(...), ...}
     """
     prefix = subdir.rstrip("/") + "/"
+    all_files = robust_request(list_repo_files, repo_id, repo_type="dataset")
     files = [
-        f for f in list_repo_files(repo_id, repo_type="dataset")
+        f for f in all_files
         if f.startswith(prefix) and not f.endswith(skip_ext)
     ]
     if not files:
@@ -84,8 +101,9 @@ def load_subdir_as_pickle(repo_id: str, subdir: str, *, include_subdirs: tuple[s
     from huggingface_hub import hf_hub_download
     
     prefix = subdir.rstrip("/") + "/"
+    all_files = robust_request(list_repo_files, repo_id, repo_type="dataset")
     files = [
-        f for f in list_repo_files(repo_id, repo_type="dataset")
+        f for f in all_files
         if f.startswith(prefix) and f.endswith(('.pickle', '.gpickle', '.pkl'))
     ]
     
@@ -108,20 +126,29 @@ def load_subdir_as_pickle(repo_id: str, subdir: str, *, include_subdirs: tuple[s
                 subdirs[subsubdir] = {}
             
             # Download and load the pickle file
-            try:
-                local_path = hf_hub_download(
-                    repo_id=repo_id,
-                    filename=file_path,
-                    repo_type="dataset"
-                )
-                
-                with open(local_path, "rb") as f:
-                    pickle_content = pickle.load(f)
-                
-                subdirs[subsubdir][filename] = pickle_content
-                
-            except Exception as e:
-                print(f"Warning: Failed to load {file_path}: {e}")
-                continue
+            while True:
+                try:
+                    local_path = hf_hub_download(
+                        repo_id=repo_id,
+                        filename=file_path,
+                        repo_type="dataset"
+                    )
+                    
+                    with open(local_path, "rb") as f:
+                        pickle_content = pickle.load(f)
+                    
+                    subdirs[subsubdir][filename] = pickle_content
+                    break # Success, exit retry loop
+                    
+                except (httpx.TimeoutException, httpx.ConnectError, httpcore.ConnectError, httpcore.ConnectTimeout, httpcore.ReadTimeout, ConnectionError) as e:
+                    print(f"Network error downloading {file_path}: {e}. Retrying in 5 seconds...")
+                    time.sleep(5)
+                except Exception as e:
+                    if "timeout" in str(e).lower() or "connection" in str(e).lower():
+                        print(f"Network error downloading {file_path}: {e}. Retrying in 5 seconds...")
+                        time.sleep(5)
+                    else:
+                        print(f"Warning: Failed to load {file_path}: {e}")
+                        break # Non-network error, skip file
     
     return subdirs 

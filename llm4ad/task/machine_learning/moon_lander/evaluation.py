@@ -26,6 +26,7 @@
 
 # moon lander website  https://gymnasium.farama.org/environments/box2d/lunar_lander/
 from __future__ import annotations
+
 from typing import Optional, Tuple, List, Any, Set
 import gymnasium as gym
 import numpy as np

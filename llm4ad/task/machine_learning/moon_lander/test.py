@@ -1,5 +1,5 @@
 import random
-import gym
+import gymnasium as gym
 import numpy as np
 import random
 
@@ -25,8 +25,8 @@ def choose_action(state, reward, last_action):
     return action
 
 
-# 创建LunarLander-v2环境
-env = gym.make('LunarLander-v2', render_mode='human')
+# 创建LunarLander-v3环境
+env = gym.make('LunarLander-v3', render_mode='human')
 
 # 重置环境
 state, _ = env.reset()
