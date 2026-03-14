@@ -40,7 +40,7 @@
 from __future__ import annotations
 
 from typing import Any
-import gym
+import gymnasium as gym
 
 from llm4ad.base import Evaluation
 from llm4ad.task.machine_learning.acrobot.template import template_program, task_description

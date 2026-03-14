@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 
 # 初始化Acrobot-v1环境
