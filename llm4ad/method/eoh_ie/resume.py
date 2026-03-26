@@ -7,9 +7,9 @@ import re
 
 from tqdm.auto import tqdm
 
-from .lhns import EoH
+from .eoh_ie import EoH
 from .profiler import EoHProfiler
-from .elite_set import Population
+from .population import Population
 from ...base import TextFunctionProgramConverter as tfpc, Function
 
 

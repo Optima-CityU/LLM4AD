@@ -1,4 +1,0 @@
-name: HillClimb
-max_sample_nums: 20
-num_samplers: 4
-num_evaluators: 4

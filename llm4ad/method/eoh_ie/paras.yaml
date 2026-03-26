@@ -1,0 +1,9 @@
+name: EoH
+max_generations: 10
+max_sample_nums: 20
+pop_size: 4
+num_evaluators: 4
+ie_top_k: 5
+ie_bank_max_size: 20
+ie_extract_per_generation: 2
+ie_init_from_population: true

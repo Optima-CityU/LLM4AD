@@ -4,9 +4,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import List, Dict
-
-import numpy as np
+from typing import List, Dict, Optional
 
 try:
     import wandb
@@ -18,27 +16,31 @@ from ...base import Function
 from ...tools.profiler import TensorboardProfiler, ProfilerBase, WandBProfiler
 
 
-class NSGA2Profiler(ProfilerBase):
+class EoHProfiler(ProfilerBase):
 
     def __init__(self,
-                 log_dir: str | None = None,
-                 num_objs=2,
+                 log_dir: Optional[str] = None,
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
+        """EoH Profiler
+        Args:
+            log_dir            : the directory of current run
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+        """
         super().__init__(log_dir=log_dir,
                          initial_num_samples=initial_num_samples,
                          log_style=log_style,
-                         num_objs=num_objs,
+                         create_random_path=create_random_path,
                          **kwargs)
         self._cur_gen = 0
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
-            self._elitist_dir = os.path.join(self._log_dir, 'elitist')
             os.makedirs(self._ckpt_dir, exist_ok=True)
-            os.makedirs(self._elitist_dir, exist_ok=True)
 
     def register_population(self, pop: Population):
         try:
@@ -49,38 +51,13 @@ class NSGA2Profiler(ProfilerBase):
             funcs = pop.population  # type: List[Function]
             funcs_json = []  # type: List[Dict]
             for f in funcs:
-                f_score = f.score
-                if f.score is not None:
-                    if np.isinf(np.array(f.score)).any():
-                        f_score = None
-                    else:
-                        f_score = f_score.tolist()
                 f_json = {
                     'algorithm': f.algorithm,
                     'function': str(f),
-                    'score': f_score
+                    'score': f.score
                 }
                 funcs_json.append(f_json)
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
-            with open(path, 'w') as json_file:
-                json.dump(funcs_json, json_file, indent=4)
-
-            # Saving the elitist
-            funcs = pop.elitist
-            for f in funcs:
-                f_score = f.score
-                if f.score is not None:
-                    if np.isinf(np.array(f.score)).any():
-                        f_score = None
-                    else:
-                        f_score = f_score.tolist()
-                f_json = {
-                    'algorithm': f.algorithm,
-                    'function': str(f),
-                    'score': f_score
-                }
-                funcs_json.append(f_json)
-            path = os.path.join(self._elitist_dir, f'elitist_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
             self._cur_gen += 1
@@ -89,13 +66,11 @@ class NSGA2Profiler(ProfilerBase):
                 self._pop_lock.release()
 
     def _write_json(self, function: Function, program='', *, record_type='history', record_sep=200):
-        """
-            Write function data to a JSON file.
-
-            Parameters:
-                function (Function): The function object containing score and string representation.
-                record_type (str, optional): Type of record, 'history' or 'best'. Defaults to 'history'.
-                record_sep (int, optional): Separator for history records. Defaults to 200.
+        """Write function data to a JSON file.
+        Args:
+            function   : The function object containing score and string representation.
+            record_type: Type of record, 'history' or 'best'. Defaults to 'history'.
+            record_sep : Separator for history records. Defaults to 200.
         """
         assert record_type in ['history', 'best']
 
@@ -103,24 +78,18 @@ class NSGA2Profiler(ProfilerBase):
             return
 
         sample_order = self._num_samples
-        func_score = function.score
-        if function.score is not None:
-            if np.isinf(np.array(function.score)).any():
-                func_score = None
-            else:
-                func_score = func_score.tolist()
         content = {
             'sample_order': sample_order,
             'algorithm': function.algorithm,  # Added when recording
             'function': str(function),
-            'score': func_score,
+            'score': function.score,
             'program': program,
         }
 
         if record_type == 'history':
-            lower_bound = (sample_order // record_sep) * record_sep
+            lower_bound = ((sample_order - 1) // record_sep) * record_sep
             upper_bound = lower_bound + record_sep
-            filename = f'samples_{lower_bound}~{upper_bound}.json'
+            filename = f'samples_{lower_bound + 1}~{upper_bound}.json'
         else:
             filename = 'samples_best.json'
 
@@ -133,39 +102,47 @@ class NSGA2Profiler(ProfilerBase):
             data = []
 
         data.append(content)
+
         with open(path, 'w') as json_file:
             json.dump(data, json_file, indent=4)
 
 
-class NSGA2TensorboardProfiler(TensorboardProfiler, NSGA2Profiler):
+class EoHTensorboardProfiler(TensorboardProfiler, EoHProfiler):
 
     def __init__(self,
                  log_dir: str | None = None,
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        NSGA2Profiler.__init__(self,
-                               log_dir=log_dir,
-                               **kwargs)
-        TensorboardProfiler.__init__(self, log_dir=log_dir,
-                                     initial_num_samples=initial_num_samples,
-                                     log_style=log_style,
-                                     **kwargs)
+        """EoH Profiler for Tensorboard.
+        Args:
+            log_dir            : the directory of current run
+            evaluation_name    : the name of the evaluation instance (the name of the problem to be solved).
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+            **kwargs           : kwargs for wandb
+        """
+        EoHProfiler.__init__(
+            self, log_dir=log_dir,
+            create_random_path=create_random_path,
+            **kwargs
+        )
+        TensorboardProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
 
     def finish(self):
         if self._log_dir:
             self._writer.close()
 
-        filename = 'end.json'
-        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
 
-        with open(path, 'w') as json_file:
-            json.dump([], json_file, indent=4)
-
-
-class NSGA2WandbProfiler(WandBProfiler, NSGA2Profiler):
-    _cur_gen = 0
+class EoHWandbProfiler(WandBProfiler, EoHProfiler):
 
     def __init__(self,
                  wandb_project_name: str,
@@ -173,13 +150,31 @@ class NSGA2WandbProfiler(WandBProfiler, NSGA2Profiler):
                  *,
                  initial_num_samples=0,
                  log_style='complex',
+                 create_random_path=True,
                  **kwargs):
-        NSGA2Profiler.__init__(self, log_dir=log_dir, **kwargs)
-        WandBProfiler.__init__(self,
-                               wandb_project_name=wandb_project_name,
-                               log_dir=log_dir,
-                               initial_num_samples=initial_num_samples,
-                               log_style=log_style, **kwargs)
+        """EoH Profiler for Wandb.
+        Args:
+            wandb_project_name : the name of the wandb project
+            log_dir            : the directory of current run
+            initial_num_samples: the sample order start with `initial_num_samples`.
+            create_random_path : create a random log_path according to evaluation_name, method_name, time, ...
+            **kwargs           : kwargs for wandb
+        """
+        EoHProfiler.__init__(
+            self,
+            log_dir=log_dir,
+            create_random_path=create_random_path,
+            **kwargs
+        )
+        WandBProfiler.__init__(
+            self,
+            wandb_project_name=wandb_project_name,
+            log_dir=log_dir,
+            initial_num_samples=initial_num_samples,
+            log_style=log_style,
+            create_random_path=create_random_path,
+            **kwargs
+        )
         self._pop_lock = Lock()
         if self._log_dir:
             self._ckpt_dir = os.path.join(self._log_dir, 'population')
@@ -187,8 +182,3 @@ class NSGA2WandbProfiler(WandBProfiler, NSGA2Profiler):
 
     def finish(self):
         wandb.finish()
-        filename = 'end.json'
-        path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
-
-        with open(path, 'w') as json_file:
-            json.dump([], json_file, indent=4)
