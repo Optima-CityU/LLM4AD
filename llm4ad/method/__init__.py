@@ -24,6 +24,14 @@ import inspect
 import importlib
 
 
+def _is_class_defined_in_module(attribute, module):
+    module_obj = inspect.getmodule(attribute)
+    return (
+        module_obj is not None
+        and getattr(module_obj, '__file__', None) == getattr(module, '__file__', None)
+    )
+
+
 def import_all_method_classes_from_subfolders(root_directory: str):
     """Dynamically imports all classes from Python files that share the same name as their parent folder.
     Args:
@@ -54,7 +62,7 @@ def import_all_method_classes_from_subfolders(root_directory: str):
                     attribute = getattr(module, attribute_name)
                     if isinstance(attribute, type):  # Only import class objects
                         # Use inspect to check if the class is defined in the current module
-                        if inspect.getmodule(attribute).__file__ == module.__file__:
+                        if _is_class_defined_in_module(attribute, module):
                             globals()[attribute_name] = attribute  # Add the class to the global namespace
                             # print(f'Imported class {attribute_name} from {module_name}')
 
@@ -71,6 +79,6 @@ def import_all_method_classes_from_subfolders(root_directory: str):
                     attribute = getattr(module, attribute_name)
                     if isinstance(attribute, type):  # Only import class objects
                         # Use inspect to check if the class is defined in the current module
-                        if inspect.getmodule(attribute).__file__ == module.__file__:
+                        if _is_class_defined_in_module(attribute, module):
                             globals()[attribute_name] = attribute  # Add the class to the global namespace
                             # print(f'Imported class {attribute_name} from {module_name}')
