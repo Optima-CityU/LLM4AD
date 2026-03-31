@@ -11,9 +11,9 @@ from llm4ad.method.eoh import EoH, EoHProfiler
 
 
 def main():
-    llm = HttpsApi(host='xxx',  # your host endpoint, e.g., 'api.openai.com', 'api.deepseek.com'
-                   key='sk-xxx',  # your key, e.g., 'sk-abcdefghijklmn'
-                   model='xxx',  # your llm, e.g., 'gpt-3.5-turbo'
+    llm = HttpsApi(host='api.bltcy.ai',  # 智谱AI
+                   key='',
+                   model='gpt-5.3-codex-high',
                    timeout=100)
 
     task = ASPEvaluation()
