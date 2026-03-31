@@ -2,8 +2,8 @@ import time
 from openai import OpenAI, APITimeoutError, APIConnectionError, APIStatusError
 
 API_KEY = "你的API密钥"  # 替换为你的API密钥
-BASE_URL = "https://api.lkeap.cloud.tencent.com/coding/v3"
-MODEL = "glm-5"  # 如果失败可以换 deepseek-chat / gpt-4o-mini 等
+BASE_URL = "https://api.lkeap.cloud.tencent.com/coding/v3" # 替换为你的API地址
+MODEL = "glm-5"  # 如果失败可以换 minimax-m2.5 / kimi-k2.5 等
 
 client = OpenAI(
     api_key=API_KEY,
