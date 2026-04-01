@@ -99,6 +99,7 @@ llm4ad/
 ## LLM API Configuration
 
 The `HttpsApi` class uses the OpenAI SDK and accepts a base URL:
+
 ```python
 host='https://api.openai.com/v1'           # OpenAI
 host='https://api.deepseek.com/v1'         # DeepSeek

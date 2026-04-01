@@ -41,6 +41,7 @@ import threading
 import ttkbootstrap as ttk
 import subprocess
 import yaml
+from config import DEFAULT_LLM_NAME, PROJECT_ROOT, ENV_LLM_KEY_MAP, get_saved_llm_parameters, save_env_file
 
 ##########################################################
 
@@ -66,7 +67,7 @@ problem_para_value_name_list = []
 
 llm_para_entry_list = []
 llm_para_value_name_list = ['name', 'host', 'key', 'model']
-llm_para_default_value_list = ['HttpsApi', '', '', '']
+llm_para_default_value_list = [DEFAULT_LLM_NAME, '', '', '']
 llm_para_placeholder_list = ['HttpsApi', 'https://api.openai.com/v1', 'sk-xxxxxxxxxxxxxxxx', 'gpt-4o-mini']
 
 default_method = 'eoh'
@@ -185,6 +186,39 @@ def open_folder():
             os.startfile(log_dir)
         elif os.name == 'posix':  # Unix-like
             subprocess.run(['open', log_dir])
+
+
+def fill_llm_entries_from_env():
+    saved_values = get_saved_llm_parameters()
+    has_saved_values = any(saved_values.values())
+
+    for entry, field_name in zip(llm_para_entry_list, llm_para_value_name_list):
+        saved_value = saved_values.get(field_name, '')
+        if not saved_value:
+            continue
+
+        entry.delete(0, 'end')
+        entry.configure(foreground=entry.default_fg_color)
+        entry.configure(show=entry.mask_char or '')
+        entry.insert(0, saved_value)
+        entry.have_content = True
+
+    return has_saved_values
+
+
+def save_llm_parameters_to_env():
+    env_updates = {}
+
+    for entry, field_name in zip(llm_para_entry_list, llm_para_value_name_list):
+        if field_name == 'name':
+            continue
+        if entry.has_placeholder():
+            value = ''
+        else:
+            value = entry.get().strip()
+        env_updates[ENV_LLM_KEY_MAP[field_name]] = value
+
+    save_env_file(env_updates)
 
 
 ##########################################################
@@ -352,6 +386,7 @@ def on_plot_button_click():
             tk.messagebox.showinfo("Warning", "Please configure the settings of LLM.")
             return
 
+        save_llm_parameters_to_env()
         llm_para, method_para, problem_para, profiler_para = return_para()
 
         init_fig(method_para['max_sample_nums'])
@@ -410,8 +445,7 @@ def return_para():
     temp_str1 = problem_para['name']
     temp_str2 = method_para['name']
     process_start_time = datetime.now(pytz.timezone("Asia/Shanghai"))
-    b = os.path.abspath('..')
-    log_folder = b + '/GUI/logs/' + process_start_time.strftime(
+    log_folder = PROJECT_ROOT + '/GUI/logs/' + process_start_time.strftime(
         "%Y%m%d_%H%M%S") + f'_{temp_str1}' + f'_{temp_str2}'
     profiler_para['log_dir'] = log_folder
 
@@ -732,17 +766,20 @@ if __name__ == '__main__':
     llm_frame.grid_columnconfigure(1, weight=1)
 
     with_default_parameter = False
-    if with_default_parameter:
+    loaded_from_env = fill_llm_entries_from_env()
+    if with_default_parameter and not loaded_from_env:
         for i in range(len(llm_para_value_name_list)):
             llm_para_entry_list[i].delete(0, 'end')
             llm_para_entry_list[i].configure(foreground=llm_para_entry_list[i].default_fg_color)
             llm_para_entry_list[i].configure(show=llm_para_entry_list[i].mask_char or '')
             llm_para_entry_list[i].insert(0, str(llm_para_default_value_list[i]))
-    else:
+            llm_para_entry_list[i].have_content = True
+    elif not loaded_from_env:
         llm_para_entry_list[0].delete(0, 'end')
         llm_para_entry_list[0].configure(foreground=llm_para_entry_list[0].default_fg_color)
         llm_para_entry_list[0].configure(show=llm_para_entry_list[0].mask_char or '')
         llm_para_entry_list[0].insert(0, str(llm_para_default_value_list[0]))
+        llm_para_entry_list[0].have_content = True
 
     ############
 
