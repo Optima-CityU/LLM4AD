@@ -1,0 +1,3 @@
+$task_prompt
+$template_function
+Improve `$func_name_v1` to give `$func_name_v2`. Output code only and enclose your code with Python code block: ```python ...```.

@@ -27,6 +27,7 @@ import scipy
 
 from . import config as config_lib
 from ...base import ModifyCode, Function, Program, TextFunctionProgramConverter
+from ...prompts import load_prompt_text, render_prompt
 
 
 def _softmax(logits: np.ndarray, temperature: float) -> np.ndarray:
@@ -250,7 +251,12 @@ class Island:
             # Update the docstring for all subsequent functions after `_v0`.
             if i >= 1:
                 implementation.docstring = (
-                    f'Improved version of `{self._function_to_evolve}_v{i - 1}`.')
+                    render_prompt(
+                        'funsearch',
+                        'improved_docstring.txt',
+                        previous_function_name=f'{self._function_to_evolve}_v{i - 1}',
+                    )
+                )
             # If the function is recursive, replace calls to itself with its new name.
             implementation = ModifyCode.rename_function(
                 str(implementation), self._function_to_evolve, new_function_name)
@@ -264,9 +270,12 @@ class Island:
         header = dataclasses.replace(
             implementations[-1],
             name=new_function_name,
-            body='',
-            docstring=('Improved version of '
-                       f'`{self._function_to_evolve}_v{next_version - 1}`.'),
+            body=load_prompt_text('funsearch', 'body_guidance.txt'),
+            docstring=render_prompt(
+                'funsearch',
+                'improved_docstring.txt',
+                previous_function_name=f'{self._function_to_evolve}_v{next_version - 1}',
+            ),
         )
         versioned_functions.append(header)
 

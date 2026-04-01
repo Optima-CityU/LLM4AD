@@ -1,0 +1,10 @@
+$task_prompt
+I have one algorithm with its code as follows. Algorithm description:
+$algorithm
+Code:
+$code
+Please modify the provided algorithm to improve its performance, where you can determine the degree of modification needed.
+1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {}.
+2. Next, implement the following Python function:
+$template_function
+Import statements should be placed outside the function. Do not give additional explanations.

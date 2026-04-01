@@ -1,0 +1,1 @@
+Improved version of `${previous_function_name}`.

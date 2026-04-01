@@ -1,6 +1,7 @@
 import time
 from openai import OpenAI, APITimeoutError, APIConnectionError, APIStatusError
 from config import get_saved_llm_parameters
+from llm4ad.prompts import load_prompt_text
 
 llm_config = get_saved_llm_parameters()
 API_KEY = llm_config.get('key', '')
@@ -30,7 +31,7 @@ def main():
         resp = client.chat.completions.create(
             model=MODEL,
             messages=[
-                {"role": "system", "content": "You are a test assistant."},
+                {"role": "system", "content": load_prompt_text('test_llm', 'system.txt')},
                 {"role": "user", "content": "Long time no see! Can you briefly introduce yourself? "}
             ],
             temperature=0,

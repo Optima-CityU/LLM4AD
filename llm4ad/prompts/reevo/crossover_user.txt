@@ -1,0 +1,9 @@
+$task_prompt
+[Worse code]
+$worse_code
+[Better code]
+$better_code
+[Reflection]
+$short_term_reflection
+[Improved code]
+Please write an improved function `$func_name_v2`, according to the reflection. Output code only and enclose your code with Python code block: ```python ... ```.

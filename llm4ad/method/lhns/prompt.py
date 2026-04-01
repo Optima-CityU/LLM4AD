@@ -4,6 +4,7 @@ import copy
 from typing import List, Dict
 
 from ...base import *
+from ...prompts import load_prompt_text, render_prompt
 from .func_ruin import LHNSFunction, LHNSFunctionRuin
 
 class LHNSPrompt:
@@ -17,7 +18,7 @@ class LHNSPrompt:
 
     @classmethod
     def get_system_prompt(cls) -> str:
-        return ''
+        return load_prompt_text('lhns', 'system.txt')
 
     @classmethod
     def get_prompt_i1(cls, task_prompt: str, template_function: LHNSFunction):
@@ -25,12 +26,12 @@ class LHNSPrompt:
         temp_func = copy.deepcopy(template_function)
         temp_func.body = ''
         # create prompt content
-        prompt_content = f'''{task_prompt}
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}. 
-2. Next, implement the following Python function:
-{str(temp_func)}
-Import statements should be placed outside the function. Do not give additional explanations.'''
-        return prompt_content
+        return render_prompt(
+            'lhns',
+            'prompt_i1.txt',
+            task_prompt=task_prompt,
+            template_function=temp_func,
+        )
 
     @classmethod
     def get_prompt_merge(cls, task_prompt: str, indi: LHNSFunction, prev_indi: LHNSFunction, template_function: LHNSFunction):
@@ -46,15 +47,13 @@ Import statements should be placed outside the function. Do not give additional 
         indivs_prompt += f'No. A algorithm and the corresponding code are:\n{indi.algorithm}\n{str(indi)}'
         indivs_prompt += f'No. B algorithm is:\n{indi.algorithm}'
         # create prmpt content
-        prompt_content = f'''{task_prompt}
-I have algorithm A with its code, which inserts key lines from algorithm B's code, inserted just before the 'return' statement:
-{indivs_prompt}
-Please review the given code, integrating two algorithm descriptions provided to rearrange it to get a better result.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Import statements should be placed outside the function. Do not give additional explanations.'''
-        return prompt_content
+        return render_prompt(
+            'lhns',
+            'prompt_merge.txt',
+            task_prompt=task_prompt,
+            indivs_prompt=indivs_prompt,
+            template_function=temp_func,
+        )
 
     @classmethod
     def get_prompt_rr(cls, task_prompt: str, indi: LHNSFunction, cooling_rate: float, template_function: LHNSFunction):
@@ -65,18 +64,15 @@ Import statements should be placed outside the function. Do not give additional 
         temp_func.body = ''
 
         # create prmpt content
-        prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
-{indi.algorithm}
-Code:
-{str(indi)}
-{number_of_delete} lines have been removed from the provided code. 
-Please review the code, revise and explore more lines to improve the algorithm.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Import statements should be placed outside the function. Do not give additional explanations.'''
-        return prompt_content
+        return render_prompt(
+            'lhns',
+            'prompt_rr.txt',
+            task_prompt=task_prompt,
+            algorithm=indi.algorithm,
+            code=indi,
+            number_of_delete=number_of_delete,
+            template_function=temp_func,
+        )
 
     @classmethod
     def get_prompt_m(cls, task_prompt: str, indi: LHNSFunction, template_function: LHNSFunction):
@@ -85,14 +81,11 @@ Import statements should be placed outside the function. Do not give additional 
         temp_func = copy.deepcopy(template_function)
         temp_func.body = ''
         # create prmpt content
-        prompt_content = f'''{task_prompt}
-I have one algorithm with its code as follows. Algorithm description:
-{indi.algorithm}
-Code:
-{str(indi)}
-Please modify the provided algorithm to improve its performance, where you can determine the degree of modification needed.
-1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {{}}.
-2. Next, implement the following Python function:
-{str(temp_func)}
-Import statements should be placed outside the function. Do not give additional explanations.'''
-        return prompt_content
+        return render_prompt(
+            'lhns',
+            'prompt_m.txt',
+            task_prompt=task_prompt,
+            algorithm=indi.algorithm,
+            code=indi,
+            template_function=temp_func,
+        )
