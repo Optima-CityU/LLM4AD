@@ -1,0 +1,7 @@
+$task_prompt
+[Prior reflection]
+$long_term_reflection
+[Code]
+$elite_function
+[Improved code]
+Please write a mutated function `$func_name_v2`, according to the reflection. Output code only and enclose your code with Python code block: ```python ...```.

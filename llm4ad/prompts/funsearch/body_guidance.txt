@@ -1,0 +1,5 @@
+    # Write only the Python function body for this version.
+    # Do not repeat the function signature.
+    # Do not wrap the code in Markdown or backticks.
+    # Do not add explanations before or after the code.
+    # Ensure the body is valid Python and returns a result.

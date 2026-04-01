@@ -9,6 +9,10 @@ pytz
 pandas
 pymoo
 matplotlib
+langchain_ollama
+scikit-learn
+seaborn
+sympy
 ttkbootstrap
 codebleu
 tree-sitter-python==0.23

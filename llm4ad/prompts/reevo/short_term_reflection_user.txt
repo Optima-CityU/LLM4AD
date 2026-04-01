@@ -1,0 +1,7 @@
+Below are two $function_name functions for $task_prompt.
+You are provided with two code versions below, where the second version performs better than the first one.
+[Worse code]
+$worse_code
+[Better code]
+$better_code
+You respond with some hints for designing better heuristics, based on the two code versions and using less than 20 words.

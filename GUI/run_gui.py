@@ -41,6 +41,7 @@ import threading
 import ttkbootstrap as ttk
 import subprocess
 import yaml
+from config import DEFAULT_LLM_NAME, PROJECT_ROOT, ENV_LLM_KEY_MAP, get_saved_llm_parameters, save_env_file
 
 ##########################################################
 
@@ -66,8 +67,8 @@ problem_para_value_name_list = []
 
 llm_para_entry_list = []
 llm_para_value_name_list = ['name', 'host', 'key', 'model']
-llm_para_default_value_list = ['HttpsApi', '', '', '']
-llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini']
+llm_para_default_value_list = [DEFAULT_LLM_NAME, '', '', '']
+llm_para_placeholder_list = ['HttpsApi', 'https://api.openai.com/v1', 'sk-xxxxxxxxxxxxxxxx', 'gpt-4o-mini']
 
 default_method = 'eoh'
 default_problem = ['admissible_set', 'car_mountain', 'bactgrow']
@@ -80,12 +81,14 @@ canvas = None
 ##########################################################
 
 class PlaceholderEntry(ttk.Entry):
-    def __init__(self, master=None, placeholder="Enter text here", color='grey', bootstyle='default', width=30):
+    def __init__(self, master=None, placeholder="Enter text here", color='grey', bootstyle='default', width=30,
+                 show=None):
         super().__init__(master, bootstyle=bootstyle, width=width)
 
         self.placeholder = placeholder
         self.placeholder_color = color
         self.default_fg_color = self['foreground']
+        self.mask_char = show
 
         self.bind("<FocusIn>", self._clear_placeholder)
         self.bind("<FocusOut>", self._add_placeholder)
@@ -94,18 +97,29 @@ class PlaceholderEntry(ttk.Entry):
 
         self.have_content = False
 
+    def has_placeholder(self):
+        return self.get() == self.placeholder and str(self['foreground']) == str(self.placeholder_color)
+
     def _add_placeholder(self, event=None, force=False):
         self.have_content = True
         if not self.get() or force:
+            self.configure(show='')
             self.configure(foreground=self.placeholder_color)
             self.delete(0, 'end')
             self.insert(0, self.placeholder)
             self.have_content = False
 
     def _clear_placeholder(self, event=None):
-        if self.get() == self.placeholder and str(self['foreground']) == str(self.placeholder_color):
+        if self.has_placeholder():
             self.delete(0, "end")
             self.configure(foreground=self.default_fg_color)
+            self.configure(show=self.mask_char or '')
+
+    def set_masked(self, masked=True):
+        if self.has_placeholder():
+            self.configure(show='')
+        else:
+            self.configure(show=self.mask_char if masked and self.mask_char else '')
 
 class ScrollableFrame(ttk.Frame):
     """Frame with scrollbar"""
@@ -172,6 +186,39 @@ def open_folder():
             os.startfile(log_dir)
         elif os.name == 'posix':  # Unix-like
             subprocess.run(['open', log_dir])
+
+
+def fill_llm_entries_from_env():
+    saved_values = get_saved_llm_parameters()
+    has_saved_values = any(saved_values.values())
+
+    for entry, field_name in zip(llm_para_entry_list, llm_para_value_name_list):
+        saved_value = saved_values.get(field_name, '')
+        if not saved_value:
+            continue
+
+        entry.delete(0, 'end')
+        entry.configure(foreground=entry.default_fg_color)
+        entry.configure(show=entry.mask_char or '')
+        entry.insert(0, saved_value)
+        entry.have_content = True
+
+    return has_saved_values
+
+
+def save_llm_parameters_to_env():
+    env_updates = {}
+
+    for entry, field_name in zip(llm_para_entry_list, llm_para_value_name_list):
+        if field_name == 'name':
+            continue
+        if entry.has_placeholder():
+            value = ''
+        else:
+            value = entry.get().strip()
+        env_updates[ENV_LLM_KEY_MAP[field_name]] = value
+
+    save_env_file(env_updates)
 
 
 ##########################################################
@@ -339,6 +386,7 @@ def on_plot_button_click():
             tk.messagebox.showinfo("Warning", "Please configure the settings of LLM.")
             return
 
+        save_llm_parameters_to_env()
         llm_para, method_para, problem_para, profiler_para = return_para()
 
         init_fig(method_para['max_sample_nums'])
@@ -397,8 +445,7 @@ def return_para():
     temp_str1 = problem_para['name']
     temp_str2 = method_para['name']
     process_start_time = datetime.now(pytz.timezone("Asia/Shanghai"))
-    b = os.path.abspath('..')
-    log_folder = b + '/GUI/logs/' + process_start_time.strftime(
+    log_folder = PROJECT_ROOT + '/GUI/logs/' + process_start_time.strftime(
         "%Y%m%d_%H%M%S") + f'_{temp_str1}' + f'_{temp_str2}'
     profiler_para['log_dir'] = log_folder
 
@@ -673,13 +720,13 @@ if __name__ == '__main__':
     top_frame = ttk.Frame(root, height=30, bootstyle="info")
     top_frame.pack(fill='x')
     link_doc = ttk.Button(top_frame, image=photoimage_doc, command=open_doc_link, bootstyle="info")
-    link_doc.pack(side=ttk.LEFT, padx=3)
+    link_doc.pack(side=tk.LEFT, padx=3)
     link_git = ttk.Button(top_frame, image=photoimage_git, command=open_github_link, bootstyle="info")
-    link_git.pack(side=ttk.LEFT, padx=3)
+    link_git.pack(side=tk.LEFT, padx=3)
     link_web = ttk.Button(top_frame, image=photoimage_web, command=open_website_link, bootstyle="info")
-    link_web.pack(side=ttk.LEFT, padx=3)
+    link_web.pack(side=tk.LEFT, padx=3)
     link_qq = ttk.Button(top_frame, image=photoimage_qq, command=open_qq_link, bootstyle="info")
-    link_qq.pack(side=ttk.LEFT, padx=3)
+    link_qq.pack(side=tk.LEFT, padx=3)
 
     bottom_frame = ttk.Frame(root)
     bottom_frame.pack(fill='both', expand=True)
@@ -700,7 +747,16 @@ if __name__ == '__main__':
     llm_frame.pack(anchor=tk.NW, fill=tk.X, padx=5, pady=5)
 
     for i in range(len(llm_para_value_name_list)):
-        llm_para_entry_list.append(PlaceholderEntry(llm_frame, width=70, bootstyle="dark", placeholder=llm_para_placeholder_list[i]))
+        entry_show = '*' if llm_para_value_name_list[i] == 'key' else None
+        llm_para_entry_list.append(
+            PlaceholderEntry(
+                llm_frame,
+                width=70,
+                bootstyle="dark",
+                placeholder=llm_para_placeholder_list[i],
+                show=entry_show,
+            )
+        )
         if i != 0:
             ttk.Label(llm_frame, text=llm_para_value_name_list[i] + ':').grid(row=i - 1, column=0, sticky='ns', padx=5, pady=5)
             llm_para_entry_list[-1].grid(row=i - 1, column=1, sticky='ns', padx=5, pady=5)
@@ -710,15 +766,20 @@ if __name__ == '__main__':
     llm_frame.grid_columnconfigure(1, weight=1)
 
     with_default_parameter = False
-    if with_default_parameter:
+    loaded_from_env = fill_llm_entries_from_env()
+    if with_default_parameter and not loaded_from_env:
         for i in range(len(llm_para_value_name_list)):
             llm_para_entry_list[i].delete(0, 'end')
             llm_para_entry_list[i].configure(foreground=llm_para_entry_list[i].default_fg_color)
+            llm_para_entry_list[i].configure(show=llm_para_entry_list[i].mask_char or '')
             llm_para_entry_list[i].insert(0, str(llm_para_default_value_list[i]))
-    else:
+            llm_para_entry_list[i].have_content = True
+    elif not loaded_from_env:
         llm_para_entry_list[0].delete(0, 'end')
         llm_para_entry_list[0].configure(foreground=llm_para_entry_list[0].default_fg_color)
+        llm_para_entry_list[0].configure(show=llm_para_entry_list[0].mask_char or '')
         llm_para_entry_list[0].insert(0, str(llm_para_default_value_list[0]))
+        llm_para_entry_list[0].have_content = True
 
     ############
 

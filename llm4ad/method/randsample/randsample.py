@@ -34,6 +34,7 @@ from typing import Optional, Literal
 
 from .profiler import RandSampleProfiler
 from ...base import *
+from ...prompts import render_prompt
 
 
 class RandSample:
@@ -116,7 +117,15 @@ class RandSample:
         template.functions[0].name += '_v0'
         func_to_be_complete = copy.deepcopy(self._function_to_evolve)
         func_to_be_complete.name = self._function_to_evolve_name + '_v1'
-        func_to_be_complete.docstring = f'  """Improved version of \'{self._function_to_evolve_name}_v0\'."""'
+        func_to_be_complete.docstring = (
+            '  """' +
+            render_prompt(
+                'randsample',
+                'improved_docstring.txt',
+                function_name_v0=f'{self._function_to_evolve_name}_v0',
+            ) +
+            '"""'
+        )
         func_to_be_complete.body = ''
         return '\n'.join([str(template), str(func_to_be_complete)])
 

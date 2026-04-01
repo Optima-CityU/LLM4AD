@@ -19,30 +19,68 @@
 
 from __future__ import annotations
 
-import http.client
-import json
 import time
-from typing import Any
 import traceback
+from typing import Any
+
+import openai
+
 from ...base import LLM
 
 
 class HttpsApi(LLM):
-    def __init__(self, host, key, model, timeout=60, **kwargs):
+    def __init__(self, host, key, model, timeout=600, **kwargs):
         """Https API
         Args:
-            host   : host name. please note that the host name does not include 'https://'
+            host   : API base URL, e.g., 'https://api.openai.com/v1', 'https://api.deepseek.com/v1'
             key    : API key.
             model  : LLM model name.
             timeout: API timeout.
         """
         super().__init__(**kwargs)
-        self._host = host
         self._key = key
         self._model = model
         self._timeout = timeout
         self._kwargs = kwargs
         self._cumulative_error = 0
+        self._base_url = self._normalize_base_url(host)
+        self._client = openai.OpenAI(
+            api_key=self._key,
+            base_url=self._base_url,
+            timeout=self._timeout,
+            max_retries=0,
+        )
+
+    @staticmethod
+    def _normalize_base_url(base_url: str) -> str:
+        """Normalize the API base URL for OpenAI-compatible SDK clients."""
+        if not base_url.startswith(('http://', 'https://')):
+            base_url = 'https://' + base_url
+        return base_url.rstrip('/')
+
+    def _format_api_error(self, error: Exception) -> str:
+        if isinstance(error, openai.APITimeoutError):
+            return (
+                f'Request timed out after {self._timeout}s '
+                f'(base_url={self._base_url}, model={self._model}).'
+            )
+
+        if isinstance(error, openai.APIConnectionError):
+            return f'Connection error: {error}'
+
+        if isinstance(error, openai.APIStatusError):
+            status_code = getattr(error, 'status_code', 'unknown')
+            body = getattr(error, 'body', None)
+            if body is None and getattr(error, 'response', None) is not None:
+                try:
+                    body = error.response.text
+                except Exception:
+                    body = None
+            if body is not None:
+                return f'API returned status {status_code}: {body}'
+            return f'API returned status {status_code}: {error}'
+
+        return traceback.format_exc()
 
     def draw_sample(self, prompt: str | Any, *args, **kwargs) -> str:
         """
@@ -101,43 +139,30 @@ class HttpsApi(LLM):
         # Retry loop for handling network or API transient errors
         while True:
             try:
-                conn = http.client.HTTPSConnection(self._host, timeout=self._timeout)
-
-                # Prepare standard OpenAI-compatible payload
-                payload = json.dumps({
-                    'max_tokens': self._kwargs.get('max_tokens', 8192),
-                    'top_p': self._kwargs.get('top_p', None),
-                    'temperature': self._kwargs.get('temperature', 1.0),
-                    'model': self._model,
-                    'messages': messages
-                })
-                headers = {
-                    'Authorization': f'Bearer {self._key}',
-                    'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                    'Content-Type': 'application/json'
-                }
-                conn.request('POST', '/v1/chat/completions', payload, headers)
-                res = conn.getresponse()
-                data = res.read().decode('utf-8')
-                data = json.loads(data)
-
-                # Extract content from the standard response format
-                response = data['choices'][0]['message']['content']
+                response = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    max_tokens=self._kwargs.get('max_tokens', 8192),
+                    top_p=self._kwargs.get('top_p', None),
+                    temperature=self._kwargs.get('temperature', 1.0),
+                    stream=False,
+                )
                 # Reset error counter on success
                 if self.debug_mode:
                     self._cumulative_error = 0
-                return response
+                return response.choices[0].message.content
 
             except Exception as e:
                 self._cumulative_error += 1
+                error_message = self._format_api_error(e)
 
                 # In debug mode, crash after consecutive failures to allow debugging
                 if self.debug_mode:
                     if self._cumulative_error == 10:
-                        raise RuntimeError(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
+                        raise RuntimeError(f'{self.__class__.__name__} error: {error_message}.'
                                            f'You may check your API host and API key.')
                 else:
-                    print(f'{self.__class__.__name__} error: {traceback.format_exc()}.'
+                    print(f'{self.__class__.__name__} error: {error_message}.'
                           f'You may check your API host and API key.')
                     time.sleep(2)
                 continue

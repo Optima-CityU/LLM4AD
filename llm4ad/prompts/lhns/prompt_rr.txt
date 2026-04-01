@@ -1,0 +1,11 @@
+$task_prompt
+I have one algorithm with its code as follows. Algorithm description:
+$algorithm
+Code:
+$code
+$number_of_delete lines have been removed from the provided code.
+Please review the code, revise and explore more lines to improve the algorithm.
+1. First, describe your new algorithm and main steps in one sentence. The description must be inside within boxed {}.
+2. Next, implement the following Python function:
+$template_function
+Import statements should be placed outside the function. Do not give additional explanations.

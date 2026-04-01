@@ -1,0 +1,5 @@
+Below is your prior long-term reflection on designing heuristics for $task_prompt:
+$prior_long_term_reflection
+Below are some newly gained insights:
+$new_short_term_reflections
+Write constructive hints for designing better heuristics, based on prior reflections and new insights and using less than 50 words.
