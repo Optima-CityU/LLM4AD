@@ -127,7 +127,7 @@ def evaluate(program_str: str, data: dict, equation: callable) -> float | None:
 
 class ODEEvaluation(Evaluation):
 
-    def __init__(self, timeout_seconds=200000, test_id=1, **kwargs):
+    def __init__(self, timeout_seconds=60, test_id=1, **kwargs):
         """
         Args:
             timeout_seconds: evaluate time limit.

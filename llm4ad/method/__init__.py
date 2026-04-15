@@ -1,76 +1,42 @@
-from llm4ad.method import (
-    funsearch,
-    hillclimb,
-    randsample,
-    eoh,
-    meoh,
-    mles,
-    moead,
-    nsga2,
-    partevo,
-    llamea,
-    reevo
-)
-
-__all__ = ['funsearch', 'hillclimb', 'randsample', 'eoh', 'meoh', 'mles', 'moead', 'nsga2', 'partevo', 'llamea', 'reevo']
-# try to import reevo
-# try:
-#     from . import reevo
-# except ImportError:
-#     pass
-
 import os
-import inspect
 import importlib
+import inspect
 
+__all__ = []
+
+# Get the directory of the current package
+package_dir = os.path.dirname(__file__)
+
+# Iterate over all subdirectories in the package directory
+for subdir_name in os.listdir(package_dir):
+    subdir_path = os.path.join(package_dir, subdir_name)
+    
+    # Check if it is a directory and not a special directory like __pycache__
+    if os.path.isdir(subdir_path) and subdir_name != '__pycache__':
+        try:
+            # Import the submodule (e.g., llm4ad.method.eoh)
+            submodule = importlib.import_module(f'.{subdir_name}', package=__name__)
+            
+            # Iterate over the attributes of the submodule
+            for attr_name in dir(submodule):
+                attr = getattr(submodule, attr_name)
+                
+                # Check if the attribute is a class defined in that submodule
+                if inspect.isclass(attr) and attr.__module__.startswith(submodule.__name__):
+                    # Add the class to the package's globals
+                    globals()[attr_name] = attr
+                    # Add the class name to __all__ to be exported
+                    if attr_name not in __all__:
+                        __all__.append(attr_name)
+        except (ImportError, ModuleNotFoundError) as e:
+            # Optionally print a warning if a submodule cannot be imported
+            pass
 
 def import_all_method_classes_from_subfolders(root_directory: str):
-    """Dynamically imports all classes from Python files that share the same name as their parent folder.
-    Args:
-        root_directory: The root directory (e.g., 'method') to start the search.
     """
-    # Iterate through the subdirectories
-    for subdir in os.listdir(root_directory):
-        subdir_path = os.path.join(root_directory, subdir)
-        profiler_name = 'profiler'
-
-        # Check if it's a directory and contains a .py file with the same name
-        if os.path.isdir(subdir_path):
-            module_file = f'{subdir}.py'
-            profiler_file = f'{profiler_name}.py'
-            module_path = os.path.join(subdir_path, module_file)
-            profiler_path = os.path.join(subdir_path, profiler_file)
-
-            # import the method
-            if os.path.exists(module_path):
-                # Build the module name for importing (e.g., method.eoh.eoh)
-                module_name = f'{__name__}.{subdir}.{subdir}'
-
-                # Dynamically import the module
-                module = importlib.import_module(module_name)
-
-                # Import all classes from the module
-                for attribute_name in dir(module):
-                    attribute = getattr(module, attribute_name)
-                    if isinstance(attribute, type):  # Only import class objects
-                        # Use inspect to check if the class is defined in the current module
-                        if inspect.getmodule(attribute).__file__ == module.__file__:
-                            globals()[attribute_name] = attribute  # Add the class to the global namespace
-                            # print(f'Imported class {attribute_name} from {module_name}')
-
-            # import the profiler
-            if os.path.exists(profiler_path):
-                # Build the module name for importing (e.g., method.eoh.eoh)
-                module_name = f'{__name__}.{subdir}.{profiler_name}'
-
-                # Dynamically import the module
-                module = importlib.import_module(module_name)
-
-                # Import all classes from the module
-                for attribute_name in dir(module):
-                    attribute = getattr(module, attribute_name)
-                    if isinstance(attribute, type):  # Only import class objects
-                        # Use inspect to check if the class is defined in the current module
-                        if inspect.getmodule(attribute).__file__ == module.__file__:
-                            globals()[attribute_name] = attribute  # Add the class to the global namespace
-                            # print(f'Imported class {attribute_name} from {module_name}')
+    This function is kept for compatibility but the dynamic import
+    is now handled by the package's __init__.py.
+    """
+    # This function can be left empty or with a pass statement.
+    # The dynamic importing is now handled when the package is imported.
+    pass
