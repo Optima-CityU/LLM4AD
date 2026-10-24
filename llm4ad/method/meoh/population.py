@@ -116,22 +116,18 @@ class Population:
         for i in range(len(self._population)):
             f = self._population[i]
             if str(f) == str(func):
-                if func.score[0] > f.score[0]:
+                # Same program: keep the better-scored copy, and never register it a second time
+                if func.score[0] > f.score[0] or (func.score[0] == f.score[0] and func.score[1] > f.score[1]):
                     self._population[i] = func
-                    return True
-                if func.score[0] == f.score[0] and func.score[1] > f.score[1]:
-                    self._population[i] = func
-                    return True
+                return True
 
         for i in range(len(self._next_gen_pop)):
             f = self._next_gen_pop[i]
             if str(f) == str(func):
-                if func.score[0] > f.score[0]:
+                # Same program: keep the better-scored copy, and never register it a second time
+                if func.score[0] > f.score[0] or (func.score[0] == f.score[0] and func.score[1] > f.score[1]):
                     self._next_gen_pop[i] = func
-                    return True
-                if func.score[0] == f.score[0] and func.score[1] > f.score[1]:
-                    self._next_gen_pop[i] = func
-                    return True
+                return True
         return False
 
     def selection(self) -> Function:
