@@ -52,8 +52,10 @@ class MCTS:
         self.max_depth = 10
         self.epsilon = 1e-10
         self.discount_factor = 1  # constant as 1
-        self.q_min = 0
-        self.q_max = -10000
+        # Range of the node values Q (= score, higher is better) seen so far, used to normalize Q in the UCT score.
+        # Scores may have any sign and magnitude, so start from an empty range.
+        self.q_min = float('inf')
+        self.q_max = float('-inf')
         self.rank_list = []
 
         self.root = MCTSNode(algorithm=root_answer, code=root_answer, depth=0, obj=0, is_root=True)
@@ -81,7 +83,7 @@ class MCTS:
 
     def uct(self, node: MCTSNode, eval_remain):
         self.exploration_constant = (self.exploration_constant_0) * eval_remain
-        return (node.Q - self.q_min) / (self.q_max - self.q_min) + self.exploration_constant * math.sqrt(
+        return (node.Q - self.q_min) / max(self.q_max - self.q_min, self.epsilon) + self.exploration_constant * math.sqrt(
             math.log(node.parent.visits + 1) / node.visits
         )
 
