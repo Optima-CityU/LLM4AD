@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from collections import OrderedDict
 
 import numpy as np

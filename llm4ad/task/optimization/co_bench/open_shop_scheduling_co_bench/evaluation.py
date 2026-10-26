@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # References:
 #   - Sun, W., Feng, S., Li, S., & Yang, Y. Co-bench: Benchmarking language
 #       model agents in algorithm search for combinatorial optimization.
@@ -6,16 +7,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -75,7 +75,8 @@ class OSSEvaluationCB(Evaluation):
                     fitness = self.eval_func(j['n_jobs'], j['n_machines'], j['times'], j['machines'], result['start_times'], lower_bound=j['lower_bound'], upper_bound=j['upper_bound'])
                     fitness_list.append(fitness)
 
-            return -np.mean(fitness_list)
+            # Each fitness is lower_bound / makespan, so larger is better.
+            return np.mean(fitness_list)
 
         except ValueError as e:
             print(e)

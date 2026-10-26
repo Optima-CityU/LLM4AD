@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: BP2DEvaluation
 # Last Revision: 2025/2/16
 # Description: Evaluates constructive heuristic for 2-dimensional bin packing problem.
@@ -21,16 +22,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ class BP2DEvaluation(Evaluation):
         plt.tight_layout()
         plt.show()
 
-    def pack_items_2d(self, item_dimensions: List[Tuple[int, int]], bin_dimensions: Tuple[int, int], eva: Callable, n_bins: int) -> Tuple[int, List[List[Tuple[int, int]]]]:
+    def pack_items_2d(self, item_dimensions: List[Tuple[int, int]], bin_dimensions: Tuple[int, int], eva: Callable, n_bins: int) -> Tuple[int, List[List[Tuple[int, int]]]] | None:
         """
         Pack items into bins using a constructive heuristic for the 2D Bin Packing Problem.
         The bins are represented as a discrete point matrix to track feasible areas.
@@ -140,6 +140,7 @@ class BP2DEvaluation(Evaluation):
             A tuple containing:
             - The total number of bins used.
             - A list of bins, where each bin is a list of item dimensions.
+            Returns None if any item remains unpacked.
         """
         bins = [[] for _ in range(n_bins)]  # Initialize n_bins empty bins
         remaining_items = item_dimensions.copy()  # Copy of item dimensions to track remaining items
@@ -155,13 +156,9 @@ class BP2DEvaluation(Evaluation):
                 placed = False
                 for x in range(bin_dimensions[0] - selected_item[0] + 1):
                     for y in range(bin_dimensions[1] - selected_item[1] + 1):
-                        # Check the four edges of the item
-                        top_edge = all(point_matrices[selected_bin][x + dx][y] == 0 for dx in range(selected_item[0]))
-                        bottom_edge = all(point_matrices[selected_bin][x + dx][y + selected_item[1] - 1] == 0 for dx in range(selected_item[0]))
-                        left_edge = all(point_matrices[selected_bin][x][y + dy] == 0 for dy in range(selected_item[1]))
-                        right_edge = all(point_matrices[selected_bin][x + selected_item[0] - 1][y + dy] == 0 for dy in range(selected_item[1]))
-
-                        if top_edge and bottom_edge and left_edge and right_edge:
+                        # Every cell covered by the item must be unoccupied.
+                        if all(point_matrices[selected_bin][x + dx][y + dy] == 0
+                               for dx in range(selected_item[0]) for dy in range(selected_item[1])):
                             # Place the item at this position
                             for dx in range(selected_item[0]):
                                 for dy in range(selected_item[1]):
@@ -179,14 +176,8 @@ class BP2DEvaluation(Evaluation):
                         selected_bin = i
                         for x in range(bin_dimensions[0] - selected_item[0] + 1):
                             for y in range(bin_dimensions[1] - selected_item[1] + 1):
-                                # Check only the four corners of the item
-                                corners = [
-                                    (x, y),
-                                    (x + selected_item[0] - 1, y),
-                                    (x, y + selected_item[1] - 1),
-                                    (x + selected_item[0] - 1, y + selected_item[1] - 1)
-                                ]
-                                if all(point_matrices[selected_bin][cx][cy] == 0 for cx, cy in corners):
+                                if all(point_matrices[selected_bin][x + dx][y + dy] == 0
+                                       for dx in range(selected_item[0]) for dy in range(selected_item[1])):
                                     # Place the item at this position
                                     for dx in range(selected_item[0]):
                                         for dy in range(selected_item[1]):
@@ -197,8 +188,10 @@ class BP2DEvaluation(Evaluation):
                             if placed:
                                 break
             else:
-                # If no feasible bin is found, stop packing (no more bins available)
-                break
+                return None
+
+            if not placed:
+                return None  # Do not discard an item that could not be placed.
 
             # Remove the selected item from the remaining items
             remaining_items.remove(selected_item)
@@ -207,7 +200,7 @@ class BP2DEvaluation(Evaluation):
         used_bins = sum(1 for bin_content in bins if bin_content)
         return used_bins, bins
 
-    def evaluate_2d(self, eva: Callable) -> float:
+    def evaluate_2d(self, eva: Callable) -> float | None:
         """
         Evaluate the constructive heuristic for the 2D Bin Packing Problem.
 
@@ -221,7 +214,10 @@ class BP2DEvaluation(Evaluation):
 
         for instance in self._datasets[:self.n_instance]:
             item_dimensions, bin_dimensions = instance
-            num_bins, _ = self.pack_items_2d(item_dimensions, bin_dimensions, eva, self.n_bins)
+            solution = self.pack_items_2d(item_dimensions, bin_dimensions, eva, self.n_bins)
+            if solution is None:
+                return None
+            num_bins, _ = solution
             total_bins += num_bins
 
         average_bins = total_bins / self.n_instance

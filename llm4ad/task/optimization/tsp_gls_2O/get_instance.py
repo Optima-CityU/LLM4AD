@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import numpy as np
 import numpy.typing as npt
 from scipy.spatial import distance_matrix

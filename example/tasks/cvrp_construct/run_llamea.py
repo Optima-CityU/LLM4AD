@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import os
 
 # LLM backend – Gemini is used here, but the library supports OpenAI, Ollama and DeepSeek.

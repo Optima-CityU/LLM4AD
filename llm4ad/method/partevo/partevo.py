@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: PartEvo
 # Last Revision: 2026/3/8
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,25 +11,26 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_sample_attempt, _SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal, Union, Dict, Tuple
 
 from .profiler import PartEvoProfiler
@@ -159,6 +161,8 @@ class PartEvo:
                 print('Batch Init Prompt: ', self.messages_to_string(messages))
             self._sample_evaluate_register(prompt="", operator_name='init',
                                            messages=messages, from_which_cluster=None)
+        except (FatalSearchError, _SearchStopped):
+            raise
         except Exception:
             traceback.print_exc()
 
@@ -176,46 +180,47 @@ class PartEvo:
 
         operator = 'load'
         for seed_individual in seeds:
-            seed_str = seed_individual['function']
-            program = TextFunctionProgramConverter.function_to_program(seed_str, self._template_program)
-            program_str = str(program)
-            func = TextFunctionProgramConverter.text_to_function(program_str)
+            with _sample_attempt(self):
+                seed_str = seed_individual['function']
+                program = TextFunctionProgramConverter.function_to_program(seed_str, self._template_program)
+                program_str = str(program)
+                func = TextFunctionProgramConverter.text_to_function(program_str)
 
-            evaluation_return, eval_time = self._evaluation_executor.submit(
-                self._evaluator.evaluate_program_record_time,
-                program
-            ).result()
+                evaluation_return, eval_time = self._evaluation_executor.submit(
+                    self._evaluator.evaluate_program_record_time,
+                    program
+                ).result()
 
-            if evaluation_return is not None:
-                if isinstance(evaluation_return, (float, int)):
-                    func.score = float(evaluation_return)
+                if evaluation_return is not None:
+                    if isinstance(evaluation_return, (float, int)):
+                        func.score = float(evaluation_return)
+                    else:
+                        # register to profiler
+                        func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
+                        func.list_performance = evaluation_return.get('list_performance', None)
+                        func.score = evaluation_return.get('score', None)
                 else:
-                    # register to profiler
-                    func.all_ins_performance = evaluation_return.get('all_ins_performance', None)
-                    func.list_performance = evaluation_return.get('list_performance', None)
-                    func.score = evaluation_return.get('score', None)
-            else:
-                func.all_ins_performance = None
-                func.list_performance = None
-                func.score = None
-            func.parents = []
-            func.operator = operator
-            func.algorithm = seed_individual['algorithm']
-            func.evaluate_time = eval_time
-            func.sample_time = None
-            func.response = None
-            func.prompt = None
-            func.sample_num = self._tot_sample_nums + 1
+                    func.all_ins_performance = None
+                    func.list_performance = None
+                    func.score = None
+                func.parents = []
+                func.operator = operator
+                func.algorithm = seed_individual['algorithm']
+                func.evaluate_time = eval_time
+                func.sample_time = None
+                func.response = None
+                func.prompt = None
+                func.sample_num = self._tot_sample_nums + 1
 
-            # register to the population
-            self._pool.register_function(offspring=func, from_which_cluster=None)
+                # register to the population
+                self._pool.register_function(offspring=func, from_which_cluster=None)
 
-            if self._profiler is not None:
-                self._profiler.register_function(func)
-                if isinstance(self._profiler, PartEvoProfiler):
-                    self._profiler.register_population(self._pool)
-                self._tot_sample_nums += 1
+                if self._profiler is not None:
+                    self._profiler.register_function(func)
+                    if isinstance(self._profiler, PartEvoProfiler):
+                        self._profiler.register_population(self._pool)
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt, image_prompt=None, messages=None, operator_name="", parent_number=None,
                                   from_which_cluster=None, reflction=None):
         """
@@ -283,11 +288,10 @@ class PartEvo:
             self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, PartEvoProfiler):
                 self._profiler.register_population(self._pool)
-            self._tot_sample_nums += 1
 
     def _continue_loop(self) -> bool:
         """Check if termination conditions (max generations or max samples) have been met."""
-        if self._max_sample_nums is None:
+        if self._max_generations is None and self._max_sample_nums is None:
             return True
         elif self._max_generations is not None and self._max_sample_nums is None:
             return self._pool.generation < self._max_generations
@@ -305,7 +309,7 @@ class PartEvo:
 
         target_samples = kwargs.get('target_samples', float('inf'))
 
-        while self._continue_loop() and self._tot_sample_nums < target_samples:
+        while not _is_stopped(self) and (self._continue_loop() and self._tot_sample_nums < target_samples):
             try:
                 # Step 1: Parent Selection from Niche
                 parent_candidates, operator_name, working_cluster_id = self._pool.select_parent()
@@ -420,6 +424,8 @@ class PartEvo:
 
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -434,30 +440,32 @@ class PartEvo:
         init_mode = kwargs.get('init_mode', False)
         if init_mode:
             sampler_threads = [
-                Thread(target=fn, args=(tid, *args), kwargs=kwargs)
+                _SearchThread(owner=self, target=fn, args=(tid, *args), kwargs=kwargs)
                 for tid in range(self._num_init_samplers)
             ]
         else:
             sampler_threads = [
-                Thread(target=fn, args=(tid, *args), kwargs=kwargs)
+                _SearchThread(owner=self, target=fn, args=(tid, *args), kwargs=kwargs)
                 for tid in range(self._num_samplers)
             ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
     def init_using_llms(self):
         batch_num = 0
-        while len(
+        while not _is_stopped(self) and self._continue_loop() and (len(
                 self._pool.population) + len(
-            self._pool.next_pop) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max:  # 当被注册的个数还没有超过pop_size初始种群要求大小时
+            self._pool.next_pop) < self._pop_size and self._tot_sample_nums <= self._initial_sample_nums_max):  # Continue until the initial population or attempt limit is reached.
             batch_num += 1
             self._multi_threaded_sampling(self._extend_init_population, init_mode=True)
             print(f"Initialization of batch {batch_num} completed")
         print(
             f'pool generation is {self._pool.generation} now, got {len(self._pool.population)} different individual, use {self._tot_sample_nums}/{self._initial_sample_nums_max}')
 
+    @_managed_run
     def run(self):
         """
         Executes the full pipeline:
@@ -474,13 +482,15 @@ class PartEvo:
                 print("🌱 Initializing population by LLM...")
                 self.init_using_llms()
 
+        if not any(function.score is not None for function in self._pool.population + self._pool.next_pop):
+            print('PartEvo stopped: initialization produced no feasible parent.')
+            return
+
         # Phase 2: Evolutionary Search Loop
         print("🧬 Starting evolutionary training pipeline...")
         self._multi_threaded_sampling(self._partevo_multi_threaded_sampling)
 
         # Phase 3: Cleanup and Reporting
-        if self._profiler is not None:
-            self._profiler.finish()
 
     def using_flow(self, worst_case_percent=10, top_k=None):
         """
@@ -540,6 +550,8 @@ class PartEvo:
                 trained_data.sort(key=lambda x: x.get('score', float('-inf')), reverse=True)
                 trained_data = trained_data[:top_k]
                 print(f"   -> Reduced population from {original_size} to {len(trained_data)}.")
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 print(f"   -> ⚠️ Warning: Could not sort by 'score'. Using original order. Error: {e}")
 
@@ -582,6 +594,8 @@ class PartEvo:
                         best_score_for_instance = score
                         best_algo_for_instance = algo_json
                         best_perf_for_instance = score_images_dict.get('all_ins_performance', {})[instance_id]
+                except (FatalSearchError, _SearchStopped):
+                    raise
                 except Exception as e:
                     print(f"\n      -> ❌ Error evaluating algorithm on instance {instance_id}: {e}")
             print()

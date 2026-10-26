@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: PartEvo
 # Last Revision: 2026/3/8
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,16 +11,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -87,6 +87,8 @@ class PartEvoProfiler(ProfilerBase):
                 os.makedirs(self._using_dir, exist_ok=True)
 
     def register_population(self, pop: ClusterManager):
+        if not self._log_dir:
+            return
         try:
             self._pop_lock.acquire()
             if (self._num_samples == 0 or
@@ -127,7 +129,7 @@ class PartEvoProfiler(ProfilerBase):
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self._cur_gen += 1
+            self._cur_gen = pop.generation
 
         except Exception as e:
             print(f"Error occurred when register the population: {e}")

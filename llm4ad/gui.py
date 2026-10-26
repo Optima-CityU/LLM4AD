@@ -1,19 +1,19 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -120,7 +120,7 @@ def main_gui(llm: dict,
 if __name__ == '__main__':
     llm = {
         'name': 'HttpsApi',
-        'host': "api.bltcy.top",
+        'host': "api.openai.com",
         'key': "",
         'model': "gpt-4o-mini"
     }

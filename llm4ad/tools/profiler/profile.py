@@ -1,26 +1,25 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import os
-import re
 import sys
 from typing import Literal, Optional, List, Tuple
 
@@ -32,6 +31,20 @@ from threading import Lock
 from datetime import datetime
 
 from ...base import Function
+from ..reproducibility import redact
+from ..checkpoint import load_samples
+
+
+def _safe_parameters(value):
+    """Avoid arbitrary object representations when logging redacted parameters."""
+    value = redact(value)
+    if isinstance(value, dict):
+        return {key: _safe_parameters(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_safe_parameters(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return f'<{type(value).__name__}>'
 
 
 class ProfilerBase:
@@ -69,9 +82,10 @@ class ProfilerBase:
         self._tot_evaluate_time = 0
 
         self._parameters = None
-        self._logger_txt = logging.getLogger('root')
+        self._logger_txt = logging.getLogger(f'{__name__}.{id(self)}')
+        self._logger_txt.propagate = False
 
-        if create_random_path:
+        if create_random_path and log_dir is not None:
             self._log_dir = os.path.join(
                 log_dir,
                 self._result_folder
@@ -93,7 +107,7 @@ class ProfilerBase:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose(function, resume_mode=resume_mode)
+                self._record_and_print_verbose(function, program, resume_mode=resume_mode)
                 if not resume_mode:
                     self._write_json(function, program)
             finally:
@@ -102,17 +116,19 @@ class ProfilerBase:
             try:
                 self._register_function_lock.acquire()
                 self._num_samples += 1
-                self._record_and_print_verbose(function, resume_mode=resume_mode)
+                self._record_and_print_verbose(function, program, resume_mode=resume_mode)
                 if not resume_mode:
                     self._write_json(function, program)
             finally:
                 self._register_function_lock.release()
 
     def finish(self):
-        pass
+        for handler in self._logger_txt.handlers[:]:
+            handler.close()
+            self._logger_txt.removeHandler(handler)
 
     def get_logger(self):
-        pass
+        return self._logger_txt
 
     def resume(self, *args, **kwargs):
         pass
@@ -135,6 +151,7 @@ class ProfilerBase:
             'score': function.score,
             'operator': function.operator,
             'program': program,
+            'algorithm': function.algorithm,
         }
 
         if record_type == 'history':
@@ -171,7 +188,7 @@ class ProfilerBase:
                 self._cur_best_program_score = score
                 self._cur_best_program_sample_order = self._num_samples
                 if not resume_mode:
-                        self._write_json(function, record_type='best', program=program)
+                    self._write_json(function, record_type='best', program=program)
         else:
             if score is not None:
                 for i in range(self._num_objs):
@@ -180,22 +197,22 @@ class ProfilerBase:
                         self._cur_best_program_score[i] = score[i]
                         self._cur_best_program_sample_order[i] = self._num_samples
                         if not resume_mode:
-                                self._write_json(function, record_type='best', program=program)
+                            self._write_json(function, record_type='best', program=program)
 
         if not resume_mode:
             # log attributes of the function
             if self._log_style == 'complex':
-                print(f'================= Evaluated Function =================')
+                print('================= Evaluated Function =================')
                 print(f'{function_str}')
-                print(f'------------------------------------------------------')
+                print('------------------------------------------------------')
                 print(f'Operator     : {operator}')
                 print(f'Score        : {str(score)}')
                 print(f'Sample time  : {str(sample_time)}')
                 print(f'Evaluate time: {str(evaluate_time)}')
                 print(f'Sample orders: {str(self._num_samples)}')
-                print(f'------------------------------------------------------')
+                print('------------------------------------------------------')
                 print(f'Current best score: {self._cur_best_program_score}')
-                print(f'======================================================\n')
+                print('======================================================\n')
             else:
                 if score is None:
                     if self._num_objs < 2:
@@ -230,6 +247,8 @@ class ProfilerBase:
             self._tot_evaluate_time += evaluate_time
 
     def _create_log_path(self):
+        if not self._log_dir:
+            return
         self._samples_json_dir = os.path.join(self._log_dir, 'samples')
         os.makedirs(self._log_dir, exist_ok=True)
         os.makedirs(self._samples_json_dir, exist_ok=True)
@@ -244,7 +263,7 @@ class ProfilerBase:
             self._logger_txt.removeHandler(hdlr)
 
         # add handler
-        fileout = logging.FileHandler(file_name, mode=file_mode)
+        fileout = logging.FileHandler(file_name, mode=file_mode, encoding='utf-8')
         fileout.setLevel(logging.INFO)
         fileout.setFormatter(formatter)
         self._logger_txt.addHandler(fileout)
@@ -259,14 +278,16 @@ class ProfilerBase:
         self._logger_txt.info('LLM Parameters')
         self._logger_txt.info('--------------------------------------------------------------------')
         self._logger_txt.info(f'  - LLM: {llm.__class__.__name__}')
-        for attr, value in llm.__dict__.items():
-            if attr not in ['_functions']:
+        public_llm_fields = {'_host', '_path', '_model', '_timeout', '_kwargs',
+                             'do_auto_trim', 'debug_mode', 'model_metadata', 'path'}
+        for attr, value in _safe_parameters(llm.__dict__).items():
+            if attr in public_llm_fields:
                 self._logger_txt.info(f'  - {attr}: {value}')
         self._logger_txt.info('====================================================================')
         self._logger_txt.info('Problem Parameters')
         self._logger_txt.info('--------------------------------------------------------------------')
         self._logger_txt.info(f'  - Problem: {prob.__class__.__name__}')
-        for attr, value in prob.__dict__.items():
+        for attr, value in _safe_parameters(prob.__dict__).items():
             if attr not in ['template_program', '_datasets']:
                 self._logger_txt.info(f'  - {attr}: {value}')
 
@@ -274,7 +295,7 @@ class ProfilerBase:
         self._logger_txt.info('Method Parameters')
         self._logger_txt.info('--------------------------------------------------------------------')
         self._logger_txt.info(f'  - Method: {method.__class__.__name__}')
-        for attr, value in method.__dict__.items():
+        for attr, value in _safe_parameters(method.__dict__).items():
             if attr not in ['llm', '_evaluator', '_profiler', '_template_program_str', '_template_program',
                             '_function_to_evolve', '_population', '_sampler', '_task_description_str']:
                 self._logger_txt.info(f'  - {attr}: {value}')
@@ -283,45 +304,11 @@ class ProfilerBase:
 
     @classmethod
     def load_logfile(cls, logdir, valid_only=False) -> Tuple[List[str], List[float]]:
-        file_dir = os.path.join(logdir, 'samples')
-        # get all file directories
-        all_files = os.listdir(file_dir)
-        # filer `samples_*.json` files and ignore `samples_best.json`
-        sample_files = [f for f in all_files if f.startswith('samples_') and f != 'samples_best.json']
-
-        def extract_number(filename):
-            # match the first number of the filename
-            match = re.search(r'samples_(\d+)~', filename)
-            if match:
-                return int(match.group(1))
-            return 0
-
-        sorted_files = sorted(sample_files, key=extract_number)
-
-        all_func = []
-        all_score = []
-        all_algorithm = []
-
-        for file in sorted_files:
-            file_path = os.path.join(file_dir, file)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                try:
-                    samples = json.load(f)
-                except Exception as e:
-                    print(e)
-                    print(file_path)
-            for sample in samples:
-                func = sample['function']
-                acc = sample['score'] if sample['score'] else float('-inf')
-                if valid_only:
-                    if acc is None or np.isinf(acc):
-                        continue
-                    all_func.append(func)
-                    all_score.append(acc)
-                else:
-                    all_func.append(func)
-                    all_score.append(acc)
-                if 'algorithm' in sample:
-                    all_algorithm.append(sample['algorithm'])
-
-        return all_func, all_score
+        functions, scores = [], []
+        for sample in load_samples(logdir):
+            score = sample['score'] if sample['score'] is not None else float('-inf')
+            if valid_only and not np.all(np.isfinite(score)):
+                continue
+            functions.append(sample['function'])
+            scores.append(score)
+        return functions, scores

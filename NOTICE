@@ -1,0 +1,10 @@
+LLM4AD
+Copyright (c) 2026 Optima Group.
+
+The primary project license is BSD-2-Clause (see LICENSE).
+The bundled FunSearch programs database retains its Apache-2.0 license and
+Copyright 2023 DeepMind Technologies Limited notice. Its source header is retained.
+See LICENSES/Apache-2.0.txt and THIRD_PARTY_NOTICES.md.
+
+Academic citations and requests to contact the team for collaboration are
+voluntary requests, not additional conditions on the software license.

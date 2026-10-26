@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -26,7 +27,7 @@ def solve(m:int, n:int, cost_matrix:list, consumption_matrix:list, capacities:li
     return {'assignments': assignments}
 '''
 
-task_description = ("The Generalized Assignment Problem (GAP) involves assigning \( n \) jobs to \( m \) agents such "
+task_description = ("The Generalized Assignment Problem (GAP) involves assigning \\( n \\) jobs to \\( m \\) agents such "
                     "that each job is assigned to exactly one agent, and the resource consumption for each agent does "
                     "not exceed its capacity. The objective is to optimize the total cost based on the problem type. "
                     "When formulated as a maximization problem, the goal is to maximize the total cost; when "

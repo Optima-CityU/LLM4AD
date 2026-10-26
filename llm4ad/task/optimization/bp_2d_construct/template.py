@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 def determine_next_assignment(remaining_items: List[Tuple[int, int]], point_matrices: List[List[List[int]]]) -> Tuple[Tuple[int, int], int]:

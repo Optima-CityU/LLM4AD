@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+from __future__ import annotations
+
 import copy
 import pickle
 import random

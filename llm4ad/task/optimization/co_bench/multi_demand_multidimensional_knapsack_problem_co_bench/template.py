@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -48,9 +49,9 @@ def solve(n:int, m:int, q:int, A_leq:list, b_leq:list, A_geq:list, b_geq:list, c
 
 task_description = ("The Multi-Demand Multidimensional Knapsack Problem (MDMKP) is a binary optimization problem that "
                     "extends the classical MKP by incorporating both upper-bound (≤) and lower-bound (≥) constraints. "
-                    "Formally, given n decision variables x_j \in \{0,1\}, the goal is to maximize \sum_{j=1}^n c_j "
-                    "x_j subject to \sum_{j=1}^n a_{ij} x_j \le b_i for i=1,\dots,m and \sum_{j=1}^n a_{ij} x_j \ge "
-                    "b_i for i=m+1,\dots,m+q. Instances are generated from standard MKP problems by varying the "
+                    "Formally, given n decision variables x_j \\in \\{0,1\\}, the goal is to maximize \\sum_{j=1}^n c_j "
+                    "x_j subject to \\sum_{j=1}^n a_{ij} x_j \\le b_i for i=1,\\dots,m and \\sum_{j=1}^n a_{ij} x_j \\ge "
+                    "b_i for i=m+1,\\dots,m+q. Instances are generated from standard MKP problems by varying the "
                     "number of ≥ constraints (with q taking values 1, m/2, or m) and by using two types of cost "
                     "coefficients (positive and mixed), thereby producing six distinct variants per base instance. "
                     "This formulation enables rigorous evaluation of algorithms in contexts where both resource "

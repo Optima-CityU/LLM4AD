@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import json
@@ -36,6 +37,8 @@ class MEoHProfiler(ProfilerBase):
             os.makedirs(self._elitist_dir, exist_ok=True)
 
     def register_population(self, pop: Population):
+        if not self._log_dir:
+            return
         try:
             self._pop_lock.acquire()
             if (self._num_samples == 0 or
@@ -49,10 +52,11 @@ class MEoHProfiler(ProfilerBase):
                     if np.isinf(np.array(f.score)).any():
                         f_score = None
                     else:
-                        f_score = f_score.tolist()
+                        f_score = np.asarray(f_score).tolist()
                 f_json = {
                     'algorithm': f.algorithm,
                     'function': str(f),
+                    'program': getattr(f, 'entire_code', str(f)),
                     'score': f_score
                 }
                 funcs_json.append(f_json)
@@ -69,17 +73,18 @@ class MEoHProfiler(ProfilerBase):
                     if np.isinf(np.array(f.score)).any():
                         f_score = None
                     else:
-                        f_score = f_score.tolist()
+                        f_score = np.asarray(f_score).tolist()
                 f_json = {
                     'algorithm': f.algorithm,
                     'function': str(f),
+                    'program': getattr(f, 'entire_code', str(f)),
                     'score': f_score
                 }
                 funcs_json.append(f_json)
             path = os.path.join(self._elitist_dir, f'elitist_{pop.generation}.json')
             with open(path, 'w') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self._cur_gen += 1
+            self._cur_gen = pop.generation
         finally:
             if self._pop_lock.locked():
                 self._pop_lock.release()

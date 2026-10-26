@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: EoH
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,25 +11,26 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal
 
 from .population import Population
@@ -67,7 +69,7 @@ class EoH:
             profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
             max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
                               pass 'None' to disable this termination condition.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
                               pass 'None' to disable this termination condition.
             pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
             selection_num   : number of selected individuals while crossover.
@@ -120,7 +122,7 @@ class EoH:
 
         # reset _initial_sample_nums_max
         self._initial_sample_nums_max = min(
-            self._max_sample_nums,
+            self._max_sample_nums if self._max_sample_nums is not None else float('inf'),
             2 * self._pop_size
         )
 
@@ -141,19 +143,19 @@ class EoH:
 
     def _adjust_pop_size(self):
         # adjust population size
-        if self._max_sample_nums >= 10000:
+        if self._max_sample_nums is not None and self._max_sample_nums >= 10000:
             if self._pop_size is None:
                 self._pop_size = 40
             elif abs(self._pop_size - 40) > 20:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 40.')
-        elif self._max_sample_nums >= 1000:
+        elif self._max_sample_nums is not None and self._max_sample_nums >= 1000:
             if self._pop_size is None:
                 self._pop_size = 20
             elif abs(self._pop_size - 20) > 10:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 20.')
-        elif self._max_sample_nums >= 200:
+        elif self._max_sample_nums is not None and self._max_sample_nums >= 200:
             if self._pop_size is None:
                 self._pop_size = 10
             elif abs(self._pop_size - 10) > 5:
@@ -166,6 +168,7 @@ class EoH:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 5.')
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt):
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
@@ -195,7 +198,6 @@ class EoH:
             self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, EoHProfiler):
                 self._profiler.register_population(self._population)
-            self._tot_sample_nums += 1
 
         # register to the population
         self._population.register_function(func)
@@ -212,7 +214,7 @@ class EoH:
                     and self._tot_sample_nums < self._max_sample_nums)
 
     def _iteratively_use_eoh_operator(self):
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             try:
                 # get a new func using e1
                 indivs = [self._population.selection() for _ in range(self._selection_num)]
@@ -254,23 +256,19 @@ class EoH:
                         break
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
                     exit()
                 continue
 
-        # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
-            pass
-
     def _iteratively_init_population(self):
         """Let a thread repeat {sample -> evaluate -> register to population}
         to initialize a population.
         """
-        while self._population.generation == 0:
+        while not _is_stopped(self) and (self._population.generation == 0):
             try:
                 # get a new func using i1
                 prompt = EoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
@@ -281,6 +279,8 @@ class EoH:
                         f'Note: During initialization, EoH gets {len(self._population) + len(self._population._next_gen_pop)} algorithms '
                         f'after {self._initial_sample_nums_max} trails.')
                     break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -293,14 +293,16 @@ class EoH:
         """
         # threads for sampling
         sampler_threads = [
-            Thread(target=fn, args=args, kwargs=kwargs)
+            _SearchThread(owner=self, target=fn, args=args, kwargs=kwargs)
             for _ in range(self._num_samplers)
         ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # do initialization
@@ -316,9 +318,3 @@ class EoH:
 
         # evolutionary search
         self._multi_threaded_sampling(self._iteratively_use_eoh_operator)
-
-        # finish
-        if self._profiler is not None:
-            self._profiler.finish()
-
-        self._sampler.llm.close()

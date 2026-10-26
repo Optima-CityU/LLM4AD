@@ -6,10 +6,10 @@
 LLM4AD: Large Language Model for Algorithm Design
 </h1>
 
-[![Releases](https://img.shields.io/badge/Release-v1.0-blue)](https://github.com/Optima-CityU/LLM4AD/releases)
+[![Releases](https://img.shields.io/badge/Release-1.20.0-blue)](https://github.com/Optima-CityU/LLM4AD/releases)
 ![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg)
 [![PR's Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Optima-CityU/LLM4AD/pulls)
-![Python](https://img.shields.io/badge/Python-3.9+-blue)
+![Python](https://img.shields.io/badge/Python-3.9--3.13-blue)
 [![License](https://img.shields.io/badge/License-BSD-important)](https://github.com/Optima-CityU/LLM4AD/blob/main/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/llm4ad-doc/badge/?version=latest)](https://llm4ad-doc.readthedocs.io/en/latest/?badge=latest)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Optima-CityU/llm4ad/blob/main/example/online_bin_packing/online_bin_packing_tutorial.ipynb)
@@ -18,6 +18,8 @@ LLM4AD: Large Language Model for Algorithm Design
 | [Documentation](https://llm4ad-doc.readthedocs.io/en/latest/)
 | [Examples](https://github.com/Optima-CityU/LLM4AD/tree/main/example)
 | [GUI](https://github.com/Optima-CityU/LLM4AD/tree/main/GUI)
+| [Changelog](./CHANGELOG.md)
+| [Contributing](./CONTRIBUTING.md)
 
 </div>
 <br>
@@ -61,10 +63,10 @@ For more information, see the [contact list](https://github.com/Optima-CityU/LLM
 | ------------------------------------------------------------ | ------------------------- |
 | **Unified Interfaces** for methods, tasks, LLMs              | 🔥Support                  |
 | **Evaluation acceleration:** multiprocessing evaluation      | 🔥Support                  |
-| **Secure Evaluation:** main process protection, timeout interruption | 🔥Support                  |
+| **Process evaluation:** separate process and optional wall-clock timeout; see [security limits](./SECURITY.md) | 🔥Support                  |
 | **Logs:** local logs, Wandb and Tensorboard support          | 🔥Support                  |
 | **GUI:** methods selection, tasks selection, convergence, best algorithm, ... | 🔥Support                  |
-| **Resume run**                                               | 🔥Support                  |
+| **Checkpoint warm starts**                                  | [Method-dependent support and limits](./docs/reproducibility.md#checkpoint-warm-starts) |
 | Support other programming languages                          | 🚀Coming soon              |
 | More search methods                                          | 🚀Coming soon              |
 | More task examples                                           | 🚀Coming soon              |
@@ -72,9 +74,9 @@ For more information, see the [contact list](https://github.com/Optima-CityU/LLM
 ## 🎁 Requirements & Installation
 
 > [!Important]
-> The Python version **MUST** be larger or equal to Python 3.9, and less than Python 3.13.
+> The core supports Python 3.9 through 3.13. Optional features can have narrower dependency limits.
 
-The default installation keeps dependencies small and includes the GUI dependency. Optional packages are only needed when you use specific methods, tasks, loggers, or LLM backends.
+LLM4AD uses a small core installation. GUI, local-model, logging and specialized task dependencies are optional extras. The core targets Python 3.9–3.13; optional features have [separate compatibility limits](./docs/engineering.md).
 
 **Install from PyPI**
 
@@ -137,6 +139,28 @@ Use `llm4ad[extra-name]` when installing from PyPI, and `.[extra-name]` when ins
 | Local vLLM backend | Local: `pip install ".[local-vllm]"`<br>PyPI: `pip install "llm4ad[local-vllm]"`<br>`requests`, `psutil`, `torch`, `flask`, `flask-cors`, `transformers`, `vllm` |
 
 
+## Development quality and reproducibility
+
+This is version **1.20.0**. See
+[CHANGELOG](./CHANGELOG.md), [contributing](./CONTRIBUTING.md),
+and [execution limits](./SECURITY.md).
+
+```shell
+python -m unittest discover -s tests -v
+python -m pip install ".[test,docs]"
+python -m coverage run -m unittest discover -s tests
+python -m coverage combine
+python -m coverage json
+python -m sphinx -W -b html docs docs/_build/html
+```
+
+[API reference](./docs/api.rst), [developer guides](./docs/development.md),
+[record/replay and local open-weight example](./docs/reproducibility.md), and
+[task catalogue/counting rules](./docs/task_catalogue.md) are versioned with the code.
+Response replay supports deterministic serial evaluation; it does not guarantee
+identical new generations from a remote or local model. Process separation and
+timeouts are **not an adversarial-code sandbox**.
+
 ## 💻 Example Usage
 
 ### Quick Start:
@@ -186,7 +210,7 @@ Check [Documents](https://llm4ad-doc.readthedocs.io/en/latest/index.html) for mo
 ### GUI usage:
 
 > [!Important]
-> The GUI dependency is included in the default installation. If you run machine-learning tasks from the GUI, also install `pip install ".[machine-learning]"`.
+> Install GUI dependencies with `pip install ".[gui]"` from a source checkout. For machine-learning tasks, use `pip install ".[gui,machine-learning]"`. The launcher currently runs from the checkout, not from the wheel.
 
 ```shell
 $ cd GUI
@@ -262,11 +286,11 @@ A Step-by-step Tutorial on using LLM4AD to solve your algorithm design task is p
 
 Find responses to some common questions in our [Discussion Area](https://github.com/Optima-CityU/llm4ad/discussions)
 
-[常见问题答疑](https://github.com/Optima-CityU/LLM4AD/discussions/48)
+[Frequently asked questions](https://github.com/Optima-CityU/LLM4AD/discussions/48)
 
 ## 🪪 Licence
 
-This project is licensed under the **BSD-2-Clause** - see the [LICENSE](./LICENSE) file for details. Parts of this project use code licensed under the Apache License 2.0.
+The primary project license is **BSD-2-Clause**; see [LICENSE](./LICENSE). The bundled DeepMind FunSearch database retains **Apache-2.0**; see [NOTICE](./NOTICE) and [third-party notices](./THIRD_PARTY_NOTICES.md). Academic citation and contacting the team for commercial collaboration are voluntary, not license conditions.
 
 ## ✨ Reference
 
@@ -289,10 +313,9 @@ If you find LLM4AD helpful please cite:
 This platform is developed and maintained by LLM4AD developer group from the City University of Hong Kong (CityUHK) and the Southern University of Science and Technology (SUSTech). We develop LLM4AD platform for research purposes and hope
 to contribute to the research area by delivering tools for LLM-based algorithm design methods.
 
-+ **Contribution:** We are more than welcome to contribute (see our 📖 [contribution guide](https://github.com/Optima-CityU/llm4ad/tree/main/assets/contribution.md)) including developing code and ideas to improve our platform.
-+ **Collaborations:** If you like our platform, and you would like to use it for profit-making purposes? We are always searching for industrial collaborations because they help direct research to meet the industry’s needs.
++ **Contribution:** We are more than welcome to contribute (see our 📖 [contribution guide](./CONTRIBUTING.md)) including developing code and ideas to improve our platform.
 + **Issue:** If you find a bug or you have any kind of concern regarding the correctness, please report us an [issue](https://github.com/Optima-CityU/llm4ad/issues).
-+ **Profit Purpose:** If you intend to use LLM4AD for any profit-making purposes, please contact [us](http://www.llm4ad.com/contact.html).
++ **Commercial collaboration:** Contacting [us](http://www.llm4ad.com/contact.html) is welcome and entirely optional; commercial use does not require permission or contact under the license.
 
 ## :star: Star Trends
 
@@ -320,7 +343,7 @@ If you are interested in LLM4AD or if you encounter any difficulty using the pla
 
 Any new ideas, features, and improvements are welcomed!
 
-You can contribute to LLM4AD follow our 📖 [Contribution Guide](https://github.com/Optima-CityU/llm4ad/tree/main/assets/contribution.md).
+You can contribute to LLM4AD follow our 📖 [Contribution Guide](./CONTRIBUTING.md).
 
 Thank you for contributing to LLM4AD and welcome to being part of the LLM4AD community! :sparkles:
 

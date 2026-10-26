@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: SCPEvaluation
 # Last Revision: 2025/2/16
 # Description: Evaluates the Set Covering Problem (SCP).
@@ -19,16 +20,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ class SCPEvaluation(Evaluation):
         plt.tight_layout()
         plt.show()
 
-    def cover_subsets(self, universal_set: List[int], subsets: List[List[int]], eva: Callable) -> Tuple[int, List[List[int]]]:
+    def cover_subsets(self, universal_set: List[int], subsets: List[List[int]], eva: Callable) -> Tuple[int, List[List[int]]] | None:
         """
         Select subsets to cover the universal set using a constructive heuristic.
 
@@ -143,9 +143,11 @@ class SCPEvaluation(Evaluation):
             A tuple containing:
             - The total number of subsets used.
             - A list of selected subsets.
+            Returns None if the heuristic stops before covering every coverable element.
         """
         selected_subsets = []  # List to store the selected subsets
-        remaining_elements = set(universal_set)  # Set to track uncovered elements
+        # Generated instances may contain elements that no subset covers; only coverable elements are required.
+        remaining_elements = set(universal_set) & set().union(*subsets)  # Set to track uncovered elements
         remaining_subsets = subsets.copy()  # Copy of subsets to track remaining subsets
 
         while remaining_elements:
@@ -153,7 +155,7 @@ class SCPEvaluation(Evaluation):
             selected_subset = eva(selected_subsets, remaining_subsets, list(remaining_elements))
 
             if selected_subset is None:
-                break  # No more subsets to select
+                return None  # Uncovered elements make this solution incomplete.
 
             # Add the selected subset to the list of selected subsets
             selected_subsets.append(selected_subset)
@@ -166,7 +168,7 @@ class SCPEvaluation(Evaluation):
         used_subsets = len(selected_subsets)
         return used_subsets, selected_subsets
 
-    def evaluate(self, eva: Callable) -> float:
+    def evaluate(self, eva: Callable) -> float | None:
         """
         Evaluate the constructive heuristic for the Set Covering Problem.
 
@@ -182,7 +184,10 @@ class SCPEvaluation(Evaluation):
 
         for instance in self._datasets[:self.n_instance]:
             universal_set, subsets = instance
-            num_subsets, _ = self.cover_subsets(universal_set, subsets, eva)
+            solution = self.cover_subsets(universal_set, subsets, eva)
+            if solution is None:
+                return None
+            num_subsets, _ = solution
             total_subsets += num_subsets
 
         average_subsets = total_subsets / self.n_instance

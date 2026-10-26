@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: MLES
 # Last Revision: 2026/2/9
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,16 +11,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -586,30 +586,17 @@ class MoonLanderEvaluation(Evaluation):
         plt.close(fig)
 
     def show_clustered_features(self, json_file_path: str, data_source: str, cluster_key: str):
-        """
-        (Advanced) Visualizes clustered behavioral features based on JSON data.
+        """Visualize instance features with colors assigned from JSON cluster data.
 
-        根据 JSON 文件中的聚类/来源分配，可视化实例特征并为每个聚类/来源指定不同颜色。
-        这是一个高度灵活的函数，具有两个独立的控制开关：
-        1. 画图用的数据 (data_source)
-        2. 读的JSON参数 (cluster_key)
+        The data source and JSON cluster-assignment key are selected independently.
 
-        参数:
-            json_file_path (str):
-                JSON 文件的路径。
-                (例如: './log_dir/final_output.json' 或 './log_dir/using_final_results.json')
-
-            data_source (str):
-                指定要绘制哪组实例的特征 (数据源)。
-                - 'training': 使用 self.instance_feature
-                - 'testing':  使用 self.to_be_solve_ins_feature
-
-            cluster_key (str):
-                指定从 JSON 中读取哪个键来分配颜色 (聚类/来源)。
-                - 'cluster_id_instances' (通常来自训练JSON)
-                - 'apply_cluster_of_each_instance' (通常来自使用JSON)
-                - 'match_cluster_of_each_instance' (通常来自使用JSON)
-        """
+        Args:
+            json_file_path: Path to final_output.json or using_final_results.json.
+            data_source: 'training' selects self.instance_feature; 'testing' selects
+                self.to_be_solve_ins_feature.
+            cluster_key: JSON assignment key: 'cluster_id_instances' for training,
+                or 'apply_cluster_of_each_instance' / 'match_cluster_of_each_instance'
+                for evaluation results."""
         import json
         import warnings
         from matplotlib.lines import Line2D
@@ -766,21 +753,15 @@ class MoonLanderEvaluation(Evaluation):
         plt.close(fig)
 
     def filter_custom_instances_by_x(self, instance_input: list | dict, threshold: float = 4.5) -> tuple[list, list]:
-        """
-        (Advanced) Custom filter logic.
-        输入任意列表或字典，现场生成特征，并将实例分为两拨：
-        1. 满足条件（X 越界）
-        2. 不满足条件（X 正常）
+        """Generate features and split instances by their horizontal position.
 
-        参数:
-            instance_input: List[int] (Seeds) 或 Dict{id: seed}
-            threshold (float): X 坐标的阈值，默认 4.5。
+        Args:
+            instance_input: List of seeds or a dictionary mapping instance IDs to seeds.
+            threshold: Absolute horizontal-position threshold; defaults to 4.5.
 
-        返回:
-            tuple: (satisfied_ids, not_satisfied_ids)
-                   - satisfied_ids: X < -threshold 或 X > threshold 的实例
-                   - not_satisfied_ids: X 在 [-threshold, threshold] 之间的实例
-        """
+        Returns:
+            (satisfied_ids, not_satisfied_ids). The first group has X outside
+            [-threshold, threshold]; the second group lies within that interval."""
         target_dict = {}
 
         if isinstance(instance_input, list):

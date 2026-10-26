@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import sys
 
 sys.path.append('../../')  # This is for finding all the modules
