@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: MEoH
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,26 +11,27 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import sys
 import time
 import traceback
-from threading import Thread
 import numpy as np
 
 from .population import Population
@@ -69,7 +71,7 @@ class MEoH:
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.meoh.MEoHProfiler'. If you do not want to use it, you can pass a 'None'.
             max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums'.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations'.
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
             pop_size        : population size.
             selection_num   : number of selected individuals while crossover.
             use_e2_operator : if use e2 operator.
@@ -129,6 +131,7 @@ class MEoH:
                 max_workers=num_evaluators
             )
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt):
         """Sample a function using the given prompt -> evaluate it by submitting to the process/thread pool ->
         add the function to the population and register it to the profiler.
@@ -160,7 +163,8 @@ class MEoH:
                 self._profiler.register_function(func, program=str(program))
                 if isinstance(self._profiler, MEoHProfiler):
                     self._profiler.register_population(self._population)
-                self._tot_sample_nums += 1
+        except (FatalSearchError, _SearchStopped):
+            raise
         except Exception as e:
             # print(f"error in registering function to profiler: {e}")
             traceback.print_exc()
@@ -193,7 +197,7 @@ class MEoH:
             return continue_until_reach_gen and continue_until_reach_sample
 
     def _thread_do_evolutionary_operator(self):
-        while self._continue_sample():
+        while not _is_stopped(self) and (self._continue_sample()):
             try:
                 # get a new func using e1
                 indivs = [self._population.selection() for _ in range(self._selection_num)]
@@ -247,6 +251,8 @@ class MEoH:
                         break
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -254,22 +260,21 @@ class MEoH:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
     def _thread_init_population(self):
         """Let a thread repeat {sample -> evaluate -> register to population}
         to initialize a population.
         """
-        while self._population.generation == 0:
+        while not _is_stopped(self) and (self._population.generation == 0):
             if not self._continue_sample():
                 break
             try:
                 # get a new func using i1
                 prompt = MEoHPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
                 self._sample_evaluate_register(prompt)
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -279,7 +284,7 @@ class MEoH:
     def _init_population(self):
         # threads for sampling
         sampler_threads = [
-            Thread(
+            _SearchThread(owner=self,
                 target=self._thread_init_population,
             ) for _ in range(self._num_samplers)
         ]
@@ -287,10 +292,11 @@ class MEoH:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
     def _do_sample(self):
         sampler_threads = [
-            Thread(
+            _SearchThread(owner=self,
                 target=self._thread_do_evolutionary_operator,
             ) for _ in range(self._num_samplers)
         ]
@@ -298,20 +304,16 @@ class MEoH:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # do init
             self._population = Population(pop_size=self._pop_size)
             self._init_population()
-            while len([f for f in self._population if not np.isinf(np.array(f.score)).any()]) < self._selection_num:
+            while not _is_stopped(self) and self._continue_sample() and (len([f for f in self._population if not np.isinf(np.array(f.score)).any()]) < self._selection_num):
                 self._population._generation -= 1
                 self._init_population()
         # do evolve
         self._do_sample()
-
-        # finish
-        if self._profiler is not None:
-            self._profiler.finish()
-
-        self._sampler.llm.close()

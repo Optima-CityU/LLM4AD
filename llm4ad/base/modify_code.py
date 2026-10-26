@@ -1,19 +1,19 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ class ModifyCode:
             # check if 'import package_name' code exists
             package_imported = False
             for node in tree.body:
-                if isinstance(node, ast.Import) and any(alias.name == package_name for alias in node.names):
+                if isinstance(node, ast.Import) and any(alias.name == package_name and alias.asname == as_name for alias in node.names):
                     package_imported = True
                     break
 
@@ -107,12 +107,18 @@ class ModifyCode:
 
         # add 'import package_name' to the top of the program
         import_node = ast.Import(names=[ast.alias(name=package_name, asname=as_name)])
-        tree.body.insert(0, import_node)
+        insertion_index = 0
+        if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant) and isinstance(tree.body[0].value.value, str):
+            insertion_index = 1
+        while insertion_index < len(tree.body) and isinstance(tree.body[insertion_index], ast.ImportFrom) and tree.body[insertion_index].module == '__future__':
+            insertion_index += 1
+        tree.body.insert(insertion_index, import_node)
         program = ast.unparse(tree)
         return program
 
     @classmethod
     def add_numpy_random_seed_to_func(cls, program: str, func_name: str, seed: int = 2024) -> str:
+        program = cls.add_import_package_statement(program, 'numpy', 'np')
         tree = ast.parse(program)
 
         for node in tree.body:

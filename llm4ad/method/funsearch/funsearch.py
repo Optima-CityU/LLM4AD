@@ -1,33 +1,35 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: FunSearch
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 #
 # Reference:
-#   - Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M. Pawan Kumar, Emilien Dupont, Francisco JR Ruiz et al. 
-#       "Mathematical discoveries from program search with large language models." 
+#   - Bernardino Romera-Paredes, Mohammadamin Barekatain, Alexander Novikov, Matej Balog, M. Pawan Kumar, Emilien Dupont, Francisco JR Ruiz et al.
+#       "Mathematical discoveries from program search with large language models."
 #       Nature 625, no. 7995 (2024): 468-475.
-# 
+#
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
-# 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
-# 
-# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
-# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+#
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
-# 
-# For inquiries regarding commercial use or licensing, please contact 
+#
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _draw_sample_batch, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import time
-from threading import Thread
 import traceback
 from typing import Optional, Literal
 
@@ -57,7 +59,7 @@ class FunSearch:
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.funsearch.FunSearchProfiler'. If you do not want to use it, you can pass a 'None'.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not).
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
             num_samplers    : number of independent Samplers in the experiment.
             num_evaluators  : number of independent program Evaluators in the experiment.
             resume_mode     : in resume_mode, funsearch will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
@@ -111,7 +113,7 @@ class FunSearch:
 
         # threads for sampling
         self._sampler_threads = [
-            Thread(target=self._sample_evaluate_register) for _ in range(self._num_samplers)
+            _SearchThread(owner=self, target=self._sample_evaluate_register) for _ in range(self._num_samplers)
         ]
 
         # pass parameters to profiler
@@ -119,7 +121,7 @@ class FunSearch:
             self._profiler.record_parameters(llm, evaluation, self)  # ZL: necessary
 
     def _sample_evaluate_register(self):
-        while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
+        while not _is_stopped(self) and ((self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums)):
             try:
                 # get prompt
                 prompt = self._database.get_prompt()
@@ -127,7 +129,7 @@ class FunSearch:
 
                 # do sample
                 draw_sample_start = time.time()
-                sampled_funcs = self._sampler.draw_samples(prompt_contents)
+                sampled_funcs = _draw_sample_batch(self, prompt_contents)
                 draw_sample_times = time.time() - draw_sample_start
                 avg_time_for_each_sample = draw_sample_times / len(sampled_funcs)
 
@@ -152,7 +154,6 @@ class FunSearch:
                 island_id = prompt.island_id
                 for program, score, eval_time in zip(programs_to_be_eval, scores, times):
                     # update
-                    self._tot_sample_nums += 1
                     # convert to Function instance
                     function = TextFunctionProgramConverter.program_to_function(program)
                     # check if the function has converted to Function instance successfully
@@ -175,6 +176,8 @@ class FunSearch:
                             self._profiler.register_program_db(self._database)
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -182,11 +185,9 @@ class FunSearch:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # evaluate the template program, make sure the score of which is not 'None'
@@ -208,8 +209,4 @@ class FunSearch:
         # join all threads to the main thread
         for t in self._sampler_threads:
             t.join()
-
-        if self._profiler is not None:
-            self._profiler.finish()
-
-        self._sampler.llm.close()
+        _raise_worker_error(self)

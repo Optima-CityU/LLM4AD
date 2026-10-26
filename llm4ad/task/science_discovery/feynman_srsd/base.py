@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import warnings
 
 import numpy as np

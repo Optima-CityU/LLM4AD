@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import json
@@ -38,6 +39,8 @@ class EoHProfiler(ProfilerBase):
             os.makedirs(self._ckpt_dir, exist_ok=True)
 
     def register_population(self, pop: Population):
+        if not self._log_dir:
+            return
         try:
             self._pop_lock.acquire()
             if (self._num_samples == 0 or
@@ -53,9 +56,9 @@ class EoHProfiler(ProfilerBase):
                 }
                 funcs_json.append(f_json)
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
-            with open(path, 'w') as json_file:
+            with open(path, 'w', encoding='utf-8') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
-            self._cur_gen += 1
+            self._cur_gen = pop.generation
         finally:
             if self._pop_lock.locked():
                 self._pop_lock.release()
@@ -91,14 +94,14 @@ class EoHProfiler(ProfilerBase):
         path = os.path.join(self._samples_json_dir, filename)
 
         try:
-            with open(path, 'r') as json_file:
+            with open(path, 'r', encoding='utf-8') as json_file:
                 data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             data = []
 
         data.append(content)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 from ...tools.llm.llm_api_https import HttpsApi

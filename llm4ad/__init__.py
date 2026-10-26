@@ -1,4 +1,5 @@
-__version__ = '1.0.0'
+# SPDX-License-Identifier: BSD-2-Clause
+from ._version import __version__
 
 import importlib
 

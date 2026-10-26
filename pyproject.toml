@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: BSD-2-Clause
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.coverage.run]
+branch = true
+source = ["llm4ad"]
+parallel = true
+relative_files = true
+# Only literal observation tables are excluded, not evaluators or methods.
+omit = [
+  "llm4ad/task/science_discovery/*/train.py",
+  "llm4ad/task/science_discovery/*/test_id.py",
+  "llm4ad/task/science_discovery/*/test_odd.py",
+  "llm4ad/task/science_discovery/ode_1d/strogatz_extended.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.coverage.json]
+output = "reports/coverage.json"
+
+[tool.coverage.html]
+directory = "reports/coverage-html"

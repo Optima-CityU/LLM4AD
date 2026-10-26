@@ -1,0 +1,60 @@
+name: Tests, packages and documentation
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      MPLBACKEND: Agg
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install ".[test]"
+      - run: python -m coverage run -m unittest discover -s tests -v
+      - run: python -m coverage combine
+      - run: python -m coverage json
+      - run: python -m coverage html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.python }}
+          path: reports/
+  optional-and-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install ".[test,docs,benchmark,funsearch,multi-objective,meoh,science-discovery,gui]"
+      # PartEvo contract fixtures use objective features, without model downloads.
+      - run: python -m pip install scikit-learn seaborn
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/build_task_catalogue.py --check
+      - run: python scripts/build_api_reference.py --check
+      - run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python scripts/check_distribution.py dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-and-packages
+          path: |
+            docs/_build/html
+            dist

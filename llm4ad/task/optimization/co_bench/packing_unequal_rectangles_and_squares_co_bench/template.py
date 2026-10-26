@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -45,7 +46,7 @@ task_description = ("We are given a set of n unequal rectangles (or squares), ea
                     "continuous center coordinates—so that every packed rectangle is entirely contained within the "
                     "circle and no two packed rectangles overlap. For each rectangle, the four corners must lie "
                     "inside the circle, and if an item is not packed it is forced to a dummy position. The objective "
-                    "is to maximize the number of packed items, i.e., maximize \sum_{i=1}^{n} alpha_i (or a related "
+                    "is to maximize the number of packed items, i.e., maximize \\sum_{i=1}^{n} alpha_i (or a related "
                     "sum when each alpha_i is binary). Note that the rotation of the rectagular (by 90 degrees) is "
                     "sometimes allowed and your algorithm should take that into account."
                     "Help me design a novel algorithm to solve this problem.")

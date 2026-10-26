@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import numpy as np
 
 def default_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):

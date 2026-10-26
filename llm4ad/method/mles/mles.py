@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: MLES
 # Last Revision: 2026/2/9
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,25 +11,26 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal
 
 from .population import Population
@@ -72,7 +74,7 @@ class MLES:
             profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
             max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
                               pass 'None' to disable this termination condition.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
                               pass 'None' to disable this termination condition.
             pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
             selection_num   : number of selected individuals while crossover.
@@ -199,6 +201,7 @@ class MLES:
                 if isinstance(self._profiler, MLESProfiler):
                     self._profiler.register_population(self._population)
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt, image_prompt=None, messages=None, operator_name="", parent_number=None):
         """
         Execute the full evolutionary cycle for a single candidate:
@@ -247,7 +250,6 @@ class MLES:
             self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, MLESProfiler):
                 self._profiler.register_population(self._population)
-            self._tot_sample_nums += 1
 
     def _continue_loop(self) -> bool:
         """Check if termination conditions (max generations or max samples) have been met."""
@@ -271,7 +273,7 @@ class MLES:
         for _ in range(tid):
             _ = next(operator_cycle)
 
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             try:
                 # get current operator
                 operator = next(operator_cycle)
@@ -518,6 +520,8 @@ class MLES:
 
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -525,9 +529,6 @@ class MLES:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
     def _iteratively_init_population(self, tid=0):
@@ -536,7 +537,7 @@ class MLES:
         This loop continues until the population reaches the required size or
         the maximum initialization sample limit is exceeded.
         """
-        while self._population.generation == 0:
+        while not _is_stopped(self) and (self._population.generation == 0):
             try:
                 # Generate a 'zero-shot' initialization prompt for the task
                 prompt = MLESPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
@@ -550,6 +551,8 @@ class MLES:
                 if self._tot_sample_nums > self._initial_sample_nums_max:
                     print(f'Warning: Initialization not accomplished in {self._initial_sample_nums_max} samples !!!')
                     break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -563,14 +566,16 @@ class MLES:
         """
         # threads for sampling
         sampler_threads = [
-            Thread(target=fn, args=(tid, *args), kwargs=kwargs)
+            _SearchThread(owner=self, target=fn, args=(tid, *args), kwargs=kwargs)
             for tid in range(self._num_samplers)
         ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
+    @_managed_run
     def run(self):
         """
         Entry point for the MLES search process:
@@ -599,8 +604,6 @@ class MLES:
         self._multi_threaded_sampling(self._iteratively_use_mles_operator)
 
         # Phase 3: Cleanup and Reporting
-        if self._profiler is not None:
-            self._profiler.finish()
 
     def using_flow(self, worst_case_percent=10, top_k=None):
         """
@@ -646,7 +649,7 @@ class MLES:
         full_path_to_file = os.path.join(designed_results_path, latest_file)
         print(f"Found latest file: {full_path_to_file}")
 
-        with open(full_path_to_file, 'r') as f:
+        with open(full_path_to_file, 'r', encoding='utf-8') as f:
             trained_data = json.load(f)
 
         # --- STEP 2: Top-K Filtering ---
@@ -660,6 +663,8 @@ class MLES:
                 trained_data.sort(key=lambda x: x.get('score', float('-inf')), reverse=True)
                 trained_data = trained_data[:top_k]
                 print(f"   -> Reduced population from {original_size} to {len(trained_data)}.")
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 print(f"   -> ⚠️ Warning: Could not sort by 'score'. Using original order. Error: {e}")
 
@@ -701,6 +706,8 @@ class MLES:
                         best_score_for_instance = score
                         best_algo_for_instance = algo_json
                         best_perf_for_instance = score_images_dict.get('all_ins_performance', {})[instance_id]
+                except (FatalSearchError, _SearchStopped):
+                    raise
                 except Exception as e:
                     print(f"\n      -> ❌ Error evaluating algorithm on instance {instance_id}: {e}")
             print()

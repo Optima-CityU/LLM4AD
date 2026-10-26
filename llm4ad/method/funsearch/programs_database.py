@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# LLM4AD integration modifications; original notices retained below.
 # Copyright 2023 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 def select_next_subset(selected_subsets: List[List[int]], remaining_subsets: List[List[int]], remaining_elements: List[int]) -> List[int] | None:

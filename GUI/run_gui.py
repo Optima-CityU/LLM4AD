@@ -1,19 +1,19 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/12/05
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ problem_para_value_name_list = []
 llm_para_entry_list = []
 llm_para_value_name_list = ['name', 'host', 'key', 'model']
 llm_para_default_value_list = ['HttpsApi', '', '', '']
-llm_para_placeholder_list = ['HttpsApi', 'api.bltcy.top', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini']
+llm_para_placeholder_list = ['HttpsApi', 'api.openai.com', 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'gpt-4o-mini']
 
 default_method = 'eoh'
 default_problem = ['admissible_set', 'car_mountain', 'bactgrow']
@@ -513,7 +513,7 @@ def plot_fig(index, log_dir, max_sample_nums):
 
     data = []
     for file_name in file_name_list:
-        with open(file_name) as file:
+        with open(file_name, encoding='utf-8') as file:
             data.append(json.load(file))
 
     for i in range(index):
@@ -608,7 +608,7 @@ def check(index, log_dir):
     file_name = log_dir + f'/samples/samples_{temp_var1*200+1}~{(temp_var1+1)*200}.json'
 
     if os.path.exists(file_name):
-        with open(file_name) as file:
+        with open(file_name, encoding='utf-8') as file:
             data = json.load(file)
         if len(data) >= ((index-1) % 200)+1:
             return_value = True

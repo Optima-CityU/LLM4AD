@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 from typing import Sequence, Tuple, TypedDict, TypeAlias
 

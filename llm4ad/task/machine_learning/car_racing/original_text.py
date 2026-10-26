@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,11 +9,7 @@ env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.95, d
 
 
 def heuristic_action(observation):
-    """
-    更复杂的启发式策略：
-    动作定义：
-    [steering, gas, brake]
-    """
+    """Select a heuristic action as [steering, gas, brake]."""
     # 初始化动作
     action = np.array([0.0, 0.0, 0.0])  # [steering, gas, brake]
 
@@ -88,9 +85,7 @@ def heuristic_action_4o(observation):
 
 
 def display_observation(observation):
-    """
-    显示当前的观察值。
-    """
+    """Display the current observation."""
     plt.imshow(observation)
     plt.axis('off')  # 关闭坐标轴
     plt.show()

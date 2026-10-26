@@ -1,19 +1,19 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -192,7 +192,7 @@ class _ProgramVisitor(ast.NodeVisitor):
             body_start_line = node.body[0].lineno - 1
             # Extract the docstring.
             docstring = None
-            if isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Str):
+            if isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str):
                 docstring = f'    """{ast.literal_eval(ast.unparse(node.body[0]))}"""'
                 if len(node.body) > 1:
                     # ----------------------------------------------------------------------------

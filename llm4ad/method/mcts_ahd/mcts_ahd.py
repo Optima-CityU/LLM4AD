@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: MCTS_AHD
 # Last Revision: 2025/7/22
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -9,27 +10,28 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
+
 import heapq
 import concurrent.futures
 import copy
 import random
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal
 
 from .population import Population
@@ -67,7 +69,7 @@ class MCTS_AHD:
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.eoh.EoHProfiler'. If you do not want to use it, you can pass a 'None'.
                               pass 'None' to disable this termination condition.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
                               pass 'None' to disable this termination condition.
             init_size       : population size, if set to 'None', EoH will automatically adjust this parameter.
             pop_size        : population size, if set to 'None', EoH will automatically adjust this parameter.
@@ -119,7 +121,7 @@ class MCTS_AHD:
 
         # reset _initial_sample_nums_max
         self._initial_sample_nums_max = min(
-            self._max_sample_nums,
+            self._max_sample_nums if self._max_sample_nums is not None else float('inf'),
             10 * self._init_pop_size
         )
 
@@ -140,19 +142,19 @@ class MCTS_AHD:
 
     def _adjust_pop_size(self):
         # adjust population size
-        if self._max_sample_nums >= 10000:
+        if self._max_sample_nums is not None and self._max_sample_nums >= 10000:
             if self._pop_size is None:
                 self._pop_size = 40
             elif abs(self._pop_size - 40) > 20:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 40.')
-        elif self._max_sample_nums >= 1000:
+        elif self._max_sample_nums is not None and self._max_sample_nums >= 1000:
             if self._pop_size is None:
                 self._pop_size = 20
             elif abs(self._pop_size - 20) > 10:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 20.')
-        elif self._max_sample_nums >= 200:
+        elif self._max_sample_nums is not None and self._max_sample_nums >= 200:
             if self._pop_size is None:
                 self._pop_size = 10
             elif abs(self._pop_size - 10) > 5:
@@ -165,6 +167,7 @@ class MCTS_AHD:
                 print(f'Warning: population size {self._pop_size} '
                       f'is not suitable, please reset it to 5.')
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt, func_only=False):
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
@@ -194,7 +197,6 @@ class MCTS_AHD:
             self._profiler.register_function(func, program=str(program))
             if isinstance(self._profiler, MAProfiler):
                 self._profiler.register_population(self._population)
-            self._tot_sample_nums += 1
         if func_only:
             return func
         if func.score is None:
@@ -239,7 +241,7 @@ class MCTS_AHD:
         if option == 's1':
             path_set = []
             now = copy.deepcopy(cur_node)
-            while now.algorithm != "Root":
+            while not _is_stopped(self) and (now.algorithm != "Root"):
                 path_set.append(now.individual)
                 now = copy.deepcopy(now.parent)
             path_set = self.population_management_s1(path_set, len(path_set))
@@ -247,7 +249,7 @@ class MCTS_AHD:
                 return node_set
 
             i = 0
-            while i < 3:
+            while not _is_stopped(self) and (i < 3):
                 prompt = MAPrompt.get_prompt_s1(self._task_description_str, path_set, self._function_to_evolve)
                 func = self._sample_evaluate_register(prompt, func_only=True)
                 if func is False:
@@ -274,9 +276,9 @@ class MCTS_AHD:
 
         elif option == 'e2':
             i = 0
-            while i < 3:
+            while not _is_stopped(self) and (i < 3):
                 now_indiv = None
-                while True:
+                while not _is_stopped(self) and (True):
                     now_indiv = self._population.selection()
                     if now_indiv != cur_node.individual:
                         break
@@ -296,7 +298,7 @@ class MCTS_AHD:
 
         elif option == 'm1':
             i = 0
-            while i < 3:
+            while not _is_stopped(self) and (i < 3):
                 prompt = MAPrompt.get_prompt_m1(self._task_description_str, cur_node.individual,
                                                 self._function_to_evolve)
                 func = self._sample_evaluate_register(prompt, func_only=True)
@@ -313,7 +315,7 @@ class MCTS_AHD:
 
         elif option == 'm2':
             i = 0
-            while i < 3:
+            while not _is_stopped(self) and (i < 3):
                 prompt = MAPrompt.get_prompt_m2(self._task_description_str, cur_node.individual,
                                                 self._function_to_evolve)
                 func = self._sample_evaluate_register(prompt, func_only=True)
@@ -359,7 +361,7 @@ class MCTS_AHD:
         """Let a thread repeat {sample -> evaluate -> register to population}
         to initialize a population.
         """
-        while len(self._population.population) < self._init_pop_size:
+        while not _is_stopped(self) and (len(self._population.population) < self._init_pop_size):
             try:
                 # get a new func using e1
                 prompt = MAPrompt.get_prompt_e1(self._task_description_str, self._population.population,
@@ -373,6 +375,8 @@ class MCTS_AHD:
                         f'Note: During initialization, EoH gets {len(self._population) + len(self._population._next_gen_pop)} algorithms '
                         f'after {self._initial_sample_nums_max} trails.')
                     break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -380,11 +384,13 @@ class MCTS_AHD:
                 continue
 
     def _init_one_solution(self):
-        while len(self._population.next_gen_pop) == 0:
+        while not _is_stopped(self) and (len(self._population.next_gen_pop) == 0):
             try:
                 # get a new func using i1
                 prompt = MAPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
                 self._sample_evaluate_register(prompt)
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -397,24 +403,25 @@ class MCTS_AHD:
         """
         # threads for sampling
         sampler_threads = [
-            Thread(target=fn, args=args, kwargs=kwargs)
+            _SearchThread(owner=self, target=fn, args=args, kwargs=kwargs)
             for _ in range(self._num_samplers)
         ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
+    @_managed_run
     def run(self):
         mcts = MCTS('Root', self.alpha, self.lambda_0)
         # do initialization
 
-        # 1. first generate one solution as initialization
-        self._init_one_solution()
-        self._population.survival()
-
-        # 2. expand root
-        self._iteratively_init_population_root()
+        if not self._resume_mode:
+            # Generate the initial population before constructing the tree.
+            self._init_one_solution()
+            self._population.survival()
+            self._iteratively_init_population_root()
 
         # 3. update mcts
         for indiv in self._population.population:
@@ -436,14 +443,14 @@ class MCTS_AHD:
         # evolutionary search
         n_op = ['e1', 'e2', 'm1', 'm2', 's1']
         op_weights = [0, 1, 2, 2, 1]
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             node_set = []
             print(f"Current performances of MCTS nodes: {mcts.rank_list}")
             print(
                 f"Current number of MCTS nodes in the subtree of each child of the root: {[len(node.subtree) for node in mcts.root.children]}")
             cur_node = mcts.root
-            while len(cur_node.children) > 0 and cur_node.depth < mcts.max_depth:
-                uct_scores = [mcts.uct(node, max(1 - self._tot_sample_nums / self._max_sample_nums, 0)) for node in
+            while not _is_stopped(self) and (len(cur_node.children) > 0 and cur_node.depth < mcts.max_depth):
+                uct_scores = [mcts.uct(node, 1.0 if self._max_sample_nums is None else max(1 - self._tot_sample_nums / self._max_sample_nums, 0)) for node in
                               cur_node.children]
                 selected_pair_idx = uct_scores.index(max(uct_scores))
                 if int((cur_node.visits) ** mcts.alpha) > len(cur_node.children):
@@ -462,9 +469,3 @@ class MCTS_AHD:
                 for j in range(op_w):
                     node_set = self.expand(mcts, node_set, cur_node, op)
             self._population.survival()
-
-        # finish
-        if self._profiler is not None:
-            self._profiler.finish()
-
-        self._sampler.llm.close()

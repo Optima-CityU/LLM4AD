@@ -1,25 +1,26 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import multiprocessing
+import queue
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -134,6 +135,12 @@ class Evaluation(ABC):
 
 
 class SecureEvaluator:
+    """Evaluate in a separate process with optional wall-clock termination.
+
+    The historical name is retained for compatibility. This is not a security
+    sandbox: candidate code retains the user's file, network and OS permissions.
+    See SECURITY.md for resource limits and the threat model.
+    """
     def __init__(self,
                  evaluator: Evaluation,
                  debug_mode=False,
@@ -142,15 +149,12 @@ class SecureEvaluator:
         self._debug_mode = debug_mode
         fork_proc = self._evaluator.fork_proc
 
-        if self._evaluator.safe_evaluate:
-            if fork_proc == 'auto':
-                # force MacOS and Linux use 'fork' to generate new process
-                if sys.platform.startswith('darwin') or sys.platform.startswith('linux'):
-                    multiprocessing.set_start_method('fork', force=True)
-            elif fork_proc is True:
-                multiprocessing.set_start_method('fork', force=True)
-            elif fork_proc is False:
-                multiprocessing.set_start_method('spawn', force=True)
+        if fork_proc == 'auto':
+            self._start_method = 'fork' if sys.platform.startswith(('darwin', 'linux')) else 'spawn'
+        elif isinstance(fork_proc, bool):
+            self._start_method = 'fork' if fork_proc else 'spawn'
+        else:
+            raise ValueError("fork_proc must be 'auto', True or False")
 
     def _modify_program_code(self, program_str: str) -> str:
         function_name = TextFunctionProgramConverter.text_to_function(program_str).name
@@ -180,50 +184,52 @@ class SecureEvaluator:
 
             # safe evaluate
             if self._evaluator.safe_evaluate:
-                result_queue = multiprocessing.Queue()
-                process = multiprocessing.Process(
-                    target=self._evaluate_in_safe_process,
-                    args=(program_str, function_name, result_queue),
-                    kwargs=kwargs,
-                    daemon=self._evaluator.daemon_eval_process
-                )
-                process.start()
-
-                if self._evaluator.timeout_seconds is not None:
-                    try:
-                        # get the result in timeout seconds
-                        result = result_queue.get(timeout=self._evaluator.timeout_seconds)
-                        # after getting the result, terminate/kill the process
-                        process.terminate()
-                        process.join(timeout=5)
-                        if process.is_alive():
-                            process.kill()
-                            process.join()
-                    except:
-                        # timeout
-                        if self._debug_mode:
-                            print(f'DEBUG: the evaluation time exceeds {self._evaluator.timeout_seconds}s.')
-                        process.terminate()
-                        process.join(timeout=5)
-                        if process.is_alive():
-                            process.kill()
-                            process.join()
-                        result = None
-                else:
-                    result = result_queue.get()
-                    process.terminate()
-                    process.join(timeout=5)
-                    if process.is_alive():
-                        process.kill()
-                        process.join()
-                return result
+                return self._evaluate_in_subprocess(program_str, function_name, **kwargs)
             else:
                 return self._evaluate(program_str, function_name, **kwargs)
         except Exception as e:
             if self._debug_mode:
                 print("DEBUG: Exception occurred in evaluate_program:")
-                traceback.print_exc()  # 这将打印完整红色报错信息
+                traceback.print_exc()  # Print the complete traceback when debugging.
             return None
+
+    def _evaluate_in_subprocess(self, program_str, function_name, **kwargs):
+        # A local context avoids changing the embedding application's global
+        # multiprocessing start method, and supports explicit spawn tests.
+        context = multiprocessing.get_context(self._start_method)
+        result_queue = context.Queue()
+        process = context.Process(
+            target=self._evaluate_in_safe_process,
+            args=(program_str, function_name, result_queue), kwargs=kwargs,
+            daemon=self._evaluator.daemon_eval_process)
+        timeout = self._evaluator.timeout_seconds
+        deadline = None if timeout is None else time.monotonic() + timeout
+        try:
+            process.start()
+            while True:
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    return None
+                try:
+                    return result_queue.get(timeout=0.1 if remaining is None else min(0.1, remaining))
+                except queue.Empty:
+                    if not process.is_alive():
+                        # Drain a result flushed as the worker was exiting.
+                        try:
+                            return result_queue.get(timeout=0.1)
+                        except queue.Empty:
+                            return None
+        finally:
+            if process.pid is not None:
+                if process.is_alive():
+                    process.terminate()
+                process.join(timeout=5)
+                if process.is_alive():
+                    process.kill()
+                    process.join()
+            process.close()
+            result_queue.close()
+            result_queue.join_thread()
 
     def evaluate_program_record_time(self, program: str | Program, **kwargs):
         evaluate_start = time.time()
@@ -248,7 +254,7 @@ class SecureEvaluator:
         except Exception as e:
             if self._debug_mode:
                 print("DEBUG: Exception occurred in evaluate_program:")
-                traceback.print_exc()  # 这将打印完整红色报错信息
+                traceback.print_exc()  # Print the complete traceback when debugging.
             result_queue.put(None)
 
     def _evaluate(self, program_str: str, function_name, **kwargs):
@@ -269,5 +275,5 @@ class SecureEvaluator:
         except Exception as e:
             if self._debug_mode:
                 print("DEBUG: Exception occurred in evaluate_program:")
-                traceback.print_exc()  # 这将打印完整红色报错信息
+                traceback.print_exc()  # Print the complete traceback when debugging.
             return None

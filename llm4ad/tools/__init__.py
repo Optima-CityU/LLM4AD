@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import importlib
 
 __all__ = ['llm', 'profiler']

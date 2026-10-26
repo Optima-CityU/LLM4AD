@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import json
@@ -62,7 +63,7 @@ class FunSearchProfiler(ProfilerBase):
                 isld_list.append(clus_list)
 
             path = os.path.join(self._prog_db_path, f'db_{self._prog_db_order}.json')
-            with open(path, 'w') as f:
+            with open(path, 'w', encoding='utf-8') as f:
                 json.dump(isld_list, f)
         finally:
             if self._db_lock.locked():

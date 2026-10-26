@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 def select_node_to_flip(candidates: list, cut_S: list, cut_T: list, adjacency: dict) -> int:

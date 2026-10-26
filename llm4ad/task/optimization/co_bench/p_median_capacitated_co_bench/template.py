@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -46,7 +47,7 @@ task_description = ("The Capacitated P-Median Problem is a facility location opt
                     "has a capacity constraint  Q , meaning the total demand of the customers assigned to it cannot "
                     "exceed  Q . A feasible solution must respect this capacity constraint for all medians; "
                     "otherwise, it receives a score of zero. The solution is evaluated by the ratio \\text{score} = "
-                    "\\frac{\\text{best\_known}}{\\text{computed\_total\_cost}} , where computed_total_cost is the total "
+                    "\\frac{\\text{best\\_known}}{\\text{computed\\_total\\_cost}} , where computed_total_cost is the total "
                     "assignment cost if all constraints are satisfied; otherwise, the score is zero. The output "
                     "consists of the total cost (if feasible), the selected medians, and the customer assignments."
                     "Help me design a novel algorithm to solve this problem.")

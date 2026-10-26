@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -32,10 +33,10 @@ task_description = '''Given N countries, each defined by:
   - a profit,
 and a withholding tax matrix W (where W[i][j] is the rate on dividends from country i to j), construct a valid tree‐structured corporate hierarchy (directed, acyclic, connected) rooted at a designated target (whose parent is 0) such that every country with profit > 0 appears exactly once.
 For each country i, define S as the set of nodes in its subtree (note the subtree includes itself) with a positive profit. Also consider the set of child nodes C_i. 
-If i is not a root country but in the tree, it will send all its income (after tax) to its parent j. Denote this amount as F[i][j]. Assume the total income after domestic tax and withholding tax for country i is: domestic_income_i*(1-domestic_rate_i) + (\sum_{k\in C_i} F[k][i]*(1-W[k][i]))
+If i is not a root country but in the tree, it will send all its income (after tax) to its parent j. Denote this amount as F[i][j]. Assume the total income after domestic tax and withholding tax for country i is: domestic_income_i*(1-domestic_rate_i) + (\\sum_{k\\in C_i} F[k][i]*(1-W[k][i]))
 The extra foreign tax under different tax code is defined as follows:
     1. No extra tax.
-    2. Foreign income tax from the child nodes: foreign_income_rate_i*(\sum_{k\in C_i} F[k][i]*(1-W[k][i]))
-    3. Foreign income tax computed from the source nodes in each child's subtree: \sum_{k\in C_i} max(0, F[k][i]*(1-W[k][i]) - (1-foreign_income_rate_i)*(\sum_{s\in S_k} domestic_income_s))
-    4. Foreign income tax from all source nodes in the subtree, excluding itself: max(0, \sum_{k\in C_i}  F[k][i]*(1-W[k][i]) - (1-foreign_income_rate_i)*((\sum_{s\in S_i} domestic_income_s)-domestic_income_i))
+    2. Foreign income tax from the child nodes: foreign_income_rate_i*(\\sum_{k\\in C_i} F[k][i]*(1-W[k][i]))
+    3. Foreign income tax computed from the source nodes in each child's subtree: \\sum_{k\\in C_i} max(0, F[k][i]*(1-W[k][i]) - (1-foreign_income_rate_i)*(\\sum_{s\\in S_k} domestic_income_s))
+    4. Foreign income tax from all source nodes in the subtree, excluding itself: max(0, \\sum_{k\\in C_i}  F[k][i]*(1-W[k][i]) - (1-foreign_income_rate_i)*((\\sum_{s\\in S_i} domestic_income_s)-domestic_income_i))
     Help me design a novel algorithm to solve this problem.'''

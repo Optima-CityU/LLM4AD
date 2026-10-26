@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -27,10 +28,10 @@ def solve(num_items: int, cost_matrix: np.ndarray) -> dict:
 '''
 
 task_description = ("The Assignment Problem involves optimally assigning  n  items to  n  agents based on a provided  "
-                    "n \\times n  cost matrix, where each entry \( \\text{cost\matrix}[i][j] \) denotes the cost of "
+                    "n \\times n  cost matrix, where each entry \\( \\text{cost\\matrix}[i][j] \\) denotes the cost of "
                     "assigning item  i+1  to agent  j+1 . The goal is to identify a permutation—each item assigned "
                     "exactly one agent—that minimizes the total assignment cost. Formally, this is an optimization "
-                    "problem to find a permutation \pi of agents such that the total cost \sum{i=1}^{n} \\text{"
-                    "cost\_matrix}[i-1][\pi(i)-1] is minimized. The solution returned includes both the minimal total "
+                    "problem to find a permutation \\pi of agents such that the total cost \\sum{i=1}^{n} \\text{"
+                    "cost\\_matrix}[i-1][\\pi(i)-1] is minimized. The solution returned includes both the minimal total "
                     "cost and the corresponding optimal assignments."
                     "Help me design a novel algorithm to solve this problem.")
