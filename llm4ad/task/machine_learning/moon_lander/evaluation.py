@@ -623,7 +623,7 @@ class MoonLanderEvaluation(Evaluation):
         cluster_assignments_raw = None
 
         try:
-            with open(json_file_path, 'r') as f:
+            with open(json_file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             valid_keys = ['cluster_id_instances', 'apply_cluster_of_each_instance', 'match_cluster_of_each_instance']

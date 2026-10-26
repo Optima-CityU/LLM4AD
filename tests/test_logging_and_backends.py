@@ -34,12 +34,12 @@ class LogTests(unittest.TestCase):
                 profiler.record_parameters(SimpleNamespace(_key='secret-key', _kwargs={'api_key': 'nested-secret', 'temperature': 0}),
                                            SimpleNamespace(api_key='problem-secret'), SimpleNamespace(config={'password': 'method-secret'}))
                 profiler.register_function(Function('f', '', '    return 0', score=0), program=source)
-            text = (self.path / 'run_log.txt').read_text()
+            text = (self.path / 'run_log.txt').read_text(encoding='utf-8')
             self.assertNotIn('secret-key', text)
             self.assertNotIn('nested-secret', text)
             self.assertNotIn('problem-secret', text)
             self.assertNotIn('method-secret', text)
-            best = json.loads((self.path / 'samples/samples_best.json').read_text())
+            best = json.loads((self.path / 'samples/samples_best.json').read_text(encoding='utf-8'))
             self.assertEqual(best[0]['program'], source)
             self.assertEqual(load_samples(self.path)[0]['score'], 0)
             self.assertEqual(ProfilerBase.load_logfile(str(self.path), valid_only=True)[1], [0])
@@ -55,9 +55,9 @@ class LogTests(unittest.TestCase):
         samples.mkdir()
         one = {'sample_order': 1, 'function': 'def f():\n    return 0\n', 'score': 0}
         two = {**one, 'sample_order': 2, 'score': [0, 1]}
-        (samples / 'samples_1.json').write_text(json.dumps(one))
-        (samples / 'samples_2~200.json').write_text(json.dumps([two]))
-        (samples / 'samples_best.json').write_text('not loaded')
+        (samples / 'samples_1.json').write_text(json.dumps(one), encoding='utf-8')
+        (samples / 'samples_2~200.json').write_text(json.dumps([two]), encoding='utf-8')
+        (samples / 'samples_best.json').write_text('not loaded', encoding='utf-8')
         self.assertEqual(load_samples(self.path), [one, two])
 
     def test_rejects_duplicate_orders_or_missing_fields(self):
@@ -65,10 +65,10 @@ class LogTests(unittest.TestCase):
         samples.mkdir()
         path = samples / 'samples_1.json'
         row = {'sample_order': 1, 'function': 'code', 'score': 0}
-        path.write_text(json.dumps([row, row]))
+        path.write_text(json.dumps([row, row]), encoding='utf-8')
         with self.assertRaises(ValueError):
             load_samples(self.path)
-        path.write_text(json.dumps([{'function': 'code'}]))
+        path.write_text(json.dumps([{'function': 'code'}]), encoding='utf-8')
         with self.assertRaises(ValueError):
             load_samples(self.path)
 
@@ -76,7 +76,7 @@ class LogTests(unittest.TestCase):
         samples = self.path / 'samples'
         samples.mkdir()
         row = {'sample_order': 1, 'function': 'def f():\n    return 0\n', 'score': [0, 1]}
-        (samples / 'samples_0~200.json').write_text(json.dumps([row]))
+        (samples / 'samples_0~200.json').write_text(json.dumps([row]), encoding='utf-8')
         try:
             module = importlib.import_module(f'llm4ad.method.{method}.resume')
         except ModuleNotFoundError as error:
@@ -110,13 +110,13 @@ class LogTests(unittest.TestCase):
         samples.mkdir()
         path = samples / 'samples_1.json'
         row = {'sample_order': 1, 'function': 'code', 'score': [0, 1]}
-        path.write_text(json.dumps([row, {**row, 'sample_order': 2, 'score': [0, float('inf')]}]))
+        path.write_text(json.dumps([row, {**row, 'sample_order': 2, 'score': [0, float('inf')]}]), encoding='utf-8')
         self.assertEqual(ProfilerBase.load_logfile(self.path, valid_only=True)[1], [[0, 1]])
-        path.write_text('broken')
+        path.write_text('broken', encoding='utf-8')
         with self.assertRaises(ValueError):
             ProfilerBase.load_logfile(self.path)
         for update in [{'sample_order': []}, {'sample_order': True}, {'score': 'invalid'}, {'score': []}]:
-            path.write_text(json.dumps([{**row, **update}]))
+            path.write_text(json.dumps([{**row, **update}]), encoding='utf-8')
             with self.assertRaises(ValueError):
                 load_samples(self.path)
 

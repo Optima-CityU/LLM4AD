@@ -68,7 +68,7 @@ def catalogue():
                 'verified_semantics': semantics,
                 'semantic_review': 'checked against evaluator' if semantics else 'pending manual review',
             })
-    equations = ast.parse((ROOT / 'llm4ad/task/science_discovery/feynman_srsd/feynman_equations.py').read_text())
+    equations = ast.parse((ROOT / 'llm4ad/task/science_discovery/feynman_srsd/feynman_equations.py').read_text(encoding='utf-8'))
     equation_count = sum(isinstance(n, ast.ClassDef) and any(
         isinstance(d, ast.Name) and d.id == 'register_feynman_eq_class' for d in n.decorator_list) for n in equations.body)
     return {'schema_version': 1, 'counting_rule': 'One Evaluation subclass = one interface; equations and instances are separate.',

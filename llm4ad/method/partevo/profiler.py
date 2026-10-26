@@ -127,7 +127,7 @@ class PartEvoProfiler(ProfilerBase):
 
                 funcs_json.append(f_json)
             path = os.path.join(self._ckpt_dir, f'pop_{pop.generation}.json')
-            with open(path, 'w') as json_file:
+            with open(path, 'w', encoding='utf-8') as json_file:
                 json.dump(funcs_json, json_file, indent=4)
             self._cur_gen = pop.generation
 
@@ -187,14 +187,14 @@ class PartEvoProfiler(ProfilerBase):
         path = os.path.join(self._samples_json_dir, filename)
 
         try:
-            with open(path, 'r') as json_file:
+            with open(path, 'r', encoding='utf-8') as json_file:
                 data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             data = []
 
         data.append(content)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
     def _record_and_print_verbose(self, function, program='', *, resume_mode=False):
@@ -272,7 +272,7 @@ class PartEvoProfiler(ProfilerBase):
     def using_final(self, **kwargs):
         final_results = kwargs.get('final_results')
         output_file_path = os.path.join(self._using_dir, 'using_final_output.json')
-        with open(output_file_path, 'w') as json_file:
+        with open(output_file_path, 'w', encoding='utf-8') as json_file:
             json.dump(final_results, json_file, indent=4)
 
 

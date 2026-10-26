@@ -31,7 +31,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         folder = self.path / 'population'
         folder.mkdir()
         for name in ['pop_2.json', 'pop_10.json', '.DS_Store', 'notes.json', 'pop_final.json']:
-            (folder / name).write_text('[]')
+            (folder / name).write_text('[]', encoding='utf-8')
         self.assertEqual(latest_snapshot(self.path), (str(folder / 'pop_10.json'), 10))
         with self.assertRaisesRegex(ValueError, 'No db snapshot'):
             latest_snapshot(self.path, 'prog_db', 'db')
@@ -48,7 +48,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         vector = name in {'meoh', 'moead', 'nsga2'}
         rows = [{'function': 'def f():\n    return 0\n', 'score': [0, 1] if vector else 0, 'algorithm': 'first'},
                 {'function': 'def f():\n    return -2\n', 'score': [-2, 3] if vector else -2, 'algorithm': 'second'}]
-        (folder / 'pop_7.json').write_text(json.dumps(rows))
+        (folder / 'pop_7.json').write_text(json.dumps(rows), encoding='utf-8')
         before = snapshot(self.path)
         template = Converter.text_to_program('import math\ndef f():\n    return 0\n')
         population = module._resume_pop(str(self.path), 4, template_program=template)
@@ -69,7 +69,7 @@ class CheckpointRestorationTests(unittest.TestCase):
                         [{'function': 'def f():\n    return 0\n', 'score': 'bad'}],
                         [{'function': 'def f():\n    return 0\n', 'score': float('nan')}],
                         [{'function': 'def f():\n    return 0\n', 'score': 0, 'program': 42}]]:
-            path.write_text(json.dumps(payload))
+            path.write_text(json.dumps(payload), encoding='utf-8')
             with self.assertRaises(ValueError):
                 _resume_pop(str(self.path), 2)
 
@@ -79,7 +79,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         samples.mkdir()
         rows = [{'sample_order': 1, 'function': 'def f():\n    return 0\n', 'score': 0},
                 {'sample_order': 2, 'function': 'def f():\n    return -1\n', 'score': None}]
-        (samples / 'samples_1~200.json').write_text(json.dumps(rows))
+        (samples / 'samples_1~200.json').write_text(json.dumps(rows), encoding='utf-8')
         before = snapshot(self.path)
         profiler = ProfilerBase(str(self.path), create_random_path=False, log_style='simple')
         llm = CountingLLM()
@@ -101,7 +101,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         first = construct(self, 'randsample', llm, budget=3, profiler=profiler)
         with contextlib.redirect_stdout(io.StringIO()):
             first.run()
-        state = json.loads((self.path / 'search_state.json').read_text())
+        state = json.loads((self.path / 'search_state.json').read_text(encoding='utf-8'))
         self.assertEqual(state['claimed_attempts'], 3)
         self.assertEqual(state['completed_attempts'], 3)
         self.assertEqual(state['history_samples'], 1)  # The evaluated template only.
@@ -113,7 +113,7 @@ class CheckpointRestorationTests(unittest.TestCase):
             second.run()
         self.assertEqual(second_llm.calls, 2)
         self.assertEqual(second._tot_sample_nums, 5)
-        self.assertEqual(len(json.loads(next((self.path / 'samples').glob('samples_*~*.json')).read_text())), 3)
+        self.assertEqual(len(json.loads(next((self.path / 'samples').glob('samples_*~*.json')).read_text(encoding='utf-8'))), 3)
 
     def test_hillclimb_restores_zero_best_score_and_can_continue(self):
         from llm4ad.method.hillclimb.resume import resume_hillclimb
@@ -121,7 +121,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         samples.mkdir()
         rows = [{'sample_order': 1, 'function': 'def f():\n    return 0\n', 'score': 0},
                 {'sample_order': 2, 'function': 'def f():\n    return -2\n', 'score': -2}]
-        (samples / 'samples_1~200.json').write_text(json.dumps(rows))
+        (samples / 'samples_1~200.json').write_text(json.dumps(rows), encoding='utf-8')
         llm = CountingLLM()
         profiler = ProfilerBase(str(self.path), create_random_path=False, log_style='simple')
         method = construct(self, 'hillclimb', llm, budget=3, profiler=profiler)
@@ -159,7 +159,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         path = self.path / 'search_state.json'
         state = {'schema_version': 1, 'method': 'EoH', 'history_samples': 2,
                  'completed_attempts': 3, 'claimed_attempts': 4}
-        path.write_text(json.dumps(state))
+        path.write_text(json.dumps(state), encoding='utf-8')
         self.assertEqual(restore_attempt_count(self.path, 2, 'EoH'), 4)
         with self.assertRaises(ValueError):
             restore_attempt_count(self.path, 2, 'HillClimb')
@@ -167,7 +167,7 @@ class CheckpointRestorationTests(unittest.TestCase):
         for count, expected in [(1, 4), (3, 4), (6, 6)]:
             with self.assertWarns(RuntimeWarning):
                 self.assertEqual(restore_attempt_count(self.path, count, 'EoH'), expected)
-        path.write_text(json.dumps({**state, 'claimed_attempts': 1}))
+        path.write_text(json.dumps({**state, 'claimed_attempts': 1}), encoding='utf-8')
         with self.assertRaises(ValueError):
             restore_attempt_count(self.path, 2, 'EoH')
 
@@ -183,10 +183,10 @@ class CheckpointRestorationTests(unittest.TestCase):
         folder.mkdir()
         rows = [{'function': 'def f():\n    return 0\n', 'score': 0, 'algorithm': 'first'},
                 {'function': 'def f():\n    return -2\n', 'score': -2, 'algorithm': 'second'}]
-        (folder / 'pop_3.json').write_text(json.dumps(rows))
+        (folder / 'pop_3.json').write_text(json.dumps(rows), encoding='utf-8')
         samples = self.path / 'samples'
         samples.mkdir()
-        (samples / 'samples_1.json').write_text(json.dumps([{**row, 'sample_order': i + 1} for i, row in enumerate(rows)]))
+        (samples / 'samples_1.json').write_text(json.dumps([{**row, 'sample_order': i + 1} for i, row in enumerate(rows)]), encoding='utf-8')
         llm = CountingLLM()
         profiler = ProfilerBase(str(self.path), create_random_path=False, log_style='simple')
         method = construct(self, 'mcts_ahd', llm, budget=2, profiler=profiler)

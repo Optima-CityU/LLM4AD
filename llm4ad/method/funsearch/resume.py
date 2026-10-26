@@ -37,7 +37,7 @@ def _resume_db(log_path: str, db_config, template, func_to_evol) -> ProgramsData
     # ======================================================================================================================
     path, db_max_o = _get_latest_db_json(log_path)
     print(f'RESUME FunSearch: ProgramDB order: {db_max_o}.', flush=True)
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     db = ProgramsDatabase(db_config, template, func_to_evol)
     for isld_id, island in enumerate(data):

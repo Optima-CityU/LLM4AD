@@ -536,7 +536,7 @@ class PartEvo:
         full_path_to_file = os.path.join(designed_results_path, latest_file)
         print(f"Found latest file: {full_path_to_file}")
 
-        with open(full_path_to_file, 'r') as f:
+        with open(full_path_to_file, 'r', encoding='utf-8') as f:
             trained_data = json.load(f)
 
         # --- STEP 2: Top-K Filtering ---

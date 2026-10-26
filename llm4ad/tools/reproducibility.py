@@ -71,9 +71,9 @@ def write_run_manifest(path, *, config, model, seed, datasets=(), repository=Non
     dirty = None
     if repository is not None:
         commit = subprocess.check_output(
-            ["git", "-C", str(repository), "rev-parse", "HEAD"], text=True).strip()
+            ["git", "-C", str(repository), "rev-parse", "HEAD"], text=True, encoding="utf-8").strip()
         dirty = bool(subprocess.check_output(
-            ["git", "-C", str(repository), "status", "--porcelain"], text=True).strip())
+            ["git", "-C", str(repository), "status", "--porcelain"], text=True, encoding="utf-8").strip())
     distributions = sorted((d.metadata.get("Name", ""), d.version)
                            for d in importlib.metadata.distributions())
     manifest = redact({

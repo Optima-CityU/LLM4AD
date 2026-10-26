@@ -238,7 +238,7 @@ class SearchContracts(unittest.TestCase):
         import json
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'seeds.json'
-            path.write_text(json.dumps([{'function': f'def f():\n    return {i}\n', 'algorithm': 'seed'} for i in range(4)]))
+            path.write_text(json.dumps([{'function': f'def f():\n    return {i}\n', 'algorithm': 'seed'} for i in range(4)]), encoding='utf-8')
             llm = CountingLLM()
             method = construct(self, 'partevo', llm, budget=2, local_algo_base=str(path))
             self.run_quietly(method)

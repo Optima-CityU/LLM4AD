@@ -35,7 +35,7 @@ def main():
         'evaluated_candidates': method._tot_sample_nums, 'llm_calls': method._tot_sample_nums,
         'input_tokens': None, 'output_tokens': None, 'failures': 0,
         'model': 'deterministic-fixture', 'task': 'OBP 2 instances x 100 items',
-        'scientific_comparison': False}, indent=2))
+        'scientific_comparison': False}, indent=2), encoding='utf-8')
 
 
 if __name__ == '__main__':

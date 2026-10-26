@@ -513,7 +513,7 @@ def plot_fig(index, log_dir, max_sample_nums):
 
     data = []
     for file_name in file_name_list:
-        with open(file_name) as file:
+        with open(file_name, encoding='utf-8') as file:
             data.append(json.load(file))
 
     for i in range(index):
@@ -608,7 +608,7 @@ def check(index, log_dir):
     file_name = log_dir + f'/samples/samples_{temp_var1*200+1}~{(temp_var1+1)*200}.json'
 
     if os.path.exists(file_name):
-        with open(file_name) as file:
+        with open(file_name, encoding='utf-8') as file:
             data = json.load(file)
         if len(data) >= ((index-1) % 200)+1:
             return_value = True

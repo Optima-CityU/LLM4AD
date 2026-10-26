@@ -164,14 +164,14 @@ class ProfilerBase:
         path = os.path.join(self._samples_json_dir, filename)
 
         try:
-            with open(path, 'r') as json_file:
+            with open(path, 'r', encoding='utf-8') as json_file:
                 data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             data = []
 
         data.append(content)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
     def _record_and_print_verbose(self, function, program='', *, resume_mode=False):

@@ -56,7 +56,7 @@ class RecordingTests(unittest.TestCase):
         with RecordingLLM(backend, self.path, model_metadata={'model': 'fixture', 'api_key': 'private'}) as recording:
             expected = recording.draw_sample(prompt, image64s=['image'], messages=None)
         self.assertTrue(backend.closed)
-        self.assertNotIn('private', self.path.read_text())
+        self.assertNotIn('private', self.path.read_text(encoding='utf-8'))
         replay = ReplayLLM(self.path)
         self.assertEqual(replay.remaining, 1)
         self.assertEqual(replay.draw_sample(prompt, image64s=['image'], messages=None), expected)
@@ -74,10 +74,10 @@ class RecordingTests(unittest.TestCase):
         self.assertIn('def f', replay.draw_sample('original'))
 
     def test_existing_recording_is_not_overwritten(self):
-        self.path.write_text('keep')
+        self.path.write_text('keep', encoding='utf-8')
         with self.assertRaises(FileExistsError):
             RecordingLLM(FixtureLLM(), self.path)
-        self.assertEqual(self.path.read_text(), 'keep')
+        self.assertEqual(self.path.read_text(encoding='utf-8'), 'keep')
 
     def test_records_failure_without_exception_secrets(self):
         backend = FixtureLLM()
@@ -85,7 +85,7 @@ class RecordingTests(unittest.TestCase):
         with RecordingLLM(backend, self.path) as recorder:
             with self.assertRaises(ValueError):
                 recorder.draw_sample('request')
-        self.assertNotIn('private api key', self.path.read_text())
+        self.assertNotIn('private api key', self.path.read_text(encoding='utf-8'))
         with self.assertRaisesRegex(RuntimeError, 'ValueError'):
             ReplayLLM(self.path).draw_sample('request')
 
@@ -107,7 +107,7 @@ class RecordingTests(unittest.TestCase):
             with ThreadPoolExecutor(max_workers=4) as executor:
                 list(executor.map(recorder.draw_sample, [str(i) for i in range(12)]))
         replay = ReplayLLM(self.path)
-        rows = sorted((row for row in map(json.loads, self.path.read_text().splitlines()) if row['type'] == 'sample'), key=lambda row: row['sequence'])
+        rows = sorted((row for row in map(json.loads, self.path.read_text(encoding='utf-8').splitlines()) if row['type'] == 'sample'), key=lambda row: row['sequence'])
         for row in rows:
             prompt = row['request']['prompt']
             self.assertEqual(replay.draw_sample(prompt), prompt + ' response')
@@ -115,7 +115,7 @@ class RecordingTests(unittest.TestCase):
     def test_rejects_corrupt_journals(self):
         with RecordingLLM(FixtureLLM(), self.path) as recorder:
             recorder.draw_sample('request')
-        original = [json.loads(row) for row in self.path.read_text().splitlines()]
+        original = [json.loads(row) for row in self.path.read_text(encoding='utf-8').splitlines()]
         mutations = [lambda rows: rows[0].update(schema_version=9),
                      lambda rows: rows[1].update(sequence=3),
                      lambda rows: rows[1].update(request_sha256='wrong'),
@@ -123,7 +123,7 @@ class RecordingTests(unittest.TestCase):
         for mutate in mutations:
             rows = json.loads(json.dumps(original))
             mutate(rows)
-            self.path.write_text('\n'.join(json.dumps(row) for row in rows))
+            self.path.write_text('\n'.join(json.dumps(row) for row in rows), encoding='utf-8')
             with self.assertRaises(ValueError):
                 ReplayLLM(self.path)
 
@@ -131,16 +131,16 @@ class RecordingTests(unittest.TestCase):
         with RecordingLLM(FixtureLLM(), self.path) as recorder:
             recorder.draw_sample('one')
             recorder.draw_sample('two')
-        rows = self.path.read_text().splitlines()
+        rows = self.path.read_text(encoding='utf-8').splitlines()
         for truncated in [rows[:-1], rows[:2] + rows[-1:]]:
-            self.path.write_text('\n'.join(truncated))
+            self.path.write_text('\n'.join(truncated), encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'incomplete'):
                 ReplayLLM(self.path)
 
     def test_redacted_arguments_still_require_exact_values(self):
         with RecordingLLM(FixtureLLM(), self.path) as recorder:
             expected = recorder.draw_sample('request', api_key='original-private')
-        self.assertNotIn('original-private', self.path.read_text())
+        self.assertNotIn('original-private', self.path.read_text(encoding='utf-8'))
         replay = ReplayLLM(self.path)
         with self.assertRaises(ValueError):
             replay.draw_sample('request', api_key='changed-private')
@@ -185,7 +185,7 @@ class RecordingTests(unittest.TestCase):
         digest = hashlib.sha256(json.dumps(request, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
         records = [{'type': 'header', 'schema_version': 1, 'do_auto_trim': True, 'model': {}},
                    {'type': 'sample', 'sequence': 0, 'request': request, 'request_sha256': digest, 'response': 'legacy'}]
-        self.path.write_text('\n'.join(map(json.dumps, records)))
+        self.path.write_text('\n'.join(map(json.dumps, records)), encoding='utf-8')
         self.assertEqual(ReplayLLM(self.path).draw_sample('old'), 'legacy')
 
     def test_full_eoh_search_replays_without_online_backend(self):
@@ -243,10 +243,10 @@ class ManifestTests(unittest.TestCase):
             path = Path(directory) / 'run.json'
             manifest = write_run_manifest(path, config={'llm': {'key': 'private'}, 'workers': 1},
                                           model={'id': 'fixture', 'revision': 'fixed'}, seed=11, datasets=[data])
-            self.assertEqual(manifest, json.loads(path.read_text()))
+            self.assertEqual(manifest, json.loads(path.read_text(encoding='utf-8')))
             self.assertEqual(manifest['datasets'][0]['sha256'], sha256_file(data))
             self.assertEqual(len(manifest['installed_source_sha256']), 64)
-            self.assertNotIn('private', path.read_text())
+            self.assertNotIn('private', path.read_text(encoding='utf-8'))
             self.assertEqual(redact({'_key': 'x', 'items': [{'authorization': 'y'}]}),
                              {'_key': '[REDACTED]', 'items': [{'authorization': '[REDACTED]'}]})
 

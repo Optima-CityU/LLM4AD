@@ -16,7 +16,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
         from benchmarks.run import measure
         with tempfile.TemporaryDirectory() as directory:
             result = Path(directory) / 'metrics.json'
-            result.write_text(json.dumps({'evaluated_candidates': 3}))
+            result.write_text(json.dumps({'evaluated_candidates': 3}), encoding='utf-8')
             process = Mock(pid=123, returncode=0)
             process.poll.side_effect = [None, 0, 0]
             monitor = Mock()
@@ -47,7 +47,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
         from benchmarks.run import measure
         with tempfile.TemporaryDirectory() as directory:
             result = Path(directory) / 'metrics.json'
-            result.write_text(json.dumps({'best_score': 1}))
+            result.write_text(json.dumps({'best_score': 1}), encoding='utf-8')
             process = Mock(pid=123, returncode=0)
             process.poll.return_value = 0
             with patch('benchmarks.run.subprocess.Popen', return_value=process):
@@ -62,7 +62,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
             process = Mock(pid=123, returncode=0)
             process.poll.return_value = 0
             for payload in ['broken', '[]', '{"evaluated_candidates": -1}', '{"best_score": NaN}']:
-                result.write_text(payload)
+                result.write_text(payload, encoding='utf-8')
                 with patch('benchmarks.run.subprocess.Popen', return_value=process):
                     metrics = measure(['fixture'], result, 5)
                 self.assertIsNone(metrics['candidate_metrics'])
