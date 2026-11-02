@@ -12,6 +12,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        # actions/setup-python has no Python 3.9 build for Ubuntu 26.04 (ubuntu-latest).
+        exclude:
+          - os: ubuntu-latest
+            python: '3.9'
+        include:
+          - os: ubuntu-24.04
+            python: '3.9'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
