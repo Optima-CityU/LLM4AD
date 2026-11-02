@@ -40,6 +40,7 @@ from .clustermanager import ClusterManager
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
+from ...tools.codebleu_support import require_codebleu
 from ...tools.profiler import ProfilerBase
 import itertools
 
@@ -113,6 +114,8 @@ class PartEvo:
         self.partition_number = partition_number
         self.use_resource_tilt = use_resource_tilt
         self.feature_used = feature_used
+        if 'ast' in feature_used:
+            require_codebleu('PartEvo')  # 'ast' features compare programs with CodeBLEU
 
         self._pool = ClusterManager(pop_size=self._pop_size,
                                     n_clusters=self.partition_number,

@@ -41,6 +41,7 @@ from .sampler import MEoHSampler
 from ...base import (
     Evaluation, LLM, Function, Program, TextFunctionProgramConverter, SecureEvaluator
 )
+from ...tools.codebleu_support import require_codebleu
 from ...tools.profiler import ProfilerBase
 
 
@@ -109,6 +110,7 @@ class MEoH:
         self._template_program: Program = TextFunctionProgramConverter.text_to_program(self._template_program_str)
 
         # population, sampler, and evaluator
+        require_codebleu('MEoH')  # survival and selection rank by CodeBLEU syntax similarity
         self._population = Population(pop_size=self._pop_size)
         llm.debug_mode = debug_mode
         self._sampler = MEoHSampler(llm, self._template_program_str)

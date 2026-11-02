@@ -35,7 +35,12 @@ from .clusterunit import ClusterUnit
 from .externalArchive import ExternalArchive
 from llm4ad.base import Function
 from .base import Evoind
-from codebleu import calc_codebleu
+try:
+    from codebleu import calc_codebleu
+except ModuleNotFoundError as error:
+    from llm4ad.tools.codebleu_support import CODEBLEU_INSTALL
+    raise ModuleNotFoundError(f'CodeBLEU is not installed. Install it with:\n    {CODEBLEU_INSTALL}',
+                              name=error.name) from error
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans

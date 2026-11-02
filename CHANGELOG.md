@@ -9,6 +9,7 @@
 
 ### Behavior changes
 
+- MEoH and PartEvo need CodeBLEU 0.7.1, which is installed from GitHub; see the README. The `meoh`/`partevo` extras pin `tree-sitter==0.23.2` and `tree-sitter-python==0.23.0` and no longer install the incompatible PyPI `codebleu==0.7.0`. Both methods now stop at creation with the install command instead of running with broken code-similarity ranking.
 - `ttkbootstrap` is no longer a core dependency. GUI users install it with `pip install "llm4ad[gui]"` (or `pip install ".[gui]"` from a source checkout). NumPy 2 is now supported.
 - Scores are not comparable with earlier logs for these tasks:
   - CO-Bench open-shop scheduling, CO-Bench capacitated p-median and Pymoo MOEA/D now return maximized scores; earlier versions returned them with the wrong sign.

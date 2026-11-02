@@ -114,9 +114,17 @@ Use `llm4ad[extra-name]` when installing from PyPI, and `.[extra-name]` when ins
 | --- | --- |
 | FunSearch | Local: `pip install ".[funsearch]"`<br>PyPI: `pip install "llm4ad[funsearch]"`<br>`scipy` |
 | MOEAD / NSGA2 | Local: `pip install ".[multi-objective]"`<br>PyPI: `pip install "llm4ad[multi-objective]"`<br>`pymoo` |
-| MEoH | Local: `pip install ".[meoh]"`<br>PyPI: `pip install "llm4ad[meoh]"`<br>`pymoo`, `codebleu`, `tree-sitter-python` |
-| PartEvo | Local: `pip install ".[partevo]"`<br>PyPI: `pip install "llm4ad[partevo]"`<br>`codebleu`, `tree-sitter-python`, `scikit-learn`, `seaborn`, `torch`, `transformers` |
+| MEoH | Local: `pip install ".[meoh]"`<br>PyPI: `pip install "llm4ad[meoh]"`<br>`pymoo`, `tree-sitter`, `tree-sitter-python`, plus CodeBLEU 0.7.1 (see below) |
+| PartEvo | Local: `pip install ".[partevo]"`<br>PyPI: `pip install "llm4ad[partevo]"`<br>`tree-sitter`, `tree-sitter-python`, `scikit-learn`, `seaborn`, `torch`, `transformers`, plus CodeBLEU 0.7.1 (see below) |
 | LLaMEA | Local: `pip install ".[llamea]"`<br>PyPI: `pip install "llm4ad[llamea]"`<br>`llamea`, `ConfigSpace` |
+
+MEoH and PartEvo compare programs with CodeBLEU. The PyPI release `codebleu==0.7.0` requires `tree-sitter<0.23` and cannot load the Python grammar, so install the compatible 0.7.1 build from GitHub after the extra:
+
+```shell
+python -m pip install "codebleu @ https://github.com/k4black/codebleu/archive/b0edb622f6a52fe9d1edc407be5061d3e1462a7f.zip" "tree-sitter==0.23.2" "tree-sitter-python==0.23.0"
+```
+
+MEoH and PartEvo (with `'ast'` features) check this when they are created and stop with this command if CodeBLEU is missing or incompatible.
 
 **Task optional dependencies**
 

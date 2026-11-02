@@ -16952,6 +16952,20 @@ load_samples
 
     load_samples(log_dir)
 
+llm4ad.tools.codebleu_support
+-----------------------------
+
+require_codebleu
+~~~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+    Raise ImportError with install instructions unless CodeBLEU syntax matching works.
+
+.. code-block:: text
+
+    require_codebleu(method: str) -> None
+
 llm4ad.tools.llm.__init__
 -------------------------
 

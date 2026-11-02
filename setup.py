@@ -49,14 +49,16 @@ EXTRAS_REQUIRE = {
     'local-ollama': ['langchain-ollama'],
     'funsearch': ['scipy'],
     'multi-objective': ['pymoo'],
+    # MEoH and PartEvo also need CodeBLEU 0.7.1, which is not on PyPI; see
+    # llm4ad/tools/codebleu_support.py for the install command.
     'meoh': [
         'pymoo',
-        'codebleu',
-        'tree-sitter-python==0.23',
+        'tree-sitter==0.23.2',
+        'tree-sitter-python==0.23.0',
     ],
     'partevo': [
-        'codebleu',
-        'tree-sitter-python==0.23',
+        'tree-sitter==0.23.2',
+        'tree-sitter-python==0.23.0',
         'scikit-learn',
         'seaborn',
         'torch',
