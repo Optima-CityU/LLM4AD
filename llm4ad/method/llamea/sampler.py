@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import re
 from typing import Tuple
 from llm4ad.base import SampleTrimmer, Function, Program

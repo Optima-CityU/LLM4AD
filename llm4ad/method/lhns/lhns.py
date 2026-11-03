@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: LHNS
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
@@ -10,27 +11,28 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
+
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _count_sample_attempt, _is_stopped, _managed_run, _raise_worker_error)
 
 import concurrent.futures
 import copy
 import random
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal
 
 import numpy as np
@@ -69,7 +71,7 @@ class LHNS:
             profiler        : an instance of 'llm4ad.method.eoh.LHNSProfiler'. If you do not want to use it, you can pass a 'None'.
             max_generations : terminate after evolving 'max_generations' generations or reach 'max_sample_nums',
                               pass 'None' to disable this termination condition.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not) or reach 'max_generations',
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
                               pass 'None' to disable this termination condition.
             pop_size        : population size, if set to 'None', LHNS will automatically adjust this parameter.
             selection_num   : number of selected individuals while crossover.
@@ -133,6 +135,7 @@ class LHNS:
         if profiler is not None:
             self._profiler.record_parameters(llm, evaluation, self)
 
+    @_count_sample_attempt
     def _sample_evaluate_register(self, prompt) -> LHNSFunction:
         """Perform following steps:
         1. Sample an algorithm using the given prompt.
@@ -160,7 +163,6 @@ class LHNS:
         func.sample_time = sample_time
         if self._profiler is not None:
             self._profiler.register_function(func)
-            self._tot_sample_nums += 1
 
         return func
 
@@ -197,7 +199,7 @@ class LHNS:
         cooling_rate = initial_rate
         trans_count = 0
 
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             try:
                 prompt = LHNSPrompt.get_prompt_rr(self._task_description_str, self._current_function, cooling_rate, self._function_to_evolve)
                 if self._debug_mode:
@@ -222,6 +224,8 @@ class LHNS:
 
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -229,9 +233,6 @@ class LHNS:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
     def method_ils(self):
@@ -239,7 +240,7 @@ class LHNS:
         cooling_rate = self._cooling_rate
         trans_count = 0
 
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             try:
                 if trans_count >= 10:
                     prompt = LHNSPrompt.get_prompt_m(self._task_description_str, self._best_function,
@@ -266,6 +267,8 @@ class LHNS:
 
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -273,9 +276,6 @@ class LHNS:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
     def method_ts(self):
@@ -283,7 +283,7 @@ class LHNS:
         cooling_rate = self._cooling_rate
         trans_count = 0
 
-        while self._continue_loop():
+        while not _is_stopped(self) and (self._continue_loop()):
             try:
                 if trans_count >= 10:
                     prev_func = self._elite_set.selection()
@@ -313,6 +313,8 @@ class LHNS:
 
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -320,9 +322,6 @@ class LHNS:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
     def _iteratively_use_lhns_operator(self):
@@ -339,12 +338,14 @@ class LHNS:
     def _iteratively_init(self):
 
         trials = 1
-        while True:
+        while not _is_stopped(self) and (True):
             try:
                 # get a new func using i1
                 prompt = LHNSPrompt.get_prompt_i1(self._task_description_str, self._function_to_evolve)
                 self._current_function = self._sample_evaluate_register(prompt)
-                if self._current_function.score != float('-inf') or self._current_function.score is not None:
+                if (self._current_function is not None
+                        and self._current_function.score is not None
+                        and np.isfinite(self._current_function.score)):
                     self._best_function = copy.deepcopy(self._current_function)
                     self._elite_set.update(self._current_function)
                     print(f'Note: During initialization, LHNS gets initial valid algorithm '
@@ -352,6 +353,8 @@ class LHNS:
                     break
                 trials += 1
                 assert trials < self._initial_sample_nums_max
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -364,14 +367,16 @@ class LHNS:
         """
         # threads for sampling
         sampler_threads = [
-            Thread(target=fn, args=args, kwargs=kwargs)
+            _SearchThread(owner=self, target=fn, args=args, kwargs=kwargs)
             for _ in range(self._num_samplers)
         ]
         for t in sampler_threads:
             t.start()
         for t in sampler_threads:
             t.join()
+        _raise_worker_error(self)
 
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # do initialization
@@ -379,5 +384,3 @@ class LHNS:
         # evolutionary search
         self._multi_threaded_sampling(self._iteratively_use_lhns_operator)
         # finish
-        if self._profiler is not None:
-            self._profiler.finish()

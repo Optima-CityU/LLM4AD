@@ -1,0 +1,11 @@
+include LICENSE NOTICE THIRD_PARTY_NOTICES.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
+recursive-include LICENSES *.txt
+recursive-include llm4ad *.yaml *.json
+recursive-include tests *.py
+recursive-include docs *.md *.rst *.py *.json *.csv
+recursive-include scripts *.py
+recursive-include example/reproducibility *.py *.md
+recursive-include benchmarks *.py *.json *.md
+global-exclude *.pyc .DS_Store
+prune docs/_build
+include .readthedocs.yaml .github/PULL_REQUEST_TEMPLATE.md .github/workflows/ci.yml

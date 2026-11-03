@@ -1,0 +1,11 @@
+{
+  "kind": "integration_fixture_not_scientific_comparison",
+  "budget": 6,
+  "timeout_seconds": 30,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "frameworks": [{
+    "id": "llm4ad-fixture",
+    "revision": "1.20.0",
+    "command": ["{python}", "-m", "benchmarks.fixture_workload", "--seed", "{seed}", "--budget", "{budget}", "--result", "{result}"]
+  }]
+}

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: CFLPEvaluation
 # Last Revision: 2025/2/16
 # Description: Evaluates the Capacitated Facility Location Problem (CFLP).
@@ -22,16 +23,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ class CFLPEvaluation(Evaluation):
         plt.tight_layout()
         plt.show()
 
-    def assign_customers(self, facility_capacities: List[int], customer_demands: List[int], assignment_costs: List[List[int]], eva: Callable) -> Tuple[int, List[List[int]]]:
+    def assign_customers(self, facility_capacities: List[int], customer_demands: List[int], assignment_costs: List[List[int]], eva: Callable) -> Tuple[int, List[List[int]]] | None:
         """
         Assign customers to facilities using a constructive heuristic.
 
@@ -139,6 +139,7 @@ class CFLPEvaluation(Evaluation):
             A tuple containing:
             - The total cost of the assignments.
             - A list of assignments, where each assignment is a list of customer indices assigned to a facility.
+            Returns None if the heuristic stops before assigning every customer.
         """
         n_facilities = len(facility_capacities)
         n_customers = len(customer_demands)
@@ -159,15 +160,14 @@ class CFLPEvaluation(Evaluation):
                 # Add the assignment cost to the total cost
                 total_cost += assignment_costs[selected_facility][selected_customer]
             else:
-                # If no feasible assignment is found, stop assigning (no more feasible assignments)
-                break
+                return None  # Every customer must be assigned for a valid solution.
 
             # Remove the selected customer from the remaining customers
             remaining_customers.remove(selected_customer)
 
         return total_cost, assignments
 
-    def evaluate_cflp(self, eva: Callable) -> float:
+    def evaluate_cflp(self, eva: Callable) -> float | None:
         """
         Evaluate the constructive heuristic for the Capacitated Facility Location Problem.
 
@@ -185,7 +185,10 @@ class CFLPEvaluation(Evaluation):
             facility_capacities = instance["facility_capacities"]
             customer_demands = instance["customer_demands"]
             assignment_costs = instance["assignment_costs"]
-            cost, _ = self.assign_customers(facility_capacities, customer_demands, assignment_costs, eva)
+            solution = self.assign_customers(facility_capacities, customer_demands, assignment_costs, eva)
+            if solution is None:
+                return None
+            cost, _ = solution
             total_cost += cost
 
         average_cost = total_cost / self.n_instance

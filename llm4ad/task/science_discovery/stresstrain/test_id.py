@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 data = [
     {
         "strain": 0.01103385,

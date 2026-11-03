@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import sys
 # Add the project root to the system path.
 # (Not required if you installed the package via pip, but useful for local development)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from pathlib import PurePosixPath
 from huggingface_hub import list_repo_files
 from datasets import load_dataset

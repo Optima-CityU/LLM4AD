@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import gymnasium as gym
 import numpy as np
 

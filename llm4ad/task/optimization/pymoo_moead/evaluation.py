@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: MOEAD_PYMOO_Evaluation
 # Last Revision: 2025/07/14
 # Description: Evaluates the Multi-objective problem using the MOEAD algorithm.
@@ -19,16 +20,15 @@
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 #
-# Permission is granted to use the LLM4AD platform for research purposes.
-# All publications, software, or other works that utilize this platform
-# or any part of its codebase must acknowledge the use of "LLM4AD" and
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 #
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
-# For inquiries regarding commercial use or licensing, please contact
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class MOEAD_PYMOO_Evaluation(Evaluation):
 
     def evaluate(self, decomposition_func: Callable = None) -> float:
         """
-        Core evaluation method. Returns the evaluation score and stores detailed results in self.last_result.
+        Return hypervolume (larger is better) and store detailed results in self.last_result.
         """
         class DecompAdapter:
             def __init__(self, func):
@@ -109,7 +109,7 @@ class MOEAD_PYMOO_Evaluation(Evaluation):
 
         hv_value = self.hv_calculator(res.opt.get("F"))
         self.last_result = {"hv": hv_value, "pareto_front": res.opt}
-        return -hv_value
+        return hv_value
 
 
     def evaluate_program(self, program_str: str, callable_func: callable) -> Any:
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     score = evaluator.evaluate_program("", custom_decomposition_tchebycheff)
     results = evaluator.last_result
 
-    print(f"Evaluation Score (Negative HV): {score:.5f}")
+    print(f"Evaluation Score (HV): {score:.5f}")
     print(f"Hypervolume (HV): {results['hv']:.4f}")
 
     if evaluator.problem.n_obj == 3 and results:

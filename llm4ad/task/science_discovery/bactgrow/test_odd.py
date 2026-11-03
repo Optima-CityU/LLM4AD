@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 data = [
     {
         "b": 7.84247681465158,

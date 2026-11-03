@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 task_description = """
 You are tasked with designing a key component for a Multi-Objective Evolutionary Algorithm based on Decomposition (MOEA/D).
 Your objective is to create a novel decomposition strategy that effectively transforms the multi-objective DTLZ1 problem

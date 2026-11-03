@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 data = [
     {
         "t": 0.0,

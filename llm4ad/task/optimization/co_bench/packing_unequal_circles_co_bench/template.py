@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 template_program = '''
 import numpy as np
 import scipy.optimize as opt
@@ -29,7 +30,7 @@ task_description = ("The problem involves packing a subset of unequal circles in
                     "radius R_0 and center at the origin, where each circle i has a given radius R_i (sorted in "
                     "non-decreasing order) and is associated with a binary decision variable \\alpha_i indicating "
                     "whether it is packed. The goal is to maximize the number of circles packed—that is, "
-                    "maximize \sum_{i=1}^{n}\\alpha_i—subject to two sets of nonlinear constraints: (1) each packed "
+                    "maximize \\sum_{i=1}^{n}\\alpha_i—subject to two sets of nonlinear constraints: (1) each packed "
                     "circle must lie entirely within the container, which is enforced by ensuring that the distance "
                     "from its center to the container’s center plus its radius does not exceed R_0; and (2) any two "
                     "packed circles must not overlap, meaning the distance between their centers must be at least the "

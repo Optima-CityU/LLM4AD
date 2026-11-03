@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from . import code, evaluate, sample, modify_code
 from .code import (
     Function,

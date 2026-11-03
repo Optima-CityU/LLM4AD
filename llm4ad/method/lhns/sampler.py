@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import re
@@ -13,11 +14,18 @@ class LHNSSampler:
         self._sampler = sampler
         self._template_program = template_program
 
+    @property
+    def llm(self):
+        """Underlying backend, shared with recording and search cleanup."""
+        return self._sampler
+
     def get_thought_and_function(self, prompt: str) -> Tuple[str, LHNSFunction]:
         response = self._sampler.draw_sample(prompt)
         thought = self.__class__.trim_thought_from_response(response)
         code = SampleTrimmer.trim_preface_of_function(response)
         function = SampleTrimmer.sample_to_function(code, self._template_program)
+        if function is None:
+            return thought, None
         function = LHNSFunction.convert_function_to_lhnsfunction(function)
         return thought, function
 

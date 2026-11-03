@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import json
@@ -74,14 +75,14 @@ class LHNSProfiler(ProfilerBase):
         path = os.path.join(self._samples_json_dir, filename)
 
         try:
-            with open(path, 'r') as json_file:
+            with open(path, 'r', encoding='utf-8') as json_file:
                 data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             data = []
 
         data.append(content)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
 
@@ -130,7 +131,7 @@ class LHNSTensorboardProfiler(TensorboardProfiler, LHNSProfiler):
         filename = 'end.json'
         path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump([], json_file, indent=4)
 
 
@@ -186,5 +187,5 @@ class LHNSWandbProfiler(WandBProfiler, LHNSProfiler):
         filename = 'end.json'
         path = os.path.join(os.path.join(self._log_dir, 'population'), filename)
 
-        with open(path, 'w') as json_file:
+        with open(path, 'w', encoding='utf-8') as json_file:
             json.dump([], json_file, indent=4)

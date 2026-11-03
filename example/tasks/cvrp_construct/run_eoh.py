@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 ### Test Only ###
 # Set system path
 

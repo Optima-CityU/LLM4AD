@@ -1,11 +1,11 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import copy
-import json
-import os.path
-import re
 
 from tqdm.auto import tqdm
+
+from ...tools.checkpoint import load_samples, restore_attempt_count
 
 from .profiler import RandSampleProfiler
 from .randsample import RandSample
@@ -13,41 +13,13 @@ from ...base import TextFunctionProgramConverter as tfpc, Function
 
 
 def _get_all_samples_and_scores(path, get_algorithm=False):
-    file_dir = os.path.join(path, 'samples')
-    # get all file directories
-    all_files = os.listdir(file_dir)
-    # filer `samples_*.json` files and ignore `samples_best.json`
-    sample_files = [f for f in all_files if f.startswith('samples_') and f != 'samples_best.json']
-
-    def extract_number(filename):
-        # match the first number of the filename
-        match = re.search(r'samples_(\d+)~', filename)
-        if match:
-            return int(match.group(1))
-        return 0
-
-    sorted_files = sorted(sample_files, key=extract_number)
-
-    all_func = []
-    all_score = []
-    all_algorithm = []
-    max_o = 0  # the max sample orders
-
-    for file in sorted_files:
-        file_path = os.path.join(file_dir, file)
-        with open(file_path, 'r', encoding='utf-8') as f:
-            samples = json.load(f)
-            for sample in samples:
-                func = sample['function']
-                acc = sample['score'] if sample['score'] else float('-inf')
-                all_func.append(func)
-                all_score.append(acc)
-                all_algorithm.append(sample['algorithm'])
-                max_o = sample['sample_order']
-
+    samples = load_samples(path)
+    funcs = [row['function'] for row in samples]
+    scores = [row['score'] for row in samples]
+    maximum = max((row['sample_order'] for row in samples), default=0)
     if get_algorithm:
-        return all_func, all_score, max_o, all_algorithm
-    return all_func, all_score, max_o
+        return funcs, scores, maximum, [row.get('algorithm', '') for row in samples]
+    return funcs, scores, maximum
 
 
 def _resume_text2func(f, s, template_func: Function):
@@ -84,4 +56,4 @@ def resume_randsample(rs: RandSample):
 
     # resume rand sample
     funcs, scores, sample_max_order = _get_all_samples_and_scores(log_path)
-    rs._tot_sample_nums = sample_max_order
+    rs._tot_sample_nums = restore_attempt_count(log_path, sample_max_order, type(rs).__name__)

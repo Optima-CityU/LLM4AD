@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import json
@@ -77,7 +78,7 @@ class HSEvoProfiler(ProfilerBase):
             if self._num_samples == 0 or generation == self._cur_gen:
                 return
             path = os.path.join(self._ckpt_dir, f"pop_{generation}.json")
-            with open(path, "w") as json_file:
+            with open(path, "w", encoding='utf-8') as json_file:
                 json.dump(_serialize_population(population), json_file, indent=4)
             self._cur_gen = generation
         finally:
@@ -118,14 +119,14 @@ class HSEvoProfiler(ProfilerBase):
         path = os.path.join(self._samples_json_dir, filename)
 
         try:
-            with open(path, "r") as json_file:
+            with open(path, "r", encoding='utf-8') as json_file:
                 data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             data = []
 
         data.append(content)
 
-        with open(path, "w") as json_file:
+        with open(path, "w", encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
 
@@ -166,7 +167,7 @@ class HSEvoTensorboardProfiler(TensorboardProfiler, HSEvoProfiler):
         filename = "end.json"
         path = os.path.join(os.path.join(self._log_dir, "population"), filename)
 
-        with open(path, "w") as json_file:
+        with open(path, "w", encoding='utf-8') as json_file:
             json.dump([], json_file, indent=4)
 
 
@@ -213,5 +214,5 @@ class HSEvoWandbProfiler(WandBProfiler, HSEvoProfiler):
         filename = "end.json"
         path = os.path.join(os.path.join(self._log_dir, "population"), filename)
 
-        with open(path, "w") as json_file:
+        with open(path, "w", encoding='utf-8') as json_file:
             json.dump([], json_file, indent=4)

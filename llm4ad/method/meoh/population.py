@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
 
 import math
@@ -7,7 +8,12 @@ import numpy as np
 import traceback
 
 from ...base import *
-from codebleu.syntax_match import calc_syntax_match
+try:
+    from codebleu.syntax_match import calc_syntax_match
+except ModuleNotFoundError as error:
+    from ...tools.codebleu_support import CODEBLEU_INSTALL
+    raise ModuleNotFoundError(f'CodeBLEU is not installed. Install it with:\n    {CODEBLEU_INSTALL}',
+                              name=error.name) from error
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # HillCLimb uses the default profilers
 from ...tools.profiler import ProfilerBase
 from ...tools.profiler import TensorboardProfiler

@@ -1,9 +1,8 @@
-# Default dependencies for core usage, GUI, and common EoH examples such as TSP/OBP.
-numpy<2.0.0
+# Core and common TSP/OBP tasks. GUI: pip install ".[gui]".
+numpy>=1.24,<3
 matplotlib
 pytz
 tqdm
-ttkbootstrap
 
 # Optional dependencies are installed only when needed.
 # Examples:

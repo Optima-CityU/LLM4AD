@@ -1,19 +1,19 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 # Last Revision: 2025/2/16
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
 # 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
 # 
 # Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
 # Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 # 
-# For inquiries regarding commercial use or licensing, please contact 
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import ast
 import copy
+import io
+import tokenize
 from abc import abstractmethod
 from typing import Any, List
 
@@ -93,6 +95,8 @@ class SampleTrimmer:
         """Judge if the content is generated through code completion model or instruct model.
         """
         generated_code = generated_code.strip('\n')
+        if not generated_code:
+            return False
         line = generated_code.splitlines()[0]
         if line.startswith('\t'):
             return True
@@ -128,15 +132,33 @@ class SampleTrimmer:
         find_def_declaration = False
         for lineno, line in enumerate(lines):
             # find the first 'def' statement in the given code
-            if line[:3] == 'def':
+            if line.startswith(('def ', 'def\t')):
                 func_body_lineno = lineno
                 find_def_declaration = True
                 break
         if find_def_declaration:
-            code = ''
-            for line in lines[func_body_lineno + 1:]:
-                code += line + '\n'
-            return code
+            # Find the colon ending the entire signature, including multiline
+            # arguments, defaults and return annotations. Tokenization stops
+            # before any trailing prose or incomplete generated body.
+            signature = '\n'.join(lines[func_body_lineno:])
+            depth = 0
+            try:
+                for token in tokenize.generate_tokens(io.StringIO(signature).readline):
+                    if token.type != tokenize.OP:
+                        continue
+                    if token.string in '([{':
+                        depth += 1
+                    elif token.string in ')]}':
+                        depth -= 1
+                    elif token.string == ':' and depth == 0:
+                        end_line = func_body_lineno + token.end[0] - 1
+                        inline_body = lines[end_line][token.end[1]:].strip()
+                        body = lines[end_line + 1:]
+                        if inline_body and not inline_body.startswith('#'):
+                            body.insert(0, '    ' + inline_body)
+                        return '\n'.join(body) + '\n'
+            except (tokenize.TokenError, IndentationError):
+                return generated_code
         return generated_code
 
     @classmethod

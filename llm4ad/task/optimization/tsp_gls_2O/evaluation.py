@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # name: str: TSP_GLS_2O_Evaluation
 # Parameters:
 # timeout_seconds: int: 20

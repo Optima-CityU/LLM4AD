@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: get_instance
 # Last Revision: 2025/07/14
 # Description: Generates DTLZ4 problem instances for MOEAD evaluation.

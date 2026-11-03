@@ -27,3 +27,10 @@ llm4ad.egg-info/dependency_links.txt
 .venv/
 #LLaMEA logs content in this directory.
 **/exp-*
+/.coverage
+/.coverage.*
+/reports/
+/dist/
+/build/
+/docs/_build/
+/runs/

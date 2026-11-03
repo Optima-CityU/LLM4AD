@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: OrienteeringEvaluation
 # Description: Evaluates constructive heuristics for the Orienteering Problem.
 from __future__ import annotations

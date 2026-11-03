@@ -1,35 +1,37 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # Module Name: RandSample
 # Last Revision: 2025/2/16
 # This file is part of the LLM4AD project (https://github.com/Optima-CityU/llm4ad).
 #
 # Reference:
-#   -  Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
-#       Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+#   -  Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+#       Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 #       with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
 #
 # ------------------------------- Copyright --------------------------------
 # Copyright (c) 2025 Optima Group.
-# 
-# Permission is granted to use the LLM4AD platform for research purposes. 
-# All publications, software, or other works that utilize this platform 
-# or any part of its codebase must acknowledge the use of "LLM4AD" and 
-# cite the following reference:
-# 
-# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang, 
-# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design 
+#
+# Licensed under BSD-2-Clause; see the project LICENSE file.
+# Academic citation is appreciated, but is not a license condition.
+# Suggested reference:
+#
+# Fei Liu, Rui Zhang, Zhuoliang Xie, Rui Sun, Kai Li, Xi Lin, Zhenkun Wang,
+# Zhichao Lu, and Qingfu Zhang, "LLM4AD: A Platform for Algorithm Design
 # with Large Language Model," arXiv preprint arXiv:2412.17287 (2024).
-# 
-# For inquiries regarding commercial use or licensing, please contact 
+#
+# For voluntary commercial collaboration inquiries, please contact
 # http://www.llm4ad.com/contact.html
 # --------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from ...base.errors import FatalSearchError
+from .._runtime import (_SearchStopped, _SearchThread, _draw_sample_batch, _is_stopped, _managed_run, _raise_worker_error)
+
 import concurrent.futures
 import copy
 import time
 import traceback
-from threading import Thread
 from typing import Optional, Literal
 
 from .profiler import RandSampleProfiler
@@ -54,7 +56,7 @@ class RandSample:
             llm             : an instance of 'llm4ad.base.LLM', which provides the way to query LLM.
             evaluation      : an instance of 'llm4ad.base.Evaluator', which defines the way to calculate the score of a generated function.
             profiler        : an instance of 'llm4ad.method.randsample.RandSampleProfiler'. If you do not want to use it, you can pass a 'None'.
-            max_sample_nums : terminate after evaluating max_sample_nums functions (no matter the function is valid or not).
+            max_sample_nums : maximum reserved candidate attempts, including malformed output and failed evaluations; reflection calls are separate.
             num_samplers    : number of independent Samplers in the experiment.
             num_evaluators  : number of independent program Evaluators in the experiment.
             resume_mode     : in resume_mode, randsample will not evaluate the template_program, and will skip the init process. TODO: More detailed usage.
@@ -101,7 +103,7 @@ class RandSample:
 
         # threads for sampling
         self._sampler_threads = [
-            Thread(target=self._sample_evaluate_register) for _ in range(self._num_samplers)
+            _SearchThread(owner=self, target=self._sample_evaluate_register) for _ in range(self._num_samplers)
         ]
 
         # self.prompt
@@ -121,11 +123,11 @@ class RandSample:
         return '\n'.join([str(template), str(func_to_be_complete)])
 
     def _sample_evaluate_register(self):
-        while (self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums):
+        while not _is_stopped(self) and ((self._max_sample_nums is None) or (self._tot_sample_nums < self._max_sample_nums)):
             try:
                 # do sample
                 draw_sample_start = time.time()
-                sampled_funcs = self._sampler.draw_samples([self._prompt_content])
+                sampled_funcs = _draw_sample_batch(self, [self._prompt_content])
                 draw_sample_times = time.time() - draw_sample_start
                 avg_time_for_each_sample = draw_sample_times / len(sampled_funcs)
 
@@ -159,9 +161,10 @@ class RandSample:
                         function.sample_time = avg_time_for_each_sample
                         self._profiler.register_function(function)
                     # update
-                    self._tot_sample_nums += 1
             except KeyboardInterrupt:
                 break
+            except (FatalSearchError, _SearchStopped):
+                raise
             except Exception as e:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -169,11 +172,9 @@ class RandSample:
                 continue
 
         # shutdown evaluation_executor
-        try:
-            self._evaluation_executor.shutdown(cancel_futures=True)
-        except:
             pass
 
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # evaluate the template program, make sure the score of which is not 'None'
@@ -194,8 +195,4 @@ class RandSample:
         # join all threads to the main thread
         for t in self._sampler_threads:
             t.join()
-
-        if self._profiler is not None:
-            self._profiler.finish()
-
-        self._sampler.llm.close()
+        _raise_worker_error(self)

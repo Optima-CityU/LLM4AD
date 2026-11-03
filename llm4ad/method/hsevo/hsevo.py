@@ -1,4 +1,8 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from __future__ import annotations
+
+from ...base.errors import FatalSearchError
+from .._runtime import (_managed_run)
 
 import concurrent.futures
 import contextlib
@@ -218,12 +222,16 @@ class HSEvo:
         single string for backends that only accept strings."""
         try:
             return self._llm.draw_sample(messages)
+        except FatalSearchError:
+            raise
         except Exception:
             try:
                 text = "\n\n".join(
                     m.get("content", "") for m in messages if isinstance(m, dict)
                 )
                 return self._llm.draw_sample(text)
+            except FatalSearchError:
+                raise
             except Exception:
                 if self._debug_mode:
                     traceback.print_exc()
@@ -299,6 +307,8 @@ class HSEvo:
             gen_func = gen_program.functions[0]
             gen_func.name = self.func_name
             return Program(preface=gen_program.preface, functions=[gen_func])
+        except FatalSearchError:
+            raise
         except Exception:
             return None
 
@@ -353,6 +363,8 @@ class HSEvo:
                         self._evaluator.evaluate_program_record_time, program
                     )
                 )
+            except FatalSearchError:
+                raise
             except Exception as e:
                 logging.info(f"Error for response_id {response_id}: {e}")
                 self.mark_invalid_individual(individual, str(e))
@@ -366,6 +378,8 @@ class HSEvo:
                 continue
             try:
                 score, eval_time = future.result()
+            except FatalSearchError:
+                raise
             except Exception as e:
                 logging.info(f"Error for response_id {response_id}: {e}")
                 score, eval_time = None, None
@@ -1015,6 +1029,7 @@ class HSEvo:
     # ------------------------------------------------------------------
     # LLM4AD entry point
     # ------------------------------------------------------------------
+    @_managed_run
     def run(self):
         if not self._resume_mode:
             # do initialization (upstream HSEvo runs this inside __init__)
@@ -1025,16 +1040,9 @@ class HSEvo:
             self.evolve()
         except KeyboardInterrupt:
             pass
+        except FatalSearchError:
+            raise
         except Exception as e:
             logging.info(f"HSEvo evolution terminated: {e}")
             if self._debug_mode:
                 traceback.print_exc()
-        finally:
-            # finish
-            if self._profiler is not None:
-                self._profiler.finish()
-            self._llm.close()
-            try:
-                self._evaluation_executor.shutdown(cancel_futures=True)
-            except Exception:
-                pass

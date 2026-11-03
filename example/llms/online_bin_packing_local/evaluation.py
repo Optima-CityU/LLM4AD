@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 # name: str: OBPEvaluation
 # Parameters:
 # timeout_seconds: int: 20

@@ -1,0 +1,15 @@
+{
+  "kind": "pending_external_framework_comparison",
+  "budget": 100,
+  "timeout_seconds": 3600,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "task_dataset_revision": "REQUIRED",
+  "model_weight_or_api_revision": "REQUIRED",
+  "frameworks": [
+    {"id": "llm4ad", "revision": "UNPINNED", "command": []},
+    {"id": "openevolve", "revision": "UNPINNED", "command": []},
+    {"id": "shinkaevolve", "revision": "UNPINNED", "command": []},
+    {"id": "llamea", "revision": "UNPINNED", "command": []},
+    {"id": "blade", "revision": "UNPINNED", "command": []}
+  ]
+}

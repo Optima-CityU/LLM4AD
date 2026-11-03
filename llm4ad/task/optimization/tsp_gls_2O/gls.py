@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 import time
 
 import numpy as np

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+from __future__ import annotations
+
 from llamea import LLaMEA as LLaMEA_Algorithm
 from ...base import LLM
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-2-Clause
 from llamea import Solution, prepare_namespace
 from llm4ad.base.evaluate import Evaluation
 
