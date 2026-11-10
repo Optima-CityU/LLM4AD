@@ -37,6 +37,7 @@ EXTRAS_REQUIRE = {
     'tensorboard': ['torch', 'tensorboard'],
     'wandb': ['wandb'],
     'openai': ['openai'],
+    'litellm': ['litellm>=1.97.0,<1.106.0'],
     'local-vllm': [
         'requests',
         'psutil',

@@ -17089,6 +17089,59 @@ HttpsApi
     Returns:
         The string content of the LLM's response.
 
+llm4ad.tools.llm.llm_api_litellm
+--------------------------------
+
+LiteLLMAPI
+~~~~~~~~~~
+
+.. code-block:: text
+
+    class LiteLLMAPI(LLM)
+
+.. code-block:: text
+
+    LLM interface for any provider LiteLLM supports, or a LiteLLM proxy.
+
+.. code-block:: text
+
+    LiteLLMAPI.__init__(self, model=None, api_key=None, api_base=None, timeout=60, **kwargs)
+
+.. code-block:: text
+
+    LiteLLM API: one interface for 100+ LLM providers through the LiteLLM SDK.
+    Args:
+        model    : LiteLLM model name, '<provider>/<model>', e.g. 'anthropic/claude-sonnet-4-5',
+                   'gemini/gemini-2.5-flash', 'bedrock/...', 'vertex_ai/...', 'azure/<deployment>',
+                   or 'litellm_proxy/<model>' for a model served by a LiteLLM proxy.
+        api_key  : API key. Optional: LiteLLM reads the provider's own variable
+                   (e.g. ANTHROPIC_API_KEY, GEMINI_API_KEY) when it is not given.
+        api_base : API base URL. Optional, e.g. the URL of a LiteLLM proxy.
+        timeout  : API timeout.
+        kwargs   : max_tokens, top_p and temperature as in the other APIs; any other
+                   LiteLLM completion argument (e.g. reasoning_effort, drop_params) is passed on.
+
+.. code-block:: text
+
+    LiteLLMAPI.draw_sample(self, prompt: str | Any, *args, **kwargs) -> str
+
+.. code-block:: text
+
+    Sends a request to the LLM through LiteLLM and retrieves the generated response.
+
+    This method supports multiple input formats for backward compatibility:
+    1. Explicit 'messages' list via kwargs.
+    2. A message list passed directly as the 'prompt'.
+    3. Multimodal inputs (text + base64 images).
+    4. Simple string prompts.
+
+    Args:
+        prompt: The text prompt or a list of message dictionaries.
+        **kwargs: Can include 'image64s' (list of base64 strings) or 'messages'.
+
+    Returns:
+        The string content of the LLM's response.
+
 llm4ad.tools.llm.llm_api_openai
 -------------------------------
 
