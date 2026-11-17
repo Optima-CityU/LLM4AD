@@ -9,6 +9,7 @@ from llm4ad.tools.llm.llm_api_zhipu import ZhipuAPI
 from llm4ad.tools.llm.llm_api_volcengine import VolcengineAPI
 from llm4ad.tools.llm.llm_api_baiduqianfan import BaiduQianfanAPI
 from llm4ad.tools.llm.llm_api_tencentcloud import TencentCloudAPI
+from llm4ad.tools.llm.llm_api_litellm import LiteLLMAPI
 
 
 def main():
@@ -44,6 +45,23 @@ def main():
     # llm = TencentCloudAPI(
     #     key='your-api-key',
     #     model='hy3-preview',
+    #     timeout=120
+    # )
+
+    # LiteLLM: 100+ providers through one interface (pip install "llm4ad[litellm]").
+    # The model names the provider; the key can also come from its own variable
+    # (ANTHROPIC_API_KEY, GEMINI_API_KEY, AWS credentials for bedrock/, ...).
+    # llm = LiteLLMAPI(
+    #     model='anthropic/claude-sonnet-4-5',  # or 'gemini/gemini-2.5-flash', 'bedrock/...', 'azure/<deployment>'
+    #     api_key='your-api-key',
+    #     timeout=120
+    # )
+
+    # A model served by a LiteLLM proxy
+    # llm = LiteLLMAPI(
+    #     model='litellm_proxy/your-model-alias',
+    #     api_key='your-proxy-key',
+    #     api_base='http://localhost:4000',
     #     timeout=120
     # )
 
